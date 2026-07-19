@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * saveRecipe: crop + offset + keep name; restore editor grid.
+ * saveRecipe: crop + offset + keep name; isGlobal from width==3.
  * setRecipe: apply offset placement.
  */
 @Mixin(ContainerManageRecipes.class)
@@ -48,7 +48,8 @@ public class MixinContainerManageRecipesSave {
         ItemStack result = this.craftingMatrix.getItem(0).copy();
         String keepName = (this.recipe != null && this.recipe.name != null && !this.recipe.name.isEmpty())
                 ? this.recipe.name : "unnamed";
-        boolean keepGlobal = this.recipe != null && this.recipe.isGlobal;
+        // P0: width is source of truth for global vs anvil
+        boolean keepGlobal = this.width == 3;
         boolean keepIgnoreD = this.recipe != null && this.recipe.ignoreDamage;
         boolean keepIgnoreN = this.recipe != null && this.recipe.ignoreNBT;
 
@@ -68,7 +69,7 @@ public class MixinContainerManageRecipesSave {
                 seenCol = true;
                 Character letter = null;
                 for (ItemStack mapped : nameMapping.keySet()) {
-                    if (NoppesUtilPlayer.compareItems(mapped, item, this.recipe != null && this.recipe.ignoreDamage, this.recipe != null && this.recipe.ignoreNBT)) {
+                    if (NoppesUtilPlayer.compareItems(mapped, item, keepIgnoreD, keepIgnoreN)) {
                         letter = nameMapping.get(mapped);
                         break;
                     }
@@ -95,7 +96,7 @@ public class MixinContainerManageRecipesSave {
             r.name = keepName;
             r.isGlobal = keepGlobal;
             this.recipe = r;
-            CnpcPlus.LOGGER.info("[ContainerSave] empty pattern name={}", keepName);
+            CnpcPlus.LOGGER.info("[ContainerSave] empty pattern name={} width={} isGlobal={}", keepName, this.width, keepGlobal);
             ci.cancel();
             return;
         }
@@ -137,16 +138,16 @@ public class MixinContainerManageRecipesSave {
         ((RecipeCarpentryOffsetAccessor) saved).cnpcplusSetOffset(firstCol, firstRow, true);
         this.recipe = saved;
 
-        // restore editor placement so user doesn't see crop
         this.craftingMatrix.setItem(0, result);
         for (int i = 0; i < grid.length; i++) {
             this.craftingMatrix.setItem(i + 1, grid[i].copy());
         }
 
-        CnpcPlus.LOGGER.info("[ContainerSave] name={} offset={},{} w={} h={} resultEmpty={} ings={}",
-                saved.name, firstCol, firstRow, saved.getWidth(), saved.getHeight(),
-                saved.getResult() == null || saved.getResult().isEmpty(),
-                saved.getIngredients() != null ? saved.getIngredients().size() : -1);
+        int ings = saved.getIngredients() != null ? saved.getIngredients().size() : -1;
+        boolean resultEmpty = saved.getResult() == null || saved.getResult().isEmpty();
+        CnpcPlus.LOGGER.info("[ContainerSave] name={} width={} isGlobal={} offset={},{} patternedW={} patternedH={} resultEmpty={} ings={}",
+                saved.name, this.width, saved.isGlobal, firstCol, firstRow,
+                saved.getWidth(), saved.getHeight(), resultEmpty, ings);
         ci.cancel();
     }
 

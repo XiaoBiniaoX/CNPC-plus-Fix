@@ -1,5 +1,7 @@
 package bin.cnpcplus.mixin.recipe;
 
+import bin.cnpcplus.recipe.RecipeNbtKeys;
+import bin.cnpcplus.recipe.id.RecipeIds;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import noppes.npcs.controllers.data.RecipeCarpentry;
@@ -9,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * OFFICIAL BUG: writeNBT putString("Group"/"Name") when null -> NPE on Save.
+ * Sanitize null name/group; attach CnpcPlusSyncId for stable identity across rename.
  */
 @Mixin(RecipeCarpentry.class)
 public class MixinRecipeCarpentryWriteNbt {
@@ -23,6 +25,23 @@ public class MixinRecipeCarpentryWriteNbt {
         Object g = cnpcplusGetField(self, "group");
         if (g == null) {
             cnpcplusSetField(self, "group", "");
+        }
+    }
+
+    @Inject(method = "writeNBT", at = @At("RETURN"), remap = false)
+    private void cnpcplusAttachSyncId(HolderLookup.Provider provider, CallbackInfoReturnable<CompoundTag> cir) {
+        CompoundTag tag = cir.getReturnValue();
+        if (tag == null) return;
+        RecipeCarpentry self = (RecipeCarpentry) (Object) this;
+        Integer sync = RecipeIds.INSTANCE.syncIdOfRecipe(self);
+        if (sync == null && self.name != null) {
+            sync = RecipeIds.INSTANCE.syncIdByName(self.name);
+        }
+        if (sync != null && sync > 0) {
+            tag.putInt(RecipeNbtKeys.SYNC_ID, sync);
+        }
+        if (self.name != null) {
+            tag.putString("Name", self.name);
         }
     }
 

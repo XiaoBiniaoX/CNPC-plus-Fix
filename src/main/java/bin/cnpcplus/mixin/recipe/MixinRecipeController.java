@@ -13,9 +13,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Restores behavior intentionally stubbed by upstream 1.21.1 NeoForge RecipeController.
- */
 @Mixin(RecipeController.class)
 public class MixinRecipeController {
 
@@ -23,8 +20,13 @@ public class MixinRecipeController {
     private void cnpcplusLoad(HolderLookup.Provider provider, CallbackInfo ci) {
         RecipeController self = (RecipeController) (Object) this;
         RecipeControllerFacade.loadAll(provider, self);
-        self.reloadGlobalRecipes();
         EventHooks.onGlobalRecipesLoaded((IRecipeHandler) self);
+        ci.cancel();
+    }
+
+    @Inject(method = "reloadGlobalRecipes()V", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplusReloadGlobal(CallbackInfo ci) {
+        RecipeControllerFacade.reloadGlobalRecipes((RecipeController) (Object) this);
         ci.cancel();
     }
 

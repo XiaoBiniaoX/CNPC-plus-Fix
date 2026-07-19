@@ -9,11 +9,13 @@
     "recipe.MixinSPacketGuiOpenManageRecipes",
     "recipe.MixinRecipeController",
     "recipe.MixinSPacketRecipesGet",
+    "recipe.MixinSPacketRecipeSave",
     "recipe.MixinRecipeCarpentryFix",
     "recipe.MixinRecipeCarpentryLoadName",
     "recipe.MixinRecipeCarpentryWriteNbt",
     "recipe.MixinRecipeCarpentryOffset",
-    "recipe.MixinContainerManageRecipesSave"
+    "recipe.MixinContainerManageRecipesSave",
+    "recipe.MixinRecipeCarpentryMatches"
   ],
   "client": [
     "RenderNPCInterfaceMixin",
