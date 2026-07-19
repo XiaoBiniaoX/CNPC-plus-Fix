@@ -1,17 +1,27 @@
 {
   "required": true,
-  "minVersion": "0.8.5",
+  "minVersion": "0.8",
   "package": "bin.cnpcplus.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "EntityNPCInterfaceMixin"
+    "EntityNPCInterfaceMixin",
+    "recipe.MixinNoppesUtilServerGetType",
+    "recipe.MixinSPacketGuiOpenManageRecipes",
+    "recipe.MixinRecipeController",
+    "recipe.MixinSPacketRecipesGet",
+    "recipe.MixinRecipeCarpentryFix",
+    "recipe.MixinRecipeCarpentryLoadName",
+    "recipe.MixinRecipeCarpentryWriteNbt",
+    "recipe.MixinRecipeCarpentryOffset",
+    "recipe.MixinContainerManageRecipesSave"
   ],
   "client": [
     "RenderNPCInterfaceMixin",
-    "GuiDialogInteractMixin"
+    "GuiDialogInteractMixin",
+    "recipe.MixinGuiNPCGlobalMainMenuRecipes",
+    "recipe.MixinGuiNpcManageRecipesSaveButton"
   ],
-  "server": [],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }
