@@ -2,21 +2,24 @@
   "cnpcplus.configuration.title": "CNPCPlus Config",
   "cnpcplus.configuration.section.dialog.title": "Dialog Display",
   "cnpcplus.configuration.dialogTextColor": "Dialog Text Color (Hex)",
-  "cnpcplus.configuration.dialogTextColor.tooltip": "Base RGB color for dialog text.\nExamples: E0E0E0 / #FFFFFF / FFAA00\nInline & codes override this color.",
+  "cnpcplus.configuration.dialogTextColor.tooltip": "Base RGB color for dialog text.",
   "cnpcplus.configuration.dialogTextFormat": "Dialog Text Format (& codes)",
-  "cnpcplus.configuration.dialogTextFormat.tooltip": "Default & format prefix for dialog text.\n&0-&9 &a-&f colors | &l bold &o italic &n underline &m strike &k obfuscated &r reset\nExamples: &l  &6&l  empty=none",
+  "cnpcplus.configuration.dialogTextFormat.tooltip": "Default & format prefix for dialog text.",
   "cnpcplus.configuration.dialogOptionColor": "Dialog Option Color (Hex)",
-  "cnpcplus.configuration.dialogOptionColor.tooltip": "Base RGB color for dialog options.\nExamples: E0E0E0 / #55FF55\nInline & codes override this color.",
+  "cnpcplus.configuration.dialogOptionColor.tooltip": "Base RGB color for dialog options.",
   "cnpcplus.configuration.dialogOptionFormat": "Dialog Option Format (& codes)",
-  "cnpcplus.configuration.dialogOptionFormat.tooltip": "Default & format prefix for dialog options.\nExamples: &7  &b&o  empty=none",
+  "cnpcplus.configuration.dialogOptionFormat.tooltip": "Default & format prefix for dialog options.",
   "cnpcplus.configuration.recipeFuzzyMatchRules": "Recipe Fuzzy Match Rules",
-  "cnpcplus.configuration.recipeFuzzyMatchRules.tooltip": "Format: itemId|nbtField1,nbtField2;itemId|\nUsed when a recipe has \"Config Fuzzy\" enabled.\nAlways checks item id and hover name, then listed CustomData string fields.\nDefault: tacz:modern_kinetic_gun|GunId;slashblade:slashblade|",
-
+  "cnpcplus.configuration.recipeFuzzyMatchRules.tooltip": "Format: itemId|nbtField1,nbtField2;itemId|\nUsed when a recipe has Config Fuzzy enabled.",
   "gui.ignoreDamage": "Config Fuzzy",
   "gui.ignoreNBT": "Name Only",
   "gui.save": "Save",
-
   "cnpcplus.recipe.mode.exact": "Exact Match",
   "cnpcplus.recipe.mode.fuzzy": "Config Fuzzy",
-  "cnpcplus.recipe.mode.nameOnly": "Name Only"
+  "cnpcplus.recipe.mode.nameOnly": "Name Only",
+  "cnpcplus.craftingview.title.anvil": "Carpentry Recipes",
+  "cnpcplus.craftingview.title.workbench": "Workbench Recipes",
+  "cnpcplus.craftingview.preview": "Preview",
+  "cnpcplus.craftingview.fill": "Auto-fill",
+  "cnpcplus.craftingview.search": "Search..."
 }

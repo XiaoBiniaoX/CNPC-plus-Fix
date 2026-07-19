@@ -22,6 +22,7 @@ public final class RecipeControllerFacade {
         CnpcPlus.LOGGER.info("[RecipeControllerFacade] loadAll");
         RecipeStorage.INSTANCE.loadAll(provider, controller);
         reloadGlobalRecipes(controller);
+        
         if (RecipeDebug.enabled()) {
             RecipeDebug.probeAllGlobals();
         }
@@ -58,7 +59,7 @@ public final class RecipeControllerFacade {
         if (syncId == null) {
             syncId = RecipeIds.INSTANCE.syncIdOfRecipe(recipe);
         }
-        // Do NOT use byName(newName) as primary identity 鈥?rename would create a second recipe
+        // Do NOT use byName(newName) as primary identity 闁?rename would create a second recipe
         // and leave the old one orphaned or appear "replaced" when list refreshes incorrectly.
 
         if (syncId != null && RecipeIds.INSTANCE.bySyncId(syncId) != null) {
@@ -105,6 +106,7 @@ public final class RecipeControllerFacade {
             RecipeStorage.INSTANCE.saveAll(CustomNpcs.Server.registryAccess(), controller);
         }
         reloadGlobalRecipes(controller);
+        
 
         CnpcPlus.LOGGER.info("[RecipeControllerFacade] saved name={} syncId={} global={} ings={} resultEmpty={}",
                 recipe.name, syncId, recipe.isGlobal,
@@ -146,6 +148,7 @@ public final class RecipeControllerFacade {
             RecipeStorage.INSTANCE.saveAll(CustomNpcs.Server.registryAccess(), controller);
         }
         reloadGlobalRecipes(controller);
+        
         CnpcPlus.LOGGER.info("[RecipeControllerFacade] deleted name={} id={}", recipe.name, syncId);
         return recipe;
     }
