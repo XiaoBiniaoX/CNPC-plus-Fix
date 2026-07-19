@@ -37,5 +37,15 @@ public class CnpcPlusConfig {
             )
             .define("dialogOptionFormat", "");
 
+    public static final ModConfigSpec.ConfigValue<String> RECIPE_FUZZY_MATCH_RULES = BUILDER
+            .comment(
+                "配方配置模糊化规则（沿用 1.20.1 CNPCplus）",
+                "格式: 物品ID|NBT字段1,NBT字段2;物品ID|",
+                "当配方勾选「配置模糊化」(原 ignoreDamage) 时生效",
+                "匹配时总是检查物品ID和显示名称；再检查列出的 CustomData 字符串字段",
+                "默认包含 TACZ 与拔刀剑"
+            )
+            .define("recipeFuzzyMatchRules", "tacz:modern_kinetic_gun|GunId;slashblade:slashblade|");
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

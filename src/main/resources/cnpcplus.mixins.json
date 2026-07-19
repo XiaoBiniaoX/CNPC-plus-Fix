@@ -21,7 +21,8 @@
     "RenderNPCInterfaceMixin",
     "GuiDialogInteractMixin",
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
-    "recipe.MixinGuiNpcManageRecipesSaveButton"
+    "recipe.MixinGuiNpcManageRecipesSaveButton",
+    "recipe.MixinGuiNpcManageRecipesLabels"
   ],
   "injectors": {
     "defaultRequire": 0

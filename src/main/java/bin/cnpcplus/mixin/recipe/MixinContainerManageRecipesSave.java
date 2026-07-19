@@ -5,6 +5,7 @@ import bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
+import bin.cnpcplus.recipe.CraftUtils;
 import noppes.npcs.NoppesUtilPlayer;
 import noppes.npcs.NoppesUtilServer;
 import noppes.npcs.containers.ContainerManageRecipes;
@@ -69,7 +70,7 @@ public class MixinContainerManageRecipesSave {
                 seenCol = true;
                 Character letter = null;
                 for (ItemStack mapped : nameMapping.keySet()) {
-                    if (NoppesUtilPlayer.compareItems(mapped, item, keepIgnoreD, keepIgnoreN)) {
+                    if (CraftUtils.matches(item, mapped, keepIgnoreD, keepIgnoreN)) {
                         letter = nameMapping.get(mapped);
                         break;
                     }
@@ -112,7 +113,7 @@ public class MixinContainerManageRecipesSave {
                 }
                 Character letter = null;
                 for (ItemStack mapped : nameMapping.keySet()) {
-                    if (NoppesUtilPlayer.compareItems(mapped, item, false, false)) {
+                    if (CraftUtils.matches(item, mapped, false, false)) {
                         letter = nameMapping.get(mapped);
                         break;
                     }

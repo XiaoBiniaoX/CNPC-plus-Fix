@@ -8,5 +8,15 @@
   "cnpcplus.configuration.dialogOptionColor": "Dialog Option Color (Hex)",
   "cnpcplus.configuration.dialogOptionColor.tooltip": "Base RGB color for dialog options.\nExamples: E0E0E0 / #55FF55\nInline & codes override this color.",
   "cnpcplus.configuration.dialogOptionFormat": "Dialog Option Format (& codes)",
-  "cnpcplus.configuration.dialogOptionFormat.tooltip": "Default & format prefix for dialog options.\nExamples: &7  &b&o  empty=none"
+  "cnpcplus.configuration.dialogOptionFormat.tooltip": "Default & format prefix for dialog options.\nExamples: &7  &b&o  empty=none",
+  "cnpcplus.configuration.recipeFuzzyMatchRules": "Recipe Fuzzy Match Rules",
+  "cnpcplus.configuration.recipeFuzzyMatchRules.tooltip": "Format: itemId|nbtField1,nbtField2;itemId|\nUsed when a recipe has \"Config Fuzzy\" enabled.\nAlways checks item id and hover name, then listed CustomData string fields.\nDefault: tacz:modern_kinetic_gun|GunId;slashblade:slashblade|",
+
+  "gui.ignoreDamage": "Config Fuzzy",
+  "gui.ignoreNBT": "Name Only",
+  "gui.save": "Save",
+
+  "cnpcplus.recipe.mode.exact": "Exact Match",
+  "cnpcplus.recipe.mode.fuzzy": "Config Fuzzy",
+  "cnpcplus.recipe.mode.nameOnly": "Name Only"
 }

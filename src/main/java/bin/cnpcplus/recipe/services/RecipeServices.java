@@ -1,6 +1,7 @@
 package bin.cnpcplus.recipe.services;
 
 import bin.cnpcplus.CnpcPlus;
+import bin.cnpcplus.recipe.CraftUtils;
 import bin.cnpcplus.recipe.RecipeDebug;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -11,7 +12,6 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import noppes.npcs.CustomNpcs;
-import noppes.npcs.NoppesUtilPlayer;
 import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 
@@ -21,8 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Platform services: item compare + RecipeManager inject for global 3x3.
- * Evidence logs via RecipeDebug are instrumentation only.
+ * Platform services: item compare (1.20.1 fuzzy rules) + RecipeManager inject.
  */
 public final class RecipeServices {
     private RecipeServices() {}
@@ -32,8 +31,13 @@ public final class RecipeServices {
         return BuiltInRegistries.ITEM.getKey(stack.getItem());
     }
 
-    public static boolean compareItems(ItemStack recipe, ItemStack actual, boolean ignoreDamage, boolean ignoreNBT) {
-        return NoppesUtilPlayer.compareItems(recipe, actual, ignoreDamage, ignoreNBT);
+    /**
+     * Replaces NoppesUtilPlayer.compareItems for recipe matching.
+     * ignoreDamage / ignoreNBT keep CNPC recipe flags but use 1.20.1 cnpcplus semantics.
+     */
+    public static boolean compareItems(ItemStack required, ItemStack actual, boolean ignoreDamage, boolean ignoreNBT) {
+        // CraftUtils expects (playerStack, required, ...)
+        return CraftUtils.matches(actual, required, ignoreDamage, ignoreNBT);
     }
 
     public static void reloadGlobalIntoRecipeManager(RecipeController controller) {
