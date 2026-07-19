@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "bin.cnpcplus.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EntityNPCInterfaceMixin"
+  ],
+  "client": [
+    "RenderNPCInterfaceMixin",
+    "GuiDialogInteractMixin"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

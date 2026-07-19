@@ -1,0 +1,12 @@
+{
+  "cnpcplus.configuration.title": "CNPCPlus 配置",
+  "cnpcplus.configuration.section.dialog.title": "对话显示",
+  "cnpcplus.configuration.dialogTextColor": "对话文本颜色 (十六进制)",
+  "cnpcplus.configuration.dialogTextColor.tooltip": "对话文本的基础RGB颜色。\n例: E0E0E0 / #FFFFFF / FFAA00\n若对话内写了&颜色码则优先用&颜色。",
+  "cnpcplus.configuration.dialogTextFormat": "对话文本格式 (&码)",
+  "cnpcplus.configuration.dialogTextFormat.tooltip": "对话文本默认&格式前缀。\n&0-&9 &a-&f 颜色 | &l粗体 &o斜体 &n下划线 &m删除线 &k乱码 &r重置\n例: &l  &6&l  空=不附加",
+  "cnpcplus.configuration.dialogOptionColor": "对话选项颜色 (十六进制)",
+  "cnpcplus.configuration.dialogOptionColor.tooltip": "对话选项的基础RGB颜色。\n例: E0E0E0 / #55FF55\n若选项内写了&颜色码则优先用&颜色。",
+  "cnpcplus.configuration.dialogOptionFormat": "对话选项格式 (&码)",
+  "cnpcplus.configuration.dialogOptionFormat.tooltip": "对话选项默认&格式前缀。\n例: &7  &b&o  空=不附加"
+}
