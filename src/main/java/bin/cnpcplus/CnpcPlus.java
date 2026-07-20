@@ -22,6 +22,7 @@ public class CnpcPlus {
         CraftingViewNetwork.register(modEventBus);
         NeoForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
         NeoForge.EVENT_BUS.register(RecipeDebugCommand.class);
+        NeoForge.EVENT_BUS.register(ScoreboardFixListener.class);
         LOGGER.info("CNPCPlus patch loaded - by Bin");
     }
 }
