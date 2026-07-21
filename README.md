@@ -1,4 +1,5 @@
 # CNPCPlus NeoForge
+<img width="1792" height="592" alt="Gemini_Generated_Image_e6ndu4e6ndu4e6nd" src="https://github.com/user-attachments/assets/3aef7b9b-7862-4603-aebd-75a46d524cb2" />
 
 [English](#english) | [简体中文](#简体中文)
 
