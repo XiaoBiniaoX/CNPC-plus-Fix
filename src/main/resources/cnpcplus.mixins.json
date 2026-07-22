@@ -4,7 +4,15 @@
   "package": "bin.cnpcplus.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "DebugMoveMixin",
+    "EntityCustomNpcMixin",
     "EntityNPCInterfaceMixin",
+    "ServerTickHandlerMixin",
+    "ChunkMapMixin",
+    "ServerChunkCacheMixin",
+    "TrackedEntityMixin",
+    "PacketNpcVisibleTrueMixin",
+    "PacketUpdatePhysicsMixin",
     "recipe.MixinNoppesUtilServerGetType",
     "recipe.MixinSPacketGuiOpenManageRecipes",
     "recipe.MixinRecipeController",
@@ -18,7 +26,9 @@
     "recipe.MixinRecipeCarpentryMatches"
   ],
   "client": [
+    "RenderCustomNpcMixin",
     "RenderNPCInterfaceMixin",
+    "LivingEntityRendererMixin",
     "GuiDialogInteractMixin",
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
     "recipe.MixinGuiNpcManageRecipesSaveButton",
