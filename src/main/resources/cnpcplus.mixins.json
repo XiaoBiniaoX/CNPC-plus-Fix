@@ -15,14 +15,33 @@
     "recipe.MixinRecipeCarpentryWriteNbt",
     "recipe.MixinRecipeCarpentryOffset",
     "recipe.MixinContainerManageRecipesSave",
-    "recipe.MixinRecipeCarpentryMatches"
+    "recipe.MixinRecipeCarpentryMatches",
+    "puppet.MixinJobPuppetEquipment",
+    "puppet.MixinPuppetPartConfig",
+    "puppet.MixinModelDataSharedEquipment",
+    "puppet.MixinSlotNPCArmor",
+    "puppet.MixinModelPartConfigCheckValue",
+    "puppet.ContainerMenuAccessor",
+    "puppet.MixinDataDisplaySize",
+    "puppet.MixinContainerNPCBankInterface",
+    "puppet.MixinContainerNPCInv"
   ],
   "client": [
     "RenderNPCInterfaceMixin",
     "GuiDialogInteractMixin",
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
     "recipe.MixinGuiNpcManageRecipesSaveButton",
-    "recipe.MixinGuiNpcManageRecipesLabels"
+    "recipe.MixinGuiNpcManageRecipesLabels",
+    "puppet.MixinHumanoidArmorLayerPuppetEquipment",
+    "puppet.MixinHumanoidModelPuppetEquipment",
+    "puppet.MixinItemInHandLayerPuppetEquipment",
+    "puppet.MixinLivingEntityRendererPuppetEquipment",
+    "puppet.MixinGuiNpcPuppetEquipment",
+    "puppet.MixinGuiCreationScale",
+    "puppet.MixinCustomHeadLayerScale",
+    "puppet.MixinHumanoidArmorLayerScale",
+    "puppet.MixinItemInHandLayerScale",
+    "puppet.MixinGuiNpcDisplaySize"
   ],
   "injectors": {
     "defaultRequire": 0
