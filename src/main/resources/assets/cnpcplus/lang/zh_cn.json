@@ -21,14 +21,5 @@
   "cnpcplus.craftingview.title.workbench": "工作台配方",
   "cnpcplus.craftingview.preview": "预览",
   "cnpcplus.craftingview.fill": "一键填格",
-  "cnpcplus.craftingview.search": "搜索...",
-  "cnpcplus.equip.mainhand": "主手缩放",
-  "cnpcplus.equip.offhand": "副手缩放",
-  "cnpcplus.equip.helmet": "头盔缩放",
-  "cnpcplus.equip.chestplate": "甲胄缩放",
-  "cnpcplus.equip.leggings": "护腿缩放",
-  "cnpcplus.equip.boots": "靴子缩放",
-  "cnpcplus.scale.width": "宽",
-  "cnpcplus.scale.height": "高",
-  "cnpcplus.scale.depth": "深"
+  "cnpcplus.craftingview.search": "搜索..."
 }
