@@ -2,11 +2,14 @@ package bin.cnpcplus.mixin.recipe;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.RecipeNbtKeys;
+import bin.cnpcplus.recipe.network.PacketRecipePersist;
+import bin.cnpcplus.recipe.storage.RecipePersistent;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.containers.ContainerManageRecipes;
 import noppes.npcs.controllers.data.RecipeCarpentry;
@@ -55,6 +58,13 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (self.getButton(2) == null) {
             self.addButton(new GuiButtonNop((IGuiInterface) self, 2, self.guiLeft + 306, self.guiTop + 104, 84, 20, "gui.save"));
         }
+        // 7 = 跨世界持久化, 8 = 取消持久化
+        if (self.getButton(7) == null) {
+            self.addButton(new GuiButtonNop((IGuiInterface) self, 7, self.guiLeft + 306, self.guiTop + 126, 84, 20, "持久化"));
+        }
+        if (self.getButton(8) == null) {
+            self.addButton(new GuiButtonNop((IGuiInterface) self, 8, self.guiLeft + 306, self.guiTop + 148, 84, 20, "取消持久化"));
+        }
         cnpcplusRefresh(self);
     }
 
@@ -74,10 +84,30 @@ public class MixinGuiNpcManageRecipesSaveButton {
             return;
         }
 
+        // Persist / Unpersist — requires existing server identity (先点保存)
+        if (button.id == 7 || button.id == 8) {
+            try {
+                int syncId = cnpcplusCurrentSyncId();
+                if (syncId > 0) {
+                    boolean persist = button.id == 7;
+                    PacketDistributor.sendToServer(new PacketRecipePersist(syncId, persist));
+                    RecipePersistent.INSTANCE.reloadFromDisk();
+                    cnpcplusRefresh(self);
+                    CnpcPlus.LOGGER.info("[GUI] {} syncId={}", persist ? "persist" : "unpersist", syncId);
+                } else {
+                    CnpcPlus.LOGGER.warn("[GUI] persist skipped: save recipe first");
+                }
+            } catch (Throwable t) {
+                CnpcPlus.LOGGER.error("[GUI] persist button failed", t);
+            }
+            ci.cancel();
+            return;
+        }
+
         // Add
         if (button.id == 3) {
             try {
-                // Only persist current if it is a real existing/edited recipe — never invent "unnamed"
+                // Only save current if it is a real existing/edited recipe — never invent "unnamed"
                 if (cnpcplusShouldSaveBeforeAdd()) {
                     cnpcplusSaveCurrent(self, false);
                 }
@@ -373,13 +403,26 @@ public class MixinGuiNpcManageRecipesSaveButton {
 
     private void cnpcplusRefresh(GuiNpcManageRecipes self) {
         try {
+            boolean hasSel = this.selected != null && !this.selected.isEmpty();
+            int syncId = cnpcplusCurrentSyncId();
             GuiButtonNop save = self.getButton(2);
             if (save != null) {
-                save.setEnabled(this.selected != null && !this.selected.isEmpty());
+                save.setEnabled(hasSel);
             }
             GuiButtonNop add = self.getButton(3);
             if (add != null) {
                 add.setEnabled(true);
+            }
+            boolean canPersist = hasSel && syncId > 0;
+            boolean isGlobalTab = this.container != null && this.container.width == 3;
+            boolean already = canPersist && RecipePersistent.INSTANCE.isPersistedName(this.selected, isGlobalTab);
+            GuiButtonNop persist = self.getButton(7);
+            if (persist != null) {
+                persist.setEnabled(canPersist && !already);
+            }
+            GuiButtonNop unpersist = self.getButton(8);
+            if (unpersist != null) {
+                unpersist.setEnabled(canPersist && already);
             }
         } catch (Throwable ignored) {
         }

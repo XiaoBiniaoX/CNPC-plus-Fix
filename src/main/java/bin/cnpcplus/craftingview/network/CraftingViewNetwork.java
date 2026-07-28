@@ -1,6 +1,7 @@
 package bin.cnpcplus.craftingview.network;
 
 import bin.cnpcplus.CnpcPlus;
+import bin.cnpcplus.recipe.network.PacketRecipePersist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -18,6 +19,11 @@ public final class CraftingViewNetwork {
                 PacketFillCraftingGrid.TYPE,
                 PacketFillCraftingGrid.STREAM_CODEC,
                 PacketFillCraftingGrid::handle
+        );
+        registrar.playToServer(
+                PacketRecipePersist.TYPE,
+                PacketRecipePersist.STREAM_CODEC,
+                PacketRecipePersist::handle
         );
     }
 }

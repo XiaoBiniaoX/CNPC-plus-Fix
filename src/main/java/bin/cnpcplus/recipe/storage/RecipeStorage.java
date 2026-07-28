@@ -21,7 +21,7 @@ import java.io.OutputStream;
 import java.util.HashMap;
 
 /**
- * Persistence only. Atomic write of recipes.dat.
+ * Per-world recipes.dat only. Cross-world recipes go through RecipePersistent.
  */
 public final class RecipeStorage {
     public static final RecipeStorage INSTANCE = new RecipeStorage();
@@ -42,16 +42,16 @@ public final class RecipeStorage {
             File file = new File(saveDir, "recipes.dat");
             if (file.exists()) {
                 loadFile(provider, controller, file);
-                return;
+            } else {
+                File old = new File(saveDir, "recipes.dat_old");
+                if (old.exists()) {
+                    loadFile(provider, controller, old);
+                } else {
+                    controller.globalRecipes = new HashMap<>();
+                    controller.anvilRecipes = new HashMap<>();
+                    CnpcPlus.LOGGER.info("[RecipeStorage] no recipes.dat, empty maps");
+                }
             }
-            File old = new File(saveDir, "recipes.dat_old");
-            if (old.exists()) {
-                loadFile(provider, controller, old);
-                return;
-            }
-            controller.globalRecipes = new HashMap<>();
-            controller.anvilRecipes = new HashMap<>();
-            CnpcPlus.LOGGER.info("[RecipeStorage] no recipes.dat, empty maps");
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipeStorage] load failed", e);
             try {
@@ -66,6 +66,8 @@ public final class RecipeStorage {
             controller.globalRecipes = new HashMap<>();
             controller.anvilRecipes = new HashMap<>();
         }
+        // merge cross-world persistent recipes after world load
+        RecipePersistent.INSTANCE.mergeInto(provider, controller);
     }
 
     private void loadFile(HolderLookup.Provider provider, RecipeController controller, File file) throws Exception {
@@ -86,7 +88,6 @@ public final class RecipeStorage {
         for (int i = 0; i < list.size(); i++) {
             CompoundTag tag = list.getCompound(i);
             RecipeCarpentry recipe = RecipeCarpentry.load(tag, provider);
-            // OFFICIAL STUB gap: load() does not assign name
             recipe.name = tag.getString("Name");
             if (recipe.name == null || recipe.name.isEmpty()) {
                 recipe.name = "recipe_" + i;
@@ -163,7 +164,7 @@ public final class RecipeStorage {
         }
     }
 
-    private CompoundTag writeRecipeTag(RecipeCarpentry recipe, HolderLookup.Provider provider) {
+    CompoundTag writeRecipeTag(RecipeCarpentry recipe, HolderLookup.Provider provider) {
         CompoundTag tag = recipe.writeNBT(provider);
         if (recipe.name != null) {
             tag.putString("Name", recipe.name);

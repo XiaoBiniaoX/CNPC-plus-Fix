@@ -44,10 +44,10 @@
 
 ## World reload
 
-- **Input:** world save dir + `HolderLookup.Provider`
-- **Output:** anvil (+ later global) maps filled
-- **Side effects:** read `recipes.dat` / `_old`
-- **Invariant:** corrupt main file falls back to `_old` when possible
+- **Input:** global `CustomNpcs.Dir` (+ world dir migrate once) + `HolderLookup.Provider`
+- **Output:** anvil + global maps filled
+- **Side effects:** read `recipes.dat` / `_old` from global; migrate from world if global empty
+- **Invariant:** corrupt main file falls back to `_old` when possible; recipes shared across worlds
 
 ## findMatching (anvil)
 
