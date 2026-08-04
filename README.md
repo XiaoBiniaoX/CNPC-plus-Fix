@@ -1,4 +1,5 @@
 # CNPCPlus
+<img width="1792" height="592" alt="Gemini_Generated_Image_e6ndu4e6ndu4e6nd" src="https://github.com/user-attachments/assets/c7f9b41e-a743-42c0-b0c6-6cfb2d993d5b" />
 
 [English](#english) | [简体中文](#简体中文)
 
