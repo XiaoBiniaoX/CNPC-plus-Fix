@@ -1,0 +1,15 @@
+{
+  "cnpcplus.crafting.browseAll": "Browse All",
+  "cnpcplus.crafting.carpentry": "Carpentry",
+  "cnpcplus.crafting.anvil": "Anvil",
+  "cnpcplus.crafting.recipe": "Recipe:",
+  "cnpcplus.equip.mainhand": "Main Hand",
+  "cnpcplus.equip.offhand": "Off Hand",
+  "cnpcplus.equip.helmet": "Helmet",
+  "cnpcplus.equip.chestplate": "Chestplate",
+  "cnpcplus.equip.leggings": "Leggings",
+  "cnpcplus.equip.boots": "Boots",
+  "gui.ignoreDamage": "Fuzzy Config",
+  "gui.ignoreNBT": "Name Check Only",
+  "block.cnpcplus.quest_trigger": "Quest Trigger Block"
+}

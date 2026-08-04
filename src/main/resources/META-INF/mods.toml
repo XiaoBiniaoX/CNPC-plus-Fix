@@ -1,0 +1,37 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+
+license="NC"
+
+[[mods]]
+modId="cnpcplus"
+version="2.2.5"
+displayName="CNPC增强"
+logoFile="logo.png"
+displayURL="https://space.bilibili.com/353609880"
+authors="XiaoBiniaoX"
+description='''Custom NPCs商店增强附属模组：
+为商店职业添加配置模糊化和名字检查开关'''
+
+# 基础依赖
+[[dependencies.cnpcplus]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cnpcplus]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+# CustomNPCs 依赖
+[[dependencies.cnpcplus]]
+    modId="customnpcs"
+    mandatory=true
+    versionRange="[1,)"
+    ordering="NONE"
+    side="BOTH"
