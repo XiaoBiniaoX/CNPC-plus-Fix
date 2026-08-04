@@ -166,47 +166,9 @@ CNPCPlus 是一个由社区长期维护的 **CustomNPCs** 扩展项目，致力�
 
 ---
 
-# 编译
-
-```bash
-git clone https://github.com/<YOUR_NAME>/CNPCPlus.git
-cd CNPCPlus
-./gradlew build
-```
-
-编译完成后生成：
-
-```
-build/libs/
-```
-
----
-
 # 参与贡献
 
 欢迎提交 Issue 与 Pull Request。
 
 如果发现 Bug 或有新的想法，欢迎参与项目建设。
 
----
-
-# 致谢
-
-## 项目维护
-
-- XiaoBiniaoX
-
-## 代码贡献
-
-- @驿站忆行
-
-## 特别感谢
-
-- GoodBird
-- CustomNPCs 社区
-
----
-
-# License
-
-请参阅仓库中的 LICENSE 文件。
