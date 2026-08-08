@@ -16,6 +16,7 @@ import net.minecraftforge.fml.common.Mod;
 import noppes.npcs.client.gui.player.GuiNpcCarpentryBench;
 import noppes.npcs.client.gui.util.GuiContainerNPCInterface;
 import top.cnpcplus.CnpcPlus;
+import top.cnpcplus.config.CnpcPlusConfigData;
 import top.cnpcplus.craftingview.network.PacketFillCraftingGrid;
 import top.cnpcplus.craftingview.network.PacketHandler;
 import top.cnpcplus.mixin.AbstractContainerScreenAccess;
@@ -39,6 +40,10 @@ public class CraftingViewEventSubscriber {
     @SubscribeEvent
     public static void onScreenOpen(ScreenEvent.Opening event) {
         Screen screen = event.getNewScreen();
+        if (!CnpcPlusConfigData.CraftingViewEnabled.get()) {
+            activePanel = null;
+            return;
+        }
         if (screen instanceof GuiNpcCarpentryBench || screen instanceof CraftingScreen) {
             activePanel = new RecipePanel(screen instanceof GuiNpcCarpentryBench);
             return;

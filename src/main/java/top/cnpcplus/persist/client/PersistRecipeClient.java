@@ -11,6 +11,7 @@ public final class PersistRecipeClient {
 
     public static final int BTN_PERSIST = 100;
     public static final int BTN_UNPERSIST = 101;
+    public static final int BTN_CONDITION = 102;
 
     private PersistRecipeClient() {}
 
@@ -19,7 +20,8 @@ public final class PersistRecipeClient {
         if (!(mc.screen instanceof GuiNpcManageRecipes gui)) return;
         GuiButtonNop persist = gui.getButton(BTN_PERSIST);
         GuiButtonNop unpersist = gui.getButton(BTN_UNPERSIST);
-        if (persist == null || unpersist == null) return;
+        GuiButtonNop condition = gui.getButton(BTN_CONDITION);
+        if (persist == null || unpersist == null || condition == null) return;
 
         ContainerManageRecipes container;
         try {
@@ -32,11 +34,13 @@ public final class PersistRecipeClient {
         if (container == null || container.recipe == null || container.recipe.getId() == null) {
             persist.setEnabled(false);
             unpersist.setEnabled(false);
+            condition.setEnabled(false);
             return;
         }
         ResourceLocation id = container.recipe.getId();
         boolean on = PersistedRecipeStore.clientContains(id);
         persist.setEnabled(!on);
         unpersist.setEnabled(on);
+        condition.setEnabled(true);
     }
 }

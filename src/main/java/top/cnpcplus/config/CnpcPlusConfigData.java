@@ -19,6 +19,9 @@ public class CnpcPlusConfigData {
         builder.comment("配方配置模糊化规则。格式: 物品ID|NBT字段1,NBT字段2;物品ID|。匹配时总是检查物品ID和物品名字。默认包含 TACZ 和拔刀剑。");
         RecipeFuzzyMatchRules = builder.define("RecipeFuzzyMatchRules", "tacz:modern_kinetic_gun|GunId;slashblade:slashblade|");
 
+        builder.comment("木工台/合成台侧栏（合成视图）显示开关（默认true，修改后重新打开界面即生效）");
+        CraftingViewEnabled = builder.define("CraftingViewEnabled", true);
+
         builder.push("对话框");
         builder.comment("对话框中NPC模型的缩放倍数（默认3.0）");
         DialogNpcScale = builder.defineInRange("DialogNpcScale", 3.0, 0.0, 100.0);
@@ -44,6 +47,7 @@ public class CnpcPlusConfigData {
     // ForgeConfigSpec values
     public static ForgeConfigSpec.ConfigValue<String> CraftingCategories;
     public static ForgeConfigSpec.ConfigValue<String> RecipeFuzzyMatchRules;
+    public static ForgeConfigSpec.BooleanValue CraftingViewEnabled;
     public static ForgeConfigSpec.DoubleValue DialogNpcScale;
     public static ForgeConfigSpec.IntValue DialogNpcPosX;
     public static ForgeConfigSpec.IntValue DialogNpcPosY;

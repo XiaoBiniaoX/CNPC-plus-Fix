@@ -19,7 +19,7 @@ public class MixinContainerCarpentryBenchFix {
         if (!(((Object)this) instanceof ContainerCarpentryBench bench)) return;
 
         RecipeCarpentry recipe = RecipeController.instance.findMatchingRecipe(bench.craftMatrix);
-        if (recipe == null) {
+        if (recipe == null || !recipe.availability.isAvailable(((ContainerCarpentryBenchAccess) bench).cnpcplus$getPlayer())) {
             if (!bench.craftResult.getItem(0).isEmpty()) {
                 bench.craftResult.setItem(0, ItemStack.EMPTY);
                 ((AbstractContainerMenu)(Object)this).broadcastChanges();

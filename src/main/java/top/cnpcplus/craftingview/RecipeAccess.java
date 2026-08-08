@@ -1,7 +1,10 @@
 package top.cnpcplus.craftingview;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
 import noppes.npcs.controllers.RecipeController;
+import noppes.npcs.controllers.data.RecipeCarpentry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,18 +13,21 @@ public class RecipeAccess {
     private RecipeAccess() {}
 
     /**
-     * 获取指定来源 map 的所有配方
+     * 获取指定来源 map 的所有配方（过滤掉未满足对话/任务条件的配方）
      * @param global true → globalRecipes (工作台), false → anvilRecipes (木工台)
      */
     public static List<RecipeView> getRecipes(boolean global) {
         List<RecipeView> out = new ArrayList<>();
         var ctrl = RecipeController.instance;
         if (ctrl == null) return out;
+        Player player = Minecraft.getInstance().player;
         var map = global ? ctrl.globalRecipes : ctrl.anvilRecipes;
         if (map != null) {
             for (var entry : map.entrySet()) {
-                if (entry.getValue() != null)
-                    out.add(new RecipeView(entry.getValue(), entry.getKey(), global));
+                RecipeCarpentry recipe = entry.getValue();
+                if (recipe == null) continue;
+                if (player != null && recipe.availability.hasOptions() && !recipe.availability.isAvailable(player)) continue;
+                out.add(new RecipeView(recipe, entry.getKey(), global));
             }
         }
         return out;
