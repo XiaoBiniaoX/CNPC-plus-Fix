@@ -39,6 +39,13 @@ public class CnpcPlusConfigData {
         DialogOptionSpacing = builder.defineInRange("DialogOptionSpacing", 0, -50, 50);
         builder.pop();
 
+        builder.push("吟游诗人");
+        builder.comment("吟游诗人音乐/唱片机音量倍数（默认1.0，0.0-1.0）");
+        BardVolume = builder.defineInRange("BardVolume", 1.0, 0.0, 1.0);
+        builder.comment("吟游诗人看门狗时长（秒，默认300=5分钟）：同一首歌超过该时长仍未结束则强制换曲");
+        BardWatchdogSeconds = builder.defineInRange("BardWatchdogSeconds", 300, 1, 3600);
+        builder.pop();
+
         CONFIG_SPEC = builder.build();
     }
 
@@ -55,6 +62,8 @@ public class CnpcPlusConfigData {
     public static ForgeConfigSpec.IntValue DialogOptionPosY;
     public static ForgeConfigSpec.DoubleValue DialogOptionScale;
     public static ForgeConfigSpec.IntValue DialogOptionSpacing;
+    public static ForgeConfigSpec.DoubleValue BardVolume;
+    public static ForgeConfigSpec.IntValue BardWatchdogSeconds;
 
     @SubscribeEvent
     public static void onConfigChanged(ModConfigEvent event) {

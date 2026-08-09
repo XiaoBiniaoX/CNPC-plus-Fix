@@ -5,8 +5,10 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.common.world.ForgeChunkManager;
 import top.cnpcplus.config.CnpcPlusConfigData;
+import top.cnpcplus.invpage.network.NpcInvPagePacketHandler;
 import top.cnpcplus.questtrigger.ModRegistry;
 import top.cnpcplus.questtrigger.network.TriggerPacketHandler;
+import top.cnpcplus.trader.network.TraderPagePacketHandler;
 
 @Mod(CnpcPlus.MOD_ID)
 public class CnpcPlus {
@@ -18,5 +20,7 @@ public class CnpcPlus {
         top.cnpcplus.craftingview.network.PacketHandler.init();
         ModRegistry.register();
         TriggerPacketHandler.init();
+        NpcInvPagePacketHandler.init();
+        TraderPagePacketHandler.init();
     }
 }

@@ -11,5 +11,6 @@
   "cnpcplus.equip.boots": "Boots",
   "gui.ignoreDamage": "Fuzzy Config",
   "gui.ignoreNBT": "Name Check Only",
-  "block.cnpcplus.quest_trigger": "Quest Trigger Block"
+  "block.cnpcplus.quest_trigger": "Quest Trigger Block",
+  "options.cnpcplus.bardVolume": "Bard Volume"
 }

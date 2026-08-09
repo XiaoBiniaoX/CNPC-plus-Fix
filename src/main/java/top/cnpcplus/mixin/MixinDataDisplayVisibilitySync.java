@@ -16,12 +16,20 @@ public class MixinDataDisplayVisibilitySync {
     @Shadow(remap = false)
     public EntityNPCInterface npc;
 
+    /**
+     * @author cnpcplus
+     * @reason sync visibility to client
+     */
     @Overwrite
     public void setVisible(int type) {
         this.visible = ValueUtil.CorrectInt(type, 0, 2);
         this.npc.updateClient = true;
     }
 
+    /**
+     * @author cnpcplus
+     * @reason sync visibility to client
+     */
     @Overwrite
     public int getVisible() {
         return this.visible;

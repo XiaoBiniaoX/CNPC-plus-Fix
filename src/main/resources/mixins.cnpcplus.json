@@ -38,7 +38,15 @@
     "GuiNpcManageRecipesAccess",
     "MixinModelDataSharedEquipment",
     "MixinDataDisplayVisibilitySync",
-    "MixinScriptContainerServerThread"
+    "MixinScriptContainerServerThread",
+    "MixinQuestRewardGrid",
+    "MixinQuestItemGrid",
+    "MixinContainerNpcQuestReward",
+    "MixinContainerNpcQuestTypeItem",
+    "AbstractContainerMenuInvoker",
+    "MixinDataInventoryDropPage",
+    "MixinRoleTraderPages",
+    "MixinJobBard"
   ],
   "client": [
     "MixinGuiCreationScale",
@@ -60,7 +68,19 @@
     "MixinHumanoidModelPuppetEquipment",
     "MixinItemInHandLayerScale",
     "MixinItemInHandLayerPuppetEquipment",
-    "MixinLivingEntityRendererPuppetEquipment"
+    "MixinLivingEntityRendererPuppetEquipment",
+    "MixinGuiNPCInv",
+    "MixinGuiBasicContainerTraderPages",
+    "MixinGuiNPCTraderPages",
+    "MixinGuiNpcTraderSetupPages",
+    "MixinGuiBasicContainerTitle",
+    "MixinSoundEngine",
+    "MixinGuiNpcBard",
+    "AbstractWidgetAccess",
+    "MixinSoundOptionsScreen",
+    "MixinJobBardClient",
+    "MixinGuiNpcQuestTypeItem",
+    "MixinGuiNpcQuestReward"
   ],
   "server": []
 }

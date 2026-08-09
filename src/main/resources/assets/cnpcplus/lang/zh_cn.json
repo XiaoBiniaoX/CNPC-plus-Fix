@@ -17,5 +17,6 @@
   "cnpcplus.equip.boots": "靴子",
   "gui.ignoreDamage": "配置模糊化",
   "gui.ignoreNBT": "仅名字检查",
-  "block.cnpcplus.quest_trigger": "区域任务触发器"
+  "block.cnpcplus.quest_trigger": "区域任务触发器",
+  "options.cnpcplus.bardVolume": "吟游诗人音量"
 }
