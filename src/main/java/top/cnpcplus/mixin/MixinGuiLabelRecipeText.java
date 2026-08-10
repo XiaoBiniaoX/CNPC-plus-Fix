@@ -16,9 +16,9 @@ public class MixinGuiLabelRecipeText {
         GuiLabel self = (GuiLabel) (Object) this;
         String text = self.getMessage().getString();
         if ("gui.ignoreDamage".equals(text) || "忽略耐久值".equals(text) || "Ignore Damage".equals(text)) {
-            self.setMessage(Component.literal("配置模糊化"));
+            self.setMessage(Component.translatable("gui.ignoreDamage"));
         } else if ("gui.ignoreNBT".equals(text) || "忽略NBT值".equals(text) || "Ignore NBT".equals(text)) {
-            self.setMessage(Component.literal("仅名字检查"));
+            self.setMessage(Component.translatable("gui.ignoreNBT"));
         }
     }
 }

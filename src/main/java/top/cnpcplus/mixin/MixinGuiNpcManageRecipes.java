@@ -1,5 +1,6 @@
 package top.cnpcplus.mixin;
 
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.SimpleContainer;
@@ -119,22 +120,22 @@ public class MixinGuiNpcManageRecipes {
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
         GuiLabel fuzzyLabel = self.getLabel(0);
         if (fuzzyLabel != null) {
-            fuzzyLabel.setMessage(Component.literal("模糊配置化"));
+            fuzzyLabel.setMessage(Component.translatable("gui.ignoreDamage"));
         }
         GuiLabel nameLabel = self.getLabel(1);
         if (nameLabel != null) {
-            nameLabel.setMessage(Component.literal("仅名字检查"));
+            nameLabel.setMessage(Component.translatable("gui.ignoreNBT"));
         }
     }
 
     @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiLabel;<init>(ILjava/lang/String;II)V", ordinal = 0), index = 1, remap = false)
     private String cnpcplus$replaceIgnoreDamageText(String original) {
-        return "模糊配置化";
+        return I18n.get("gui.ignoreDamage");
     }
 
     @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiLabel;<init>(ILjava/lang/String;II)V", ordinal = 1), index = 1, remap = false)
     private String cnpcplus$replaceIgnoreNbtText(String original) {
-        return "仅名字检查";
+        return I18n.get("gui.ignoreNBT");
     }
 
     @Inject(method = "unFocused", at = @At("HEAD"), remap = false, cancellable = true)

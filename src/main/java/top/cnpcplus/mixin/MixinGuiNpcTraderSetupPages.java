@@ -1,6 +1,9 @@
 package top.cnpcplus.mixin;
 
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
+import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.client.gui.roles.GuiNpcTraderSetup;
 import noppes.npcs.roles.RoleTrader;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -29,12 +32,12 @@ public class MixinGuiNpcTraderSetupPages {
         int count = TraderPager.getPageCount(this.role);
         int l = self.guiLeft;
         int t = self.guiTop;
-        self.addLabel(new GuiLabel(8, "页面标题", l + 260, t + 112));
+        self.addLabel(new GuiLabel(8, Component.translatable("cnpcplus.trader.pagetitle"), CustomNpcResourceListener.getDefaultTextColor(), l + 260, t + 112, 40, 0));
         self.addTextField(new GuiTextFieldNop(11, (Screen) self, l + 260, t + 122, 150, 20, TraderPager.getPageTitle(this.role)));
         self.addLabel(new GuiLabel(9, (page + 1) + "/" + count, l + 340, t + 150));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, 110, l + 214, t + 184, 88, 20, "上一页"));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, 111, l + 306, t + 184, 88, 20, "下一页"));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, 112, l + 214, t + 204, 180, 20, "删除本页(" + (page + 1) + "/" + count + ")"));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, 110, l + 214, t + 184, 88, 20, I18n.get("cnpcplus.trader.prev")));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, 111, l + 306, t + 184, 88, 20, I18n.get("cnpcplus.trader.next")));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, 112, l + 214, t + 204, 180, 20, I18n.get("cnpcplus.trader.deletepage", page + 1, count)));
     }
 
     @Inject(method = "save", at = @At("HEAD"))

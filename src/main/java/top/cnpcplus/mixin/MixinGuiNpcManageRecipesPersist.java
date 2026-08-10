@@ -2,6 +2,7 @@ package top.cnpcplus.mixin;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.client.gui.SubGuiNpcAvailability;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.containers.ContainerManageRecipes;
@@ -35,9 +36,9 @@ public class MixinGuiNpcManageRecipesPersist {
         GuiBasicContainer<?> base = (GuiBasicContainer<?>) (Object) this;
         int left = base.guiLeft + 306;
         int top = base.guiTop;
-        self.addButton(new GuiButtonNop((IGuiInterface) self, PersistRecipeClient.BTN_PERSIST, left, top + 126, 84, 20, "持久化"));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, PersistRecipeClient.BTN_UNPERSIST, left, top + 148, 84, 20, "取消持久化"));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, PersistRecipeClient.BTN_CONDITION, left, top + 170, 84, 20, "对话/任务条件"));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, PersistRecipeClient.BTN_PERSIST, left, top + 126, 84, 20, I18n.get("cnpcplus.recipes.persist")));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, PersistRecipeClient.BTN_UNPERSIST, left, top + 148, 84, 20, I18n.get("cnpcplus.recipes.unpersist")));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, PersistRecipeClient.BTN_CONDITION, left, top + 170, 84, 20, I18n.get("cnpcplus.recipes.condition")));
         PacketHandler.CHANNEL.sendToServer(new PacketRequestPersistIds());
         PersistRecipeClient.refreshButtons();
     }

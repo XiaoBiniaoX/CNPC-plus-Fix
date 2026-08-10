@@ -1,6 +1,9 @@
 package top.cnpcplus.mixin;
 
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
+import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.client.gui.roles.GuiNpcBard;
 import noppes.npcs.client.gui.select.GuiSoundSelection;
 import noppes.npcs.roles.JobBard;
@@ -41,16 +44,16 @@ public class MixinGuiNpcBard {
         for (String[] e : songs) {
             names.add(e[0]);
         }
-        self.addLabel(new GuiLabel(12, "歌单", self.guiLeft + 220, self.guiTop + 2));
+        self.addLabel(new GuiLabel(12, Component.translatable("cnpcplus.bard.songlist"), CustomNpcResourceListener.getDefaultTextColor(), self.guiLeft + 220, self.guiTop + 2, 40, 0));
         GuiCustomScrollNop scroll = new GuiCustomScrollNop((Screen) self, 10);
         scroll.setSize(200, 140);
         scroll.guiLeft = self.guiLeft + 220;
         scroll.guiTop = self.guiTop + 15;
         scroll.setList(names);
         self.addScroll(scroll);
-        self.addButton(new GuiButtonNop((IGuiInterface) self, 110, self.guiLeft + 220, self.guiTop + 158, 60, 20, "添加"));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, 111, self.guiLeft + 285, self.guiTop + 158, 60, 20, "删除"));
-        self.addLabel(new GuiLabel(13, "新曲权重", self.guiLeft + 220, self.guiTop + 182));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, 110, self.guiLeft + 220, self.guiTop + 158, 60, 20, I18n.get("cnpcplus.bard.add")));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, 111, self.guiLeft + 285, self.guiTop + 158, 60, 20, I18n.get("cnpcplus.bard.delete")));
+        self.addLabel(new GuiLabel(13, Component.translatable("cnpcplus.bard.weight"), CustomNpcResourceListener.getDefaultTextColor(), self.guiLeft + 220, self.guiTop + 182, 40, 0));
         GuiTextFieldNop tf = new GuiTextFieldNop(10, (Screen) self, self.guiLeft + 300, self.guiTop + 178, 40, 20, "1");
         self.addTextField(tf);
         tf.numbersOnly = true;

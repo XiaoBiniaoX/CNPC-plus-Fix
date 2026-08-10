@@ -3,6 +3,9 @@ package top.cnpcplus.questtrigger.client;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
+import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.client.gui.select.GuiQuestSelection;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.controllers.QuestController;
@@ -58,23 +61,23 @@ public class GuiQuestTrigger extends GuiNPCInterface implements GuiSelectionList
     @Override
     public void init() {
         super.init();
-        GuiLabel titleLabel = new GuiLabel(8, "区域任务触发器", this.guiLeft, this.guiTop + 9, GOLD, 366, 0);
+        GuiLabel titleLabel = new GuiLabel(8, Component.translatable("cnpcplus.questtrigger.title"), GOLD, this.guiLeft, this.guiTop + 9, 366, 0);
         titleLabel.setCentered(true);
         this.addLabel(titleLabel);
 
-        this.addLabel(new GuiLabel(1, "激活方式", this.guiLeft + 12, this.guiTop + 34, WHITE));
+        this.addLabel(new GuiLabel(1, Component.translatable("cnpcplus.questtrigger.mode"), WHITE, this.guiLeft + 12, this.guiTop + 34, 40, 0));
         this.addButton(new GuiButtonNop(this, 1, this.guiLeft + 120, this.guiTop + 28, 150, 20,
-                new String[]{"红石激活", "始终检查"}, this.mode));
+                new String[]{I18n.get("cnpcplus.questtrigger.redstone"), I18n.get("cnpcplus.questtrigger.always")}, this.mode));
         if (this.mode == 1) {
-            this.addLabel(new GuiLabel(2, "检查间隔(tick)", this.guiLeft + 12, this.guiTop + 60, WHITE));
+            this.addLabel(new GuiLabel(2, Component.translatable("cnpcplus.questtrigger.interval"), WHITE, this.guiLeft + 12, this.guiTop + 60, 40, 0));
             this.addTextField(new GuiTextFieldNop(2, this, this.guiLeft + 120, this.guiTop + 56, 60, 20, this.interval + ""));
             this.getTextField(2).numbersOnly = true;
             this.getTextField(2).setMinMaxDefault(1, 600, 20);
         }
 
-        this.addLabel(new GuiLabel(3, "触发范围", this.guiLeft + 12, this.guiTop + 92, WHITE));
+        this.addLabel(new GuiLabel(3, Component.translatable("cnpcplus.questtrigger.range"), WHITE, this.guiLeft + 12, this.guiTop + 92, 40, 0));
         this.addButton(new GuiButtonNop(this, 3, this.guiLeft + 120, this.guiTop + 86, 150, 20,
-                new String[]{"区域(长方体)", "范围(球形)"}, this.areaMode));
+                new String[]{I18n.get("cnpcplus.questtrigger.box"), I18n.get("cnpcplus.questtrigger.sphere")}, this.areaMode));
         if (this.areaMode == 0) {
             this.addLabel(new GuiLabel(4, "X", this.guiLeft + 104, this.guiTop + 118, WHITE));
             this.addTextField(new GuiTextFieldNop(4, this, this.guiLeft + 120, this.guiTop + 114, 56, 20, this.sizeX + ""));
@@ -89,21 +92,21 @@ public class GuiQuestTrigger extends GuiNPCInterface implements GuiSelectionList
             this.getTextField(6).numbersOnly = true;
             this.getTextField(6).setMinMaxDefault(0, 100, 3);
         } else {
-            this.addLabel(new GuiLabel(7, "半径(格)", this.guiLeft + 12, this.guiTop + 118, WHITE));
+            this.addLabel(new GuiLabel(7, Component.translatable("cnpcplus.questtrigger.radius"), WHITE, this.guiLeft + 12, this.guiTop + 118, 40, 0));
             this.addTextField(new GuiTextFieldNop(7, this, this.guiLeft + 120, this.guiTop + 114, 60, 20, this.radius + ""));
             this.getTextField(7).numbersOnly = true;
             this.getTextField(7).setMinMaxDefault(0, 100, 3);
         }
 
-        this.addLabel(new GuiLabel(9, "绑定任务", this.guiLeft + 12, this.guiTop + 152, WHITE));
+        this.addLabel(new GuiLabel(9, Component.translatable("cnpcplus.questtrigger.quest"), WHITE, this.guiLeft + 12, this.guiTop + 152, 40, 0));
         String title = this.questId > 0
-                ? "任务: " + truncate(this.questTitle.isEmpty() ? ("ID:" + this.questId) : this.questTitle, 21)
-                : "任务: 未选择";
+                ? I18n.get("cnpcplus.questtrigger.questBound", truncate(this.questTitle.isEmpty() ? ("ID:" + this.questId) : this.questTitle, 21))
+                : I18n.get("cnpcplus.questtrigger.questNone");
         this.addLabel(new GuiLabel(10, title, this.guiLeft + 120, this.guiTop + 152, this.questId > 0 ? HIGHLIGHT : WHITE));
-        this.addButton(new GuiButtonNop(this, 9, this.guiLeft + 292, this.guiTop + 148, 60, 20, "选择"));
+        this.addButton(new GuiButtonNop(this, 9, this.guiLeft + 292, this.guiTop + 148, 60, 20, I18n.get("cnpcplus.questtrigger.select")));
         this.addButton(new GuiButtonNop(this, 11, this.guiLeft + 12, this.guiTop + 196, 120, 20,
-                QuestTriggerOverlay.isVisible() ? "区域显示: 开" : "区域显示: 关"));
-        this.addButton(new GuiButtonNop(this, 0, this.guiLeft + 250, this.guiTop + 196, 104, 20, "完成"));
+                QuestTriggerOverlay.isVisible() ? I18n.get("cnpcplus.questtrigger.overlayOn") : I18n.get("cnpcplus.questtrigger.overlayOff")));
+        this.addButton(new GuiButtonNop(this, 0, this.guiLeft + 250, this.guiTop + 196, 104, 20, I18n.get("cnpcplus.questtrigger.done")));
     }
 
     private static String truncate(String s, int max) {
