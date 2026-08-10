@@ -19,18 +19,11 @@ public final class RecipeControllerFacade {
     private RecipeControllerFacade() {}
 
     public static void loadAll(net.minecraft.core.HolderLookup.Provider provider, RecipeController controller) {
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] loadAll");
         RecipeStorage.INSTANCE.loadAll(provider, controller);
         reloadGlobalRecipes(controller);
-        
-        if (RecipeDebug.enabled()) {
-            RecipeDebug.probeAllGlobals();
-        }
     }
 
     public static void reloadGlobalRecipes(RecipeController controller) {
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] reloadGlobalRecipes count={}",
-                controller != null && controller.globalRecipes != null ? controller.globalRecipes.size() : 0);
         RecipeServices.reloadGlobalIntoRecipeManager(controller);
     }
 
@@ -50,7 +43,6 @@ public final class RecipeControllerFacade {
         boolean emptyDraft = (recipe.getResult() == null || recipe.getResult().isEmpty())
                 && (recipe.getIngredients() == null || recipe.getIngredients().isEmpty());
         if (emptyDraft && preferredSyncId <= 0) {
-            CnpcPlus.LOGGER.info("[RecipeControllerFacade] skip empty draft name={}", recipe.name);
             return recipe;
         }
 
@@ -106,17 +98,7 @@ public final class RecipeControllerFacade {
             RecipeStorage.INSTANCE.saveAll(CustomNpcs.Server.registryAccess(), controller);
         }
         reloadGlobalRecipes(controller);
-        
 
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] saved name={} syncId={} global={} ings={} resultEmpty={}",
-                recipe.name, syncId, recipe.isGlobal,
-                recipe.getIngredients() != null ? recipe.getIngredients().size() : -1,
-                recipe.getResult() == null || recipe.getResult().isEmpty());
-
-        if (RecipeDebug.enabled() && recipe.isGlobal) {
-            ResourceLocation injectId = RecipeDebug.injectIdOf(loc);
-            RecipeDebug.probeRecipe(recipe, injectId);
-        }
         return recipe;
     }
 
@@ -148,8 +130,6 @@ public final class RecipeControllerFacade {
             RecipeStorage.INSTANCE.saveAll(CustomNpcs.Server.registryAccess(), controller);
         }
         reloadGlobalRecipes(controller);
-        
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] deleted name={} id={}", recipe.name, syncId);
         return recipe;
     }
 

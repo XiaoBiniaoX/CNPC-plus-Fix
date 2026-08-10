@@ -1,7 +1,10 @@
 package bin.cnpcplus.craftingview.network;
 
 import bin.cnpcplus.CnpcPlus;
+import bin.cnpcplus.invpage.network.PacketNpcInvPage;
 import bin.cnpcplus.recipe.network.PacketRecipePersist;
+import bin.cnpcplus.trader.network.PacketTraderPage;
+import bin.cnpcplus.trader.network.PacketTraderPageSync;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -24,6 +27,21 @@ public final class CraftingViewNetwork {
                 PacketRecipePersist.TYPE,
                 PacketRecipePersist.STREAM_CODEC,
                 PacketRecipePersist::handle
+        );
+        registrar.playToServer(
+                PacketTraderPage.TYPE,
+                PacketTraderPage.STREAM_CODEC,
+                PacketTraderPage::handle
+        );
+        registrar.playToServer(
+                PacketNpcInvPage.TYPE,
+                PacketNpcInvPage.STREAM_CODEC,
+                PacketNpcInvPage::handle
+        );
+        registrar.playToClient(
+                PacketTraderPageSync.TYPE,
+                PacketTraderPageSync.STREAM_CODEC,
+                PacketTraderPageSync::handle
         );
     }
 }

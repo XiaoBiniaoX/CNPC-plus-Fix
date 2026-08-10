@@ -53,8 +53,6 @@ public record PacketRecipePersist(int syncId, boolean persist) implements Custom
             }
             SPacketRecipesGet.sendRecipeData(sp, recipe.isGlobal ? 3 : 4);
             SPacketRecipeGet.setRecipeGui(sp, recipe);
-            CnpcPlus.LOGGER.info("[RecipePersist] {} name={} syncId={}",
-                    packet.persist ? "persist" : "unpersist", recipe.name, packet.syncId);
         });
     }
 }

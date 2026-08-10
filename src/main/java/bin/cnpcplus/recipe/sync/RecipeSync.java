@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe.sync;
 
-import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.id.RecipeIds;
 import net.minecraft.server.level.ServerPlayer;
 import noppes.npcs.NoppesUtilServer;
@@ -26,7 +25,6 @@ public final class RecipeSync {
         } else {
             map = RecipeIds.INSTANCE.scrollMapAnvil();
         }
-        CnpcPlus.LOGGER.debug("[RecipeSync] send list size={} count={}", size, map.size());
         NoppesUtilServer.sendScrollData(player, new HashMap<>(map));
     }
 }

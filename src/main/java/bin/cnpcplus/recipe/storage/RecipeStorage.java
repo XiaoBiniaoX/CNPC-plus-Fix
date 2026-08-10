@@ -49,7 +49,6 @@ public final class RecipeStorage {
                 } else {
                     controller.globalRecipes = new HashMap<>();
                     controller.anvilRecipes = new HashMap<>();
-                    CnpcPlus.LOGGER.info("[RecipeStorage] no recipes.dat, empty maps");
                 }
             }
         } catch (Exception e) {
@@ -104,7 +103,6 @@ public final class RecipeStorage {
         controller.globalRecipes = global;
         controller.anvilRecipes = anvil;
         controller.nextId = Math.max(controller.nextId, RecipeIds.INSTANCE.peekNextSyncId());
-        CnpcPlus.LOGGER.info("[RecipeStorage] loaded global={} anvil={}", global.size(), anvil.size());
     }
 
     public void saveAll(HolderLookup.Provider provider, RecipeController controller) {
@@ -158,7 +156,6 @@ public final class RecipeStorage {
                 //noinspection ResultOfMethodCallIgnored
                 fileNew.delete();
             }
-            CnpcPlus.LOGGER.info("[RecipeStorage] saved recipes count={}", list.size());
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipeStorage] save failed", e);
         }

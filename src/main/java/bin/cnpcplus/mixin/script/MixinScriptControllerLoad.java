@@ -65,8 +65,6 @@ public class MixinScriptControllerLoad {
             }
         }
         this.lastLoaded = System.currentTimeMillis();
-        CnpcPlus.LOGGER.info("[ScriptGlobal] merged global scripts, total map size={}",
-                this.scripts != null ? this.scripts.size() : 0);
     }
 
     private void loadTree(File dir, String prefix, String ext) {

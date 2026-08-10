@@ -37,7 +37,6 @@ public class ScoreboardFixListener {
                     }
                 });
             }
-            LOGGER.info("[CNPCPlus] Wrapped {} scoreboard dirty listeners with try-catch", dirtyListeners.size());
         } catch (Exception e) {
             LOGGER.error("[CNPCPlus] Failed to wrap scoreboard dirty listeners", e);
         }

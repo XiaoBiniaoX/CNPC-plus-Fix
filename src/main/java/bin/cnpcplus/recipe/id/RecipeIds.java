@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe.id;
 
-import bin.cnpcplus.CnpcPlus;
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 
@@ -29,7 +28,6 @@ public final class RecipeIds {
         byNameLower.clear();
         bySyncRecipe.clear();
         nextSyncId.set(1);
-        CnpcPlus.LOGGER.debug("[RecipeIds] cleared");
     }
 
     /** Stable map key: customnpcs:recipe/id_<syncId> */

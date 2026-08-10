@@ -61,7 +61,6 @@ public final class RecipePersistent {
                 if (key == null || key.isEmpty()) continue;
                 entries.put(key, tag.copy());
             }
-            CnpcPlus.LOGGER.info("[RecipePersistent] loaded {} entries from {}", entries.size(), f.getAbsolutePath());
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipePersistent] load failed", e);
         }
@@ -98,7 +97,6 @@ public final class RecipePersistent {
                 //noinspection ResultOfMethodCallIgnored
                 tmp.delete();
             }
-            CnpcPlus.LOGGER.info("[RecipePersistent] saved {} entries", entries.size());
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipePersistent] save failed", e);
         }
@@ -151,7 +149,6 @@ public final class RecipePersistent {
         if (CustomNpcs.Server != null) {
             RecipeStorage.INSTANCE.saveAll(provider, controller);
         }
-        CnpcPlus.LOGGER.info("[RecipePersistent] persist key={} name={}", key, recipe.name);
     }
 
     /** Remove from persistent file only. World recipes.dat untouched. */
@@ -161,7 +158,6 @@ public final class RecipePersistent {
         String key = keyOf(recipe);
         if (entries.remove(key) != null) {
             saveToDisk();
-            CnpcPlus.LOGGER.info("[RecipePersistent] unpersist key={}", key);
         }
     }
 
@@ -170,7 +166,6 @@ public final class RecipePersistent {
         reloadFromDisk();
         if (entries.remove(key) != null) {
             saveToDisk();
-            CnpcPlus.LOGGER.info("[RecipePersistent] unpersist key={}", key);
         }
     }
 
@@ -216,7 +211,6 @@ public final class RecipePersistent {
         }
         if (added > 0) {
             RecipeStorage.INSTANCE.saveAll(provider, controller);
-            CnpcPlus.LOGGER.info("[RecipePersistent] merged {} into world", added);
         }
     }
 

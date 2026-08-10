@@ -34,6 +34,22 @@ public class MixinContainerNPCInv {
             return;
         }
 
+        if (slotIndex >= 7 && slotIndex <= 15) {
+            Slot slot = self.getSlot(slotIndex);
+            if (!slot.hasItem()) { cir.setReturnValue(ItemStack.EMPTY); return; }
+            ItemStack stack = slot.getItem();
+            ItemStack original = stack.copy();
+            slot.set(ItemStack.EMPTY);
+            ContainerMenuAccessor acc = (ContainerMenuAccessor) self;
+            if (!acc.cnpcplus$moveItemStackTo(stack, 16, 52, true)) {
+                slot.set(stack);
+                cir.setReturnValue(ItemStack.EMPTY);
+                return;
+            }
+            cir.setReturnValue(original);
+            return;
+        }
+
         if (slotIndex >= 16 && slotIndex < 52) {
             Slot slot = self.getSlot(slotIndex);
             if (!slot.hasItem()) return;

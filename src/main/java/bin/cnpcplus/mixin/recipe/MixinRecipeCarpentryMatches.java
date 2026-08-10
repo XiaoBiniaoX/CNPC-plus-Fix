@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Phase3-D: official matches/checkMatch is broken (hardcoded 4x4 and empty stack compare).
- * Proven by RecipeDebug: byKey=true, canCraft3x3=true, matches=false, getRecipeFor empty.
  * Restore correct CraftingInput matching for workbench; pure function, no storage side effects.
  */
 @Mixin(RecipeCarpentry.class)

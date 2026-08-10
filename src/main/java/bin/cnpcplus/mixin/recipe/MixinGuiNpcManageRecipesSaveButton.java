@@ -10,8 +10,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
+import noppes.npcs.client.gui.SubGuiNpcAvailability;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.containers.ContainerManageRecipes;
+import noppes.npcs.controllers.data.Availability;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 import noppes.npcs.packets.Packets;
 import noppes.npcs.packets.server.SPacketRecipeGet;
@@ -58,12 +60,15 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (self.getButton(2) == null) {
             self.addButton(new GuiButtonNop((IGuiInterface) self, 2, self.guiLeft + 306, self.guiTop + 104, 84, 20, "gui.save"));
         }
-        // 7 = 跨世界持久化, 8 = 取消持久化
+        // 7 = 跨世界持久化, 8 = 取消持久化, 9 = 对话/任务条件
         if (self.getButton(7) == null) {
-            self.addButton(new GuiButtonNop((IGuiInterface) self, 7, self.guiLeft + 306, self.guiTop + 126, 84, 20, "持久化"));
+            self.addButton(new GuiButtonNop((IGuiInterface) self, 7, self.guiLeft + 306, self.guiTop + 126, 84, 20, I18n.get("cnpcplus.recipes.persist")));
         }
         if (self.getButton(8) == null) {
-            self.addButton(new GuiButtonNop((IGuiInterface) self, 8, self.guiLeft + 306, self.guiTop + 148, 84, 20, "取消持久化"));
+            self.addButton(new GuiButtonNop((IGuiInterface) self, 8, self.guiLeft + 306, self.guiTop + 148, 84, 20, I18n.get("cnpcplus.recipes.unpersist")));
+        }
+        if (self.getButton(9) == null) {
+            self.addButton(new GuiButtonNop((IGuiInterface) self, 9, self.guiLeft + 306, self.guiTop + 170, 84, 20, I18n.get("cnpcplus.recipes.condition")));
         }
         cnpcplusRefresh(self);
     }
@@ -93,12 +98,25 @@ public class MixinGuiNpcManageRecipesSaveButton {
                     PacketDistributor.sendToServer(new PacketRecipePersist(syncId, persist));
                     RecipePersistent.INSTANCE.reloadFromDisk();
                     cnpcplusRefresh(self);
-                    CnpcPlus.LOGGER.info("[GUI] {} syncId={}", persist ? "persist" : "unpersist", syncId);
                 } else {
                     CnpcPlus.LOGGER.warn("[GUI] persist skipped: save recipe first");
                 }
             } catch (Throwable t) {
                 CnpcPlus.LOGGER.error("[GUI] persist button failed", t);
+            }
+            ci.cancel();
+            return;
+        }
+
+        // Condition — CNPC Availability subgui (对话/任务条件)，随保存一起写入配方
+        if (button.id == 9) {
+            try {
+                if (this.container != null && this.container.recipe != null) {
+                    RecipeCarpentry cr = this.container.recipe;
+                    self.setSubGui(new SubGuiNpcAvailability(cr.availability));
+                }
+            } catch (Throwable t) {
+                CnpcPlus.LOGGER.error("[GUI] condition button failed", t);
             }
             ci.cancel();
             return;
@@ -164,7 +182,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
         // no CnpcPlusSyncId => server creates NEW identity
         Packets.sendServer((CustomPacketPayload) new SPacketRecipeSave(nbt));
         cnpcplusRefresh(self);
-        CnpcPlus.LOGGER.info("[GUI] add new recipe name={} global={}", name, recipe.isGlobal);
     }
 
     private void cnpcplusSaveCurrent(GuiNpcManageRecipes self, boolean forceUnfocus) {
@@ -190,6 +207,15 @@ public class MixinGuiNpcManageRecipesSaveButton {
             recipe.name = this.selected != null && !this.selected.isEmpty() ? this.selected : "unnamed";
         }
 
+        // deep-copy availability so this recipe never shares the instance with another
+        if (recipe.availability != null) {
+            CompoundTag availTag = new CompoundTag();
+            recipe.availability.save(self.player.registryAccess(), availTag);
+            Availability fresh = new Availability();
+            fresh.load(self.player.registryAccess(), availTag);
+            recipe.availability = fresh;
+        }
+
         CompoundTag nbt = recipe.writeNBT((HolderLookup.Provider) self.player.registryAccess());
         nbt.putString("Name", recipe.name);
         int syncId = cnpcplusCurrentSyncId();
@@ -210,7 +236,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
             this.data.put(recipe.name, syncId);
         }
         this.selected = recipe.name;
-        CnpcPlus.LOGGER.info("[GUI] save current name={} syncId={} global={}", recipe.name, syncId, recipe.isGlobal);
     }
 
     private boolean cnpcplusShouldSaveBeforeAdd() {
@@ -423,6 +448,10 @@ public class MixinGuiNpcManageRecipesSaveButton {
             GuiButtonNop unpersist = self.getButton(8);
             if (unpersist != null) {
                 unpersist.setEnabled(canPersist && already);
+            }
+            GuiButtonNop condition = self.getButton(9);
+            if (condition != null) {
+                condition.setEnabled(canPersist);
             }
         } catch (Throwable ignored) {
         }

@@ -97,7 +97,6 @@ public class MixinContainerManageRecipesSave {
             r.name = keepName;
             r.isGlobal = keepGlobal;
             this.recipe = r;
-            CnpcPlus.LOGGER.info("[ContainerSave] empty pattern name={} width={} isGlobal={}", keepName, this.width, keepGlobal);
             ci.cancel();
             return;
         }
@@ -144,11 +143,6 @@ public class MixinContainerManageRecipesSave {
             this.craftingMatrix.setItem(i + 1, grid[i].copy());
         }
 
-        int ings = saved.getIngredients() != null ? saved.getIngredients().size() : -1;
-        boolean resultEmpty = saved.getResult() == null || saved.getResult().isEmpty();
-        CnpcPlus.LOGGER.info("[ContainerSave] name={} width={} isGlobal={} offset={},{} patternedW={} patternedH={} resultEmpty={} ings={}",
-                saved.name, this.width, saved.isGlobal, firstCol, firstRow,
-                saved.getWidth(), saved.getHeight(), resultEmpty, ings);
         ci.cancel();
     }
 

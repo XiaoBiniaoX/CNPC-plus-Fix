@@ -47,5 +47,27 @@ public class CnpcPlusConfig {
             )
             .define("recipeFuzzyMatchRules", "tacz:modern_kinetic_gun|GunId;slashblade:slashblade|");
 
+    public static final ModConfigSpec.BooleanValue CRAFTING_VIEW_ENABLED = BUILDER
+            .comment(
+                "木工台/合成台侧栏（合成视图）显示开关",
+                "默认 true；false 时隐藏侧栏",
+                "热加载：修改保存后即时生效，无需重启"
+            )
+            .define("craftingViewEnabled", true);
+
+    public static final ModConfigSpec.DoubleValue BARD_VOLUME = BUILDER
+            .comment(
+                "吟游诗人音乐/唱片机音量倍数（默认1.0，0.0-1.0）",
+                "与游戏「音乐」音量滑块相互独立，专门控制吟游诗人播放的曲子"
+            )
+            .defineInRange("bardVolume", 1.0, 0.0, 1.0);
+
+    public static final ModConfigSpec.IntValue BARD_WATCHDOG_SECONDS = BUILDER
+            .comment(
+                "吟游诗人看门狗时长（秒，默认300=5分钟）",
+                "同一首歌超过该时长仍未结束则强制换曲"
+            )
+            .defineInRange("bardWatchdogSeconds", 300, 1, 3600);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

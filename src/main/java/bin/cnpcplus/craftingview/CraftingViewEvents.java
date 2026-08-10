@@ -1,5 +1,6 @@
 package bin.cnpcplus.craftingview;
 
+import bin.cnpcplus.config.CnpcPlusConfig;
 import bin.cnpcplus.craftingview.network.PacketFillCraftingGrid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -29,18 +30,12 @@ public final class CraftingViewEvents {
 
     @SubscribeEvent
     public static void onScreenOpen(ScreenEvent.Opening event) {
-        Screen screen = event.getNewScreen();
-        if (screen instanceof GuiNpcCarpentryBench) {
-            activePanel = new RecipePanel(true);
-        } else if (screen instanceof CraftingScreen) {
-            activePanel = new RecipePanel(false);
-        } else {
-            activePanel = null;
-        }
+        syncActivePanel(event.getNewScreen());
     }
 
     @SubscribeEvent
     public static void onRenderPost(ScreenEvent.Render.Post event) {
+        syncActivePanel(event.getScreen());
         if (activePanel == null) return;
         if ((++reloadTicker % 40) == 0) {
             activePanel.reload();
@@ -148,6 +143,26 @@ public final class CraftingViewEvents {
         if (activePanel.searchField.charTyped(event.getCodePoint(), event.getModifiers())) {
             activePanel.rebuildFiltered();
             event.setCanceled(true);
+        }
+    }
+
+    /** 侧栏显示开关（热加载）：关闭立即隐藏，打开即时恢复；非目标界面清理面板 */
+    private static void syncActivePanel(Screen screen) {
+        if (!CnpcPlusConfig.CRAFTING_VIEW_ENABLED.get()) {
+            activePanel = null;
+            return;
+        }
+        boolean target = screen instanceof GuiNpcCarpentryBench || screen instanceof CraftingScreen;
+        if (!target) {
+            activePanel = null;
+            return;
+        }
+        // ESC close does not fire ScreenEvent.Opening, so a stale panel from the other
+        // container type could survive and show the wrong recipe list. Rebuild when
+        // the container type (anvil vs workbench) does not match the current screen.
+        boolean anvil = screen instanceof GuiNpcCarpentryBench;
+        if (activePanel == null || activePanel.isAnvil() != anvil) {
+            activePanel = new RecipePanel(anvil);
         }
     }
 

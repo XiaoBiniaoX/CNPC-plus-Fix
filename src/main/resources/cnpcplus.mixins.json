@@ -4,7 +4,9 @@
   "package": "bin.cnpcplus.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "AbstractContainerMenuInvoker",
     "EntityNPCInterfaceMixin",
+    "EntityProjectileSpinFixMixin",
     "CnpcBranchPatchProviderMixin",
     "DataDisplayMixin",
     "EntityCustomNpcMixin",
@@ -23,6 +25,7 @@
     "recipe.MixinRecipeCarpentryOffset",
     "recipe.MixinContainerManageRecipesSave",
     "recipe.MixinRecipeCarpentryMatches",
+    "recipe.MixinCraftingMenu",
     "script.MixinScriptControllerLoad",
     "puppet.MixinJobPuppetEquipment",
     "puppet.MixinPuppetPartConfig",
@@ -32,9 +35,21 @@
     "puppet.ContainerMenuAccessor",
     "puppet.MixinDataDisplaySize",
     "puppet.MixinContainerNPCBankInterface",
-    "puppet.MixinContainerNPCInv"
+    "puppet.MixinContainerNPCInv",
+    "trader.MixinRoleTraderPages",
+    "trader.MixinContainerNPCTrader",
+    "trader.MixinContainerNPCTraderSync",
+    "quest.MixinQuestItemGrid",
+    "quest.MixinQuestRewardGrid",
+    "quest.MixinContainerNpcQuestTypeItem",
+    "quest.MixinContainerNpcQuestReward",
+    "invpage.MixinDataInventoryDropPage",
+    "bard.MixinJobBard"
   ],
   "client": [
+    "AbstractContainerScreenAccess",
+    "ClientLevelProjectileCodecMixin",
+    "RenderProjectileMixin",
     "RenderNPCInterfaceMixin",
     "GuiDialogInteractMixin",
     "LivingEntityRendererMixin",
@@ -52,7 +67,20 @@
     "puppet.MixinCustomHeadLayerScale",
     "puppet.MixinHumanoidArmorLayerScale",
     "puppet.MixinItemInHandLayerScale",
-    "puppet.MixinGuiNpcDisplaySize"
+    "puppet.MixinGuiNpcDisplaySize",
+    "trader.MixinGuiBasicContainerTraderPages",
+    "trader.MixinGuiBasicContainerTitle",
+    "trader.MixinGuiNPCTraderPages",
+    "trader.MixinGuiNpcTraderSetupPages",
+    "quest.MixinGuiNpcQuestTypeItem",
+    "quest.MixinGuiNpcQuestReward",
+    "invpage.MixinGuiNPCInv",
+    "bard.AbstractWidgetAccess",
+    "bard.OptionsSubScreenAccess",
+    "bard.MixinSoundEngine",
+    "bard.MixinSoundOptionsScreen",
+    "bard.MixinGuiNpcBard",
+    "bard.MixinJobBardClient"
   ],
   "injectors": {
     "defaultRequire": 0

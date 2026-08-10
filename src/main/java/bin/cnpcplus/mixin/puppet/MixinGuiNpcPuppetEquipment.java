@@ -28,7 +28,7 @@ public abstract class MixinGuiNpcPuppetEquipment extends GuiNPCInterface impleme
     @Shadow(remap = false) public HashMap<String, JobPuppet.PartConfig> data;
 
     @Unique
-    private static final String[] CNPCPLUS_EQUIP_PARTS = {"主手物品", "副手物品", "头盔", "甲胄", "护腿", "靴子"};
+    private static final String[] CNPCPLUS_EQUIP_PARTS = {"model.mainhand", "model.offhand", "model.helmet", "model.chestplate", "model.leggings", "model.boots"};
 
     @Inject(method = "init", at = @At(value = "FIELD", target = "Lnoppes/npcs/client/gui/roles/GuiNpcPuppet;data:Ljava/util/HashMap;", shift = At.Shift.AFTER, ordinal = 0), remap = false)
     private void cnpcplus$addEquipmentParts(CallbackInfo ci) {
