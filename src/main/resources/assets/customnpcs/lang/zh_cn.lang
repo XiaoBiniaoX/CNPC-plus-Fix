@@ -1,0 +1,3 @@
+gui.ignoreDamage=配置模糊化
+gui.ignoreNBT=仅名字检查
+gui.save=保存

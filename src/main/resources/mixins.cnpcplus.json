@@ -1,0 +1,45 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": [
+    "recipe.MixinRecipeController",
+    "recipe.MixinRecipeCarpentryMatches",
+    "recipe.MixinRecipeCarpentryFix",
+    "recipe.MixinRecipeCarpentryLoadName",
+    "recipe.MixinRecipeCarpentryWriteNbt",
+    "recipe.MixinRecipeCarpentryOffset",
+    "recipe.MixinContainerManageRecipesSave",
+    "recipe.MixinNoppesUtilServerRecipes",
+    "recipe.MixinPacketHandlerServerRecipes",
+    "script.MixinScriptController",
+    "puppet.MixinJobPuppetEquipment",
+    "puppet.MixinPuppetPartConfig",
+    "puppet.MixinModelDataSharedEquipment",
+    "puppet.MixinSlotNPCArmor",
+    "puppet.MixinModelPartConfigCheckValue",
+    "puppet.MixinDataDisplaySize",
+    "puppet.MixinContainerNPCBankInterface",
+    "puppet.MixinContainerNPCInv",
+    "command.MixinCommandNoppesPerm",
+    "command.MixinCommandNoppesBasePerm"
+  ],
+  "client": [
+    "recipe.MixinGuiNPCGlobalMainMenuRecipes",
+    "recipe.MixinGuiNpcManageRecipesSaveButton",
+    "recipe.MixinGuiNpcManageRecipesLabels",
+    "puppet.MixinGuiNpcDisplaySize",
+    "puppet.MixinGuiNpcPuppetEquipment",
+"puppet.MixinGuiCreationScale",
+    "puppet.MixinModelPlayerAltBodyOffset",
+    "puppet.MixinModelBipedAltBodyOffset",
+    "animation.MixinEntityUtilSwing",
+    "animation.MixinNetHandlerSwing"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
