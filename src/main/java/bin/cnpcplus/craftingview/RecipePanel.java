@@ -3,6 +3,7 @@ package bin.cnpcplus.craftingview;
 import bin.cnpcplus.recipe.CraftUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.Ingredient;
@@ -48,8 +49,26 @@ public final class RecipePanel {
 
     public void reload() {
         all.clear();
-        all.addAll(anvil ? RecipeAccess.getAnvilRecipes() : RecipeAccess.getGlobalRecipes());
+        EntityPlayer player = Minecraft.getMinecraft().player;
+        List<RecipeView> views = anvil ? RecipeAccess.getAnvilRecipes() : RecipeAccess.getGlobalRecipes();
+        for (int i = 0; i < views.size(); i++) {
+            RecipeView v = views.get(i);
+            if (isAvailable(v, player)) {
+                all.add(v);
+            }
+        }
         rebuildFiltered();
+    }
+
+    private boolean isAvailable(RecipeView view, EntityPlayer player) {
+        if (player == null) return true;
+        RecipeCarpentry recipe = anvil ? RecipeAccess.getAnvil(view.id) : RecipeAccess.getGlobal(view.id);
+        if (recipe == null || recipe.availability == null) return true;
+        try {
+            return recipe.availability.isAvailable(player);
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
     public void rebuildFiltered() {

@@ -1,4 +1,5 @@
-cnpcplus.configuration.recipeFuzzyMatchRules=Recipe Fuzzy Match Rules
+recipeFuzzyMatchRules=Recipe Fuzzy Match Rules
+craftingViewEnabled=Crafting View Sidebar
 gui.ignoreDamage=Config Fuzzy
 gui.ignoreNBT=Name Only
 gui.save=Save
