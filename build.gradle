@@ -1,0 +1,117 @@
+buildscript {
+    repositories {
+        maven { url = 'https://files.minecraftforge.net/maven' }
+        maven { url = 'https://repo.spongepowered.org/maven' }
+        maven { url = 'https://maven.cleanroommc.com/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:3.+'
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.spongepowered.mixin'
+apply plugin: 'eclipse'
+
+version = mod_version
+group = mod_group
+archivesBaseName = mod_id
+
+// cnpcplus-<version>-1.12.2Forge.jar
+jar.archiveName = "${mod_id}-${mod_version}-${minecraft_version}Forge.jar"
+
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+
+minecraft {
+    mappings channel: mappings_channel, version: mappings_version
+
+    runs {
+        client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.console.level', 'debug'
+            // MixinBooter provides Mixin at runtime; keep tweaker for dev convenience
+            arg '-torg.spongepowered.asm.launch.MixinTweaker'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createMcpToSrg/output.tsrg"
+        }
+
+        server {
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+            property 'forge.logging.console.level', 'debug'
+            arg '-torg.spongepowered.asm.launch.MixinTweaker'
+        }
+    }
+}
+
+repositories {
+    maven { url = 'https://repo.spongepowered.org/maven' }
+    maven { url = 'https://maven.cleanroommc.com/' }
+}
+
+configurations {
+    embed
+    compile.extendsFrom(embed)
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    // CustomNPCs 1.12.2 — compile only, not bundled
+    compileOnly files('libs/[自定义NPC] CustomNPCs_1.12.2-(05Jul20).jar')
+
+    // MixinBooter for late mixins against other mods (production uses the jar in mods/)
+    compileOnly files('libs/!mixinbooter-10.7.jar')
+
+    // Mixin for annotation processor only (do NOT embed — MixinBooter provides it at runtime)
+    compileOnly('org.spongepowered:mixin:0.8.5') {
+        transitive = false
+    }
+    annotationProcessor('org.spongepowered:mixin:0.8.5:processor') {
+        transitive = false
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'mcversion', minecraft_version
+
+    from(sourceSets.main.resources.srcDirs) {
+        include 'mcmod.info'
+
+        expand 'mod_id': mod_id, 'mod_name': mod_name, 'version': project.version,
+                'mcversion': minecraft_version, 'mod_description': mod_description,
+                'mod_author': mod_author
+    }
+
+    from(sourceSets.main.resources.srcDirs) {
+        exclude 'mcmod.info'
+    }
+}
+
+sourceSets {
+    main {
+        refMap = mod_mixin_refmap.replace('${mod_id}', mod_id)
+    }
+}
+
+// Do NOT register mixin config via early MixinTweaker in production.
+// Late loading is done by CnpcPlusMixinLoader (ILateMixinLoader).
+// Keep MixinGradle config for refmap generation only.
+mixin {
+    // empty on purpose — late loader registers mixins.cnpcplus.json
+}
+
+jar {
+    // Late mixins via ILateMixinLoader; early vanilla Layer* via FMLCorePlugin + IEarlyMixinLoader
+    // Do not embed Mixin / do not set TweakClass (MixinBooter provides mixin runtime)
+    manifest.attributes(
+            'ForceLoadAsMod': 'true',
+            'FMLCorePluginContainsFMLMod': 'true',
+            'FMLCorePlugin': 'bin.cnpcplus.CnpcPlusEarlyMixinLoader'
+    )
+}
+
+jar.finalizedBy('reobfJar')
