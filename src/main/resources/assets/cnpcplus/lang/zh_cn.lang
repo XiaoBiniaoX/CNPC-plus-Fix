@@ -4,6 +4,7 @@ gui.ignoreNBT=仅名字检查
 gui.save=保存
 cnpcplus.recipe.persist=持久化
 cnpcplus.recipe.unpersist=取消持久化
+cnpcplus.recipe.availability=条件（对话/任务）
 cnpcplus.recipe.mode.exact=精确匹配
 cnpcplus.recipe.mode.fuzzy=配置模糊化
 cnpcplus.recipe.mode.nameOnly=仅名字检查

@@ -12,6 +12,7 @@
     "recipe.MixinRecipeCarpentryWriteNbt",
     "recipe.MixinRecipeCarpentryOffset",
     "recipe.MixinContainerManageRecipesSave",
+    "recipe.MixinContainerWorkbenchGate",
     "recipe.MixinNoppesUtilServerRecipes",
     "recipe.MixinPacketHandlerServerRecipes",
     "script.MixinScriptController",

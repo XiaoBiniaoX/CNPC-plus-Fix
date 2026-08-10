@@ -1,6 +1,7 @@
 package bin.cnpcplus.craftingview;
 
 import bin.cnpcplus.CnpcPlus;
+import bin.cnpcplus.config.CnpcPlusConfig;
 import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
 import bin.cnpcplus.craftingview.network.PacketFillCraftingGrid;
 import net.minecraft.client.Minecraft;
@@ -31,11 +32,12 @@ public final class CraftingViewEvents {
     @SubscribeEvent
     public static void onGuiOpen(GuiOpenEvent event) {
         GuiScreen screen = event.getGui();
+        boolean enabled = CnpcPlusConfig.isCraftingViewEnabled();
         if (screen instanceof GuiNpcCarpentryBench) {
-            activePanel = new RecipePanel(true);
+            activePanel = enabled ? new RecipePanel(true) : null;
             lastSearch = "";
         } else if (screen instanceof GuiCrafting) {
-            activePanel = new RecipePanel(false);
+            activePanel = enabled ? new RecipePanel(false) : null;
             lastSearch = "";
         } else {
             activePanel = null;

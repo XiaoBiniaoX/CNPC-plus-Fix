@@ -9,6 +9,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.translation.I18n;
 import noppes.npcs.client.Client;
+import noppes.npcs.client.gui.SubGuiNpcAvailability;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.client.gui.util.GuiCustomScroll;
 import noppes.npcs.client.gui.util.GuiNpcButton;
@@ -52,6 +53,10 @@ public class MixinGuiNpcManageRecipesSaveButton {
         }
         if (self.getButton(8) == null) {
             self.addButton(new GuiNpcButton(8, self.field_147003_i + 306, self.field_147009_r + 148, 84, 20, "cnpcplus.recipe.unpersist"));
+        }
+        // id 9 = availability (dialog/quest conditions), opens CNPC native editor
+        if (self.getButton(9) == null) {
+            self.addButton(new GuiNpcButton(9, self.field_147003_i + 306, self.field_147009_r + 170, 84, 20, "cnpcplus.recipe.availability"));
         }
         cnpcplusRefresh(self);
     }
@@ -97,6 +102,18 @@ public class MixinGuiNpcManageRecipesSaveButton {
                 }
             } catch (Throwable t) {
                 CnpcPlus.LOGGER.error("[GUI] unpersist button failed", t);
+            }
+            ci.cancel();
+            return;
+        }
+
+        if (id == 9) {
+            try {
+                if (this.container != null && this.container.recipe != null) {
+                    self.setSubGui(new SubGuiNpcAvailability(this.container.recipe.availability));
+                }
+            } catch (Throwable t) {
+                CnpcPlus.LOGGER.error("[GUI] availability button failed", t);
             }
             ci.cancel();
             return;
@@ -398,6 +415,11 @@ public class MixinGuiNpcManageRecipesSaveButton {
             if (unpersist != null) {
                 unpersist.displayString = cnpcplusLabel("cnpcplus.recipe.unpersist", "Unpersist");
                 unpersist.setEnabled(has && p);
+            }
+            GuiNpcButton availability = self.getButton(9);
+            if (availability != null) {
+                availability.displayString = cnpcplusLabel("cnpcplus.recipe.availability", "Conditions");
+                availability.setEnabled(this.selected != null && !this.selected.isEmpty());
             }
         } catch (Throwable ignored) {
         }

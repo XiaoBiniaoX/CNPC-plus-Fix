@@ -4,6 +4,7 @@ gui.ignoreNBT=Name Only
 gui.save=Save
 cnpcplus.recipe.persist=Persist
 cnpcplus.recipe.unpersist=Unpersist
+cnpcplus.recipe.availability=Conditions (Dialog/Quest)
 cnpcplus.recipe.mode.exact=Exact Match
 cnpcplus.recipe.mode.fuzzy=Config Fuzzy
 cnpcplus.recipe.mode.nameOnly=Name Only
