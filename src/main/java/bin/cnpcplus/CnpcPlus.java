@@ -1,5 +1,6 @@
 package bin.cnpcplus;
 
+import bin.cnpcplus.bard.BardSoundCategory;
 import bin.cnpcplus.config.CnpcPlusConfig;
 import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
 import bin.cnpcplus.recipe.RecipeDebugCommand;
@@ -31,6 +32,9 @@ public class CnpcPlus {
     @Mod.EventHandler
     public void onInit(FMLInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
+        if (event.getSide().isClient()) {
+            BardSoundCategory.init();
+        }
     }
 
     @Mod.EventHandler

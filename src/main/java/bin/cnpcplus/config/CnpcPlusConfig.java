@@ -29,6 +29,10 @@ public class CnpcPlusConfig {
                 true,
                 "Show the crafting recipe sidebar on carpentry bench / workbench"
         );
+        config.getFloat("BardVolume", "bard", 1.0F, 0.0F, 1.0F,
+                "Bard music volume multiplier (0.0-1.0)");
+        config.getInt("BardWatchdogSeconds", "bard", 300, 1, 3600,
+                "Watchdog seconds: force-switch a bard song that plays longer than this");
         if (config.hasChanged()) {
             config.save();
         }
@@ -52,5 +56,17 @@ public class CnpcPlusConfig {
     public static boolean isCraftingViewEnabled() {
         return config == null || config.getBoolean("craftingViewEnabled", "craftingview", true,
                 "Show the crafting recipe sidebar on carpentry bench / workbench");
+    }
+
+    /** Bard music volume multiplier (0.0-1.0), applies to bard playlist playback. */
+    public static float getBardVolume() {
+        return config == null ? 1.0F : config.getFloat("BardVolume", "bard", 1.0F, 0.0F, 1.0F,
+                "Bard music volume multiplier (0.0-1.0)");
+    }
+
+    /** Watchdog: force-switch a bard song that plays longer than this (seconds). */
+    public static int getBardWatchdogSeconds() {
+        return config == null ? 300 : config.getInt("BardWatchdogSeconds", "bard", 300, 1, 3600,
+                "Watchdog seconds: force-switch a bard song that plays longer than this");
     }
 }

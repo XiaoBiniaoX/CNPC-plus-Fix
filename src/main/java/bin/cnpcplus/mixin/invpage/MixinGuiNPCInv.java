@@ -4,6 +4,7 @@ import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
 import bin.cnpcplus.invpage.DropPageStore;
 import bin.cnpcplus.invpage.network.PacketNpcInvPage;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.util.text.translation.I18n;
 import noppes.npcs.client.gui.mainmenu.GuiNPCInv;
 import noppes.npcs.client.gui.util.GuiContainerNPCInterface;
 import noppes.npcs.client.gui.util.GuiNpcButton;
@@ -63,6 +64,28 @@ public class MixinGuiNPCInv {
         }
     }
 
+    /**
+     * Vanilla mode button (id 10) only offers 0/1 (stats.normal / inv.auto).
+     * Replace it with the 1.20.1 five-mode cycle: 0 scatter, 1 auto-pickup,
+     * 2 drop in place, 3 spread +/-1 block, 4 random scatter.
+     * GuiNpcButton.func_146116_c cycles (value+1)%length, so vanilla
+     * actionPerformed (lootMode = getValue()) needs no changes.
+     * Done via reflection on the protected display array at TAIL: a
+     * @Redirect on the constructor silently fails (see findings 7d), and
+     * addButton() would leave the old button in buttonList (draws first).
+     */
+    private static final Field CNPCPLUS_DISPLAY = cnpcplus$findDisplay();
+
+    private static Field cnpcplus$findDisplay() {
+        try {
+            Field f = GuiNpcButton.class.getDeclaredField("display");
+            f.setAccessible(true);
+            return f;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     @Inject(method = "func_73866_w_", at = @At("TAIL"), remap = false)
     private void cnpcplus$pageControls(CallbackInfo ci) {
         GuiNPCInv self = (GuiNPCInv) (Object) this;
@@ -81,10 +104,22 @@ public class MixinGuiNPCInv {
             }
             chances.put(slot, chance);
             slider.sliderValue = chance / 100.0f;
+            slider.displayString = I18n.translateToLocal("inv.dropChance") + ": " + chance + "%";
         }
         self.addButton(new GuiNpcButton(100, self.field_147003_i + 50, self.field_147009_r + 195, 20, 20, "<"));
         self.addButton(new GuiNpcButton(101, self.field_147003_i + 100, self.field_147009_r + 195, 20, 20, ">"));
         self.addLabel(new GuiNpcLabel(200, (page + 1) + "/3", self.field_147003_i + 75, self.field_147009_r + 200));
+        GuiNpcButton lootBtn = self.getButton(10);
+        if (lootBtn != null && CNPCPLUS_DISPLAY != null) {
+            try {
+                Object current = CNPCPLUS_DISPLAY.get(lootBtn);
+                if (current == null || ((String[]) current).length < 5) {
+                    CNPCPLUS_DISPLAY.set(lootBtn, new String[]{"stats.normal", "inv.auto", "cnpcplus.lootMode.feet", "cnpcplus.lootMode.spread", "cnpcplus.lootMode.fly"});
+                }
+                lootBtn.setDisplay(self.npc.inventory.lootMode);
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     @Inject(method = "func_146284_a", at = @At("HEAD"), cancellable = true, remap = false)

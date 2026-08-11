@@ -27,12 +27,14 @@
     "command.MixinCommandNoppesPerm",
     "command.MixinCommandNoppesBasePerm",
     "invpage.MixinDataInventoryDropPage",
+    "drop.MixinDataInventoryDrop",
     "trader.MixinRoleTraderPages",
     "trader.MixinContainerNPCTraderSync",
     "quest.MixinQuestItemGrid",
     "quest.MixinQuestRewardGrid",
     "quest.MixinContainerNpcQuestTypeItem",
-    "quest.MixinContainerNpcQuestReward"
+    "quest.MixinContainerNpcQuestReward",
+    "bard.MixinJobBard"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -50,7 +52,10 @@
     "trader.MixinGuiNpcTraderSetupPages",
     "trader.MixinGuiContainerNPCInterfaceTitle",
     "quest.MixinGuiNpcQuestTypeItem",
-    "quest.MixinGuiNpcQuestReward"
+    "quest.MixinGuiNpcQuestReward",
+    "bard.MixinJobBardClient",
+    "bard.MixinGuiNpcBard",
+    "bard.MixinMusicController"
   ],
   "server": [],
   "injectors": {
