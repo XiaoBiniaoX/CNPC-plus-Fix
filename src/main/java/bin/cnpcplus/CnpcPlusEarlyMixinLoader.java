@@ -4,13 +4,15 @@ import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
 import zone.rong.mixinbooter.IEarlyMixinLoader;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Early mixin loader as FML coremod so MixinBooter gathers it from coremodList.
- * Targets vanilla Layer* classes that are already loaded by late-mixin time.
+ * Targets classes that are loaded before late-mixin time (vanilla Layer*,
+ * NetHandlerPlayClient when other coremods load it early).
  * NO CNPC imports here.
  */
 @IFMLLoadingPlugin.Name("CNPCPlusEarly")
@@ -20,7 +22,7 @@ public class CnpcPlusEarlyMixinLoader implements IFMLLoadingPlugin, IEarlyMixinL
 
     @Override
     public List<String> getMixinConfigs() {
-        return Collections.singletonList("mixins.cnpcplus.early.json");
+        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json");
     }
 
     @Override

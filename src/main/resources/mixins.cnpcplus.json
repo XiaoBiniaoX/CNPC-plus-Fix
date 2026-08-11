@@ -46,7 +46,6 @@
     "puppet.MixinModelPlayerAltBodyOffset",
     "puppet.MixinModelBipedAltBodyOffset",
     "animation.MixinEntityUtilSwing",
-    "animation.MixinNetHandlerSwing",
     "invpage.MixinGuiNPCInv",
     "trader.MixinGuiNPCTraderPages",
     "trader.MixinGuiNpcTraderSetupPages",

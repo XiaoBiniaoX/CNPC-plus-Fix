@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.animation",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": [],
+  "client": [
+    "MixinNetHandlerSwing"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
