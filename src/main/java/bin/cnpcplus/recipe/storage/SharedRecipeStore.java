@@ -77,7 +77,6 @@ public final class SharedRecipeStore {
                 }
                 putInternal(r);
             }
-            CnpcPlus.LOGGER.info("[SharedRecipeStore] loaded {}", Integer.valueOf(byName.size()));
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[SharedRecipeStore] load failed", e);
         }
@@ -118,7 +117,6 @@ public final class SharedRecipeStore {
                 fileNew.delete();
             }
             if (fileNew.exists()) fileNew.delete();
-            CnpcPlus.LOGGER.info("[SharedRecipeStore] saved {}", Integer.valueOf(list.tagCount()));
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[SharedRecipeStore] save failed", e);
         }

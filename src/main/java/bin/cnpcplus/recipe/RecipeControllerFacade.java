@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe;
 
-import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.id.RecipeIds;
 import bin.cnpcplus.recipe.runtime.RecipeRuntime;
 import bin.cnpcplus.recipe.services.RecipeServices;
@@ -21,7 +20,6 @@ public final class RecipeControllerFacade {
     private RecipeControllerFacade() {}
 
     public static void loadAll(RecipeController controller) {
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] loadAll");
         RecipeStorage.INSTANCE.loadAll(controller);
         reloadGlobalRecipes(controller);
         if (RecipeDebug.enabled()) {
@@ -30,9 +28,6 @@ public final class RecipeControllerFacade {
     }
 
     public static void reloadGlobalRecipes(RecipeController controller) {
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] reloadGlobalRecipes count={}",
-                controller != null && controller.globalRecipes != null
-                        ? Integer.valueOf(controller.globalRecipes.size()) : Integer.valueOf(0));
         RecipeServices.reloadGlobalIntoRecipeManager(controller);
     }
 
@@ -49,7 +44,6 @@ public final class RecipeControllerFacade {
         boolean emptyDraft = (recipe.getResult() == null || recipe.getResult().isEmpty())
                 && (recipe.getIngredients() == null || recipe.getIngredients().isEmpty());
         if (emptyDraft && preferredSyncId <= 0 && recipe.id <= 0) {
-            CnpcPlus.LOGGER.info("[RecipeControllerFacade] skip empty draft name={}", recipe.name);
             return recipe;
         }
 
@@ -111,8 +105,6 @@ public final class RecipeControllerFacade {
             }
         }
 
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] saved name={} id={} global={}",
-                recipe.name, Integer.valueOf(id), Boolean.valueOf(recipe.isGlobal));
         return recipe;
     }
 
@@ -162,7 +154,6 @@ public final class RecipeControllerFacade {
                 Server.sendToAll(server, EnumPacketClient.SYNC_REMOVE, new Object[]{Integer.valueOf(7), Integer.valueOf(syncId)});
             }
         }
-        CnpcPlus.LOGGER.info("[RecipeControllerFacade] deleted name={} id={}", recipe.name, Integer.valueOf(syncId));
         recipe.id = -1;
         return recipe;
     }

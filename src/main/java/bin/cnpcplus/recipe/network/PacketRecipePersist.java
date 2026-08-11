@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe.network;
 
-import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.RecipeControllerFacade;
 import bin.cnpcplus.recipe.storage.SharedRecipeStore;
 import io.netty.buffer.ByteBuf;
@@ -57,14 +56,12 @@ public class PacketRecipePersist implements IMessage {
                 return;
             }
             boolean ok = SharedRecipeStore.INSTANCE.persist(recipe);
-            CnpcPlus.LOGGER.info("[Persist] persist name={} id={} ok={}", recipe.name, Integer.valueOf(syncId), Boolean.valueOf(ok));
             player.sendMessage(new TextComponentString(ok
                     ? "[CNPCPlus] persisted: " + recipe.name
                     : "[CNPCPlus] persist failed"));
         } else {
             String name = recipe != null ? recipe.name : null;
             boolean ok = SharedRecipeStore.INSTANCE.unpersist(syncId, name);
-            CnpcPlus.LOGGER.info("[Persist] unpersist id={} name={} ok={}", Integer.valueOf(syncId), name, Boolean.valueOf(ok));
             player.sendMessage(new TextComponentString(ok
                     ? "[CNPCPlus] unpersisted" + (name != null ? (": " + name) : "")
                     : "[CNPCPlus] not in shared file"));

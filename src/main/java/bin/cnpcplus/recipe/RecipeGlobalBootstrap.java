@@ -44,12 +44,10 @@ public final class RecipeGlobalBootstrap {
 
     private static void reinject(String phase) {
         if (RecipeController.instance == null) {
-            CnpcPlus.LOGGER.debug("[RecipeGlobalBootstrap] {} skip: controller null", phase);
             return;
         }
         try {
             RecipeServices.reloadGlobalIntoRecipeManager(RecipeController.instance);
-            CnpcPlus.LOGGER.info("[RecipeGlobalBootstrap] {} reinjected globals", phase);
         } catch (Throwable t) {
             CnpcPlus.LOGGER.error("[RecipeGlobalBootstrap] " + phase + " failed", t);
         }

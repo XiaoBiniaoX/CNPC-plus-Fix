@@ -45,8 +45,6 @@ public class MixinPacketHandlerServerRecipes {
             RecipeCarpentry saved = RecipeControllerFacade.saveRecipe(recipe, controller, preferred);
             NoppesUtilServer.sendRecipeData(player, saved.isGlobal ? 3 : 4);
             NoppesUtilServer.setRecipeGui(player, saved);
-            CnpcPlus.LOGGER.info("[Packet] RecipeSave name={} id={} preferred={}",
-                    saved.name, Integer.valueOf(saved.id), Integer.valueOf(preferred));
             ci.cancel();
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[Packet] RecipeSave failed", e);

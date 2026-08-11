@@ -1,6 +1,5 @@
 package bin.cnpcplus.mixin.recipe;
 
-import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.CraftUtils;
 import bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor;
 import net.minecraft.inventory.InventoryBasic;
@@ -95,7 +94,6 @@ public class MixinContainerManageRecipesSave {
             r.isGlobal = keepGlobal;
             r.id = keepId;
             this.recipe = r;
-            CnpcPlus.LOGGER.info("[ContainerSave] empty pattern name={} width={} isGlobal={}", keepName, Integer.valueOf(this.width), Boolean.valueOf(keepGlobal));
             ci.cancel();
             return;
         }
@@ -143,9 +141,6 @@ public class MixinContainerManageRecipesSave {
             this.craftingMatrix.setInventorySlotContents(i + 1, grid[i].isEmpty() ? ItemStack.EMPTY : grid[i].copy());
         }
 
-        CnpcPlus.LOGGER.info("[ContainerSave] name={} width={} isGlobal={} offset={},{}",
-                saved.name, Integer.valueOf(this.width), Boolean.valueOf(saved.isGlobal),
-                Integer.valueOf(firstCol), Integer.valueOf(firstRow));
         ci.cancel();
     }
 

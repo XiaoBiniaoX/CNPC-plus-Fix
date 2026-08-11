@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe.sync;
 
-import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.id.RecipeIds;
 import net.minecraft.entity.player.EntityPlayerMP;
 import noppes.npcs.NoppesUtilServer;
@@ -38,7 +37,6 @@ public final class RecipeSync {
                 }
             }
         }
-        CnpcPlus.LOGGER.debug("[RecipeSync] send list size={} count={}", Integer.valueOf(size), Integer.valueOf(map.size()));
         NoppesUtilServer.sendScrollData(player, new HashMap<String, Integer>(map));
     }
 }

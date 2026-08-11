@@ -1,5 +1,6 @@
 package bin.cnpcplus.bard;
 
+import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.config.CnpcPlusConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.GameSettings;
@@ -42,9 +43,12 @@ public final class BardSoundCategory {
             SoundCategory master = SoundCategory.MASTER;
 
             Unsafe unsafe = getUnsafe();
-            if (unsafe == null) return;
+            if (unsafe == null) {
+                CnpcPlus.LOGGER.error("BardSoundCategory: cannot get Unsafe");
+                return;
+            }
             SoundCategory bard = (SoundCategory) unsafe.allocateInstance(SoundCategory.class);
-            setField(SoundCategory.class.getDeclaredField("name"), bard, NAME);
+            setField(SoundCategory.class.getDeclaredField("field_187962_l"), bard, NAME);
             setField(Enum.class.getDeclaredField("ordinal"), bard, master.ordinal() + 1);
 
             Field valuesField = SoundCategory.class.getDeclaredField("$VALUES");
@@ -52,9 +56,11 @@ public final class BardSoundCategory {
             SoundCategory[] oldValues = (SoundCategory[]) valuesField.get(null);
             SoundCategory[] nextValues = Arrays.copyOf(oldValues, oldValues.length + 1);
             nextValues[oldValues.length] = bard;
-            valuesField.set(null, nextValues);
+            Object base = unsafe.staticFieldBase(valuesField);
+            long offset = unsafe.staticFieldOffset(valuesField);
+            unsafe.putObject(base, offset, nextValues);
 
-            Field mapField = SoundCategory.class.getDeclaredField("SOUND_CATEGORIES");
+            Field mapField = SoundCategory.class.getDeclaredField("field_187961_k");
             mapField.setAccessible(true);
             @SuppressWarnings("unchecked")
             Map<String, SoundCategory> categories = (Map<String, SoundCategory>) mapField.get(null);
@@ -62,7 +68,8 @@ public final class BardSoundCategory {
 
             BARD = bard;
             migrateLegacyVolume();
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            CnpcPlus.LOGGER.error("BardSoundCategory.init failed", t);
         }
     }
 

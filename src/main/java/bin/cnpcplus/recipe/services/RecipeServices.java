@@ -46,7 +46,6 @@ public final class RecipeServices {
             }
         }
         if (registry == null) {
-            CnpcPlus.LOGGER.debug("[RecipeServices] reloadGlobal skip: Registry null");
             return;
         }
 
@@ -71,7 +70,6 @@ public final class RecipeServices {
             invokeRemove(registry, toRemove.get(i));
         }
 
-        int added = 0;
         if (controller.globalRecipes != null) {
             for (Map.Entry<Integer, RecipeCarpentry> e : controller.globalRecipes.entrySet()) {
                 RecipeCarpentry recipe = e.getValue();
@@ -84,7 +82,6 @@ public final class RecipeServices {
                     recipe.setRegistryName(id);
                     invokeRemove(registry, id);
                     invokeAdd(registry, recipe);
-                    added++;
                     if (RecipeDebug.enabled()) {
                         RecipeDebug.info("inject id={} name={} valid={}", id, recipe.name, Boolean.valueOf(recipe.isValid()));
                     }
@@ -97,9 +94,6 @@ public final class RecipeServices {
         if (unfroze) {
             invokeFreeze(registry);
         }
-
-        CnpcPlus.LOGGER.info("[RecipeServices] reloadGlobal into RecipeRegistry: added={} removed={}",
-                Integer.valueOf(added), Integer.valueOf(toRemove.size()));
     }
 
     private static void resolveMethods() {
@@ -153,7 +147,6 @@ public final class RecipeServices {
         try {
             freezeMethod.invoke(registry);
         } catch (Throwable t) {
-            CnpcPlus.LOGGER.debug("[RecipeServices] freeze invoke failed: " + t);
         }
     }
 
@@ -162,7 +155,6 @@ public final class RecipeServices {
         try {
             removeMethod.invoke(registry, id);
         } catch (Throwable t) {
-            CnpcPlus.LOGGER.debug("[RecipeServices] remove " + id + " failed: " + t);
         }
     }
 
@@ -187,9 +179,8 @@ public final class RecipeServices {
                 } catch (NoSuchFieldException e) {
                     c = c.getSuperclass();
                 }
+                }
+            } catch (Throwable t) {
             }
-        } catch (Throwable t) {
-            CnpcPlus.LOGGER.debug("[RecipeServices] clearRegistryName: " + t);
         }
     }
-}

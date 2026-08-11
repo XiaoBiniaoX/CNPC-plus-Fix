@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe.id;
 
-import bin.cnpcplus.CnpcPlus;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 
 import java.util.HashMap;
@@ -24,7 +23,6 @@ public final class RecipeIds {
         bySyncRecipe.clear();
         byNameLower.clear();
         nextSyncId.set(1);
-        CnpcPlus.LOGGER.debug("[RecipeIds] cleared");
     }
 
     public Integer syncIdOfRecipe(RecipeCarpentry recipe) {

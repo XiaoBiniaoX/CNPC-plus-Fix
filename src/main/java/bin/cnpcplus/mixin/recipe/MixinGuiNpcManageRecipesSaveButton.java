@@ -174,7 +174,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
         nbt.setString("Name", name);
         Client.sendData(EnumPacketServer.RecipeSave, new Object[]{nbt});
         cnpcplusRefresh(self);
-        CnpcPlus.LOGGER.info("[GUI] add new recipe name={} global={}", name, Boolean.valueOf(recipe.isGlobal));
     }
 
     private void cnpcplusSaveCurrent(GuiNpcManageRecipes self, boolean forceUnfocus) {
@@ -219,7 +218,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
             this.data.put(recipe.name, Integer.valueOf(syncId));
         }
         this.selected = recipe.name;
-        CnpcPlus.LOGGER.info("[GUI] save current name={} syncId={} global={}", recipe.name, Integer.valueOf(syncId), Boolean.valueOf(recipe.isGlobal));
     }
 
     private boolean cnpcplusShouldSaveBeforeAdd() {

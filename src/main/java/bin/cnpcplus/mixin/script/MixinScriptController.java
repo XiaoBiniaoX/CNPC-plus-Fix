@@ -45,7 +45,6 @@ public class MixinScriptController {
                 loadJsTree(folder, FOLDERS[i] + "/");
             }
             this.lastLoaded = System.currentTimeMillis();
-            CnpcPlus.LOGGER.info("[Script] global scripts dir loaded under {}", scriptsRoot.getAbsolutePath());
         } catch (Throwable t) {
             CnpcPlus.LOGGER.error("[Script] global load failed", t);
         }

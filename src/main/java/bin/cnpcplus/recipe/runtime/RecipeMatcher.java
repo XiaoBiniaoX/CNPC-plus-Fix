@@ -1,6 +1,5 @@
 package bin.cnpcplus.recipe.runtime;
 
-import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.MatchResult;
 import bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor;
 import bin.cnpcplus.recipe.services.RecipeServices;
@@ -31,9 +30,6 @@ public final class RecipeMatcher {
 
             MatchResult hit = matchOne(recipe, inv, gridW, gridH);
             if (hit.hit()) {
-                CnpcPlus.LOGGER.info("[RecipeMatcher] hit name={} offset={},{} grid={}x{}",
-                        recipe.name, Integer.valueOf(hit.offsetX), Integer.valueOf(hit.offsetY),
-                        Integer.valueOf(gridW), Integer.valueOf(gridH));
                 return hit;
             }
         }

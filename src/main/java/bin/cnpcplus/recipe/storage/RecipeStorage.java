@@ -90,9 +90,6 @@ public final class RecipeStorage {
         controller.globalRecipes = global;
         controller.anvilRecipes = anvil;
         controller.nextId = Math.max(controller.nextId, RecipeIds.INSTANCE.peekNextSyncId());
-        CnpcPlus.LOGGER.info("[RecipeStorage] loaded world+shared global={} anvil={} shared={}",
-                Integer.valueOf(global.size()), Integer.valueOf(anvil.size()),
-                Integer.valueOf(SharedRecipeStore.INSTANCE.all().size()));
     }
 
     private void loadInto(File file, HashMap<Integer, RecipeCarpentry> global,
@@ -163,7 +160,6 @@ public final class RecipeStorage {
                 fileNew.delete();
             }
             if (fileNew.exists()) fileNew.delete();
-            CnpcPlus.LOGGER.info("[RecipeStorage] saved world recipes count={}", Integer.valueOf(list.tagCount()));
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipeStorage] save failed", e);
         }
