@@ -29,3 +29,7 @@ cnpcplus.puppet.helmet=头盔
 cnpcplus.puppet.chestplate=甲胄
 cnpcplus.puppet.leggings=护腿
 cnpcplus.puppet.boots=靴子
+cnpcplus.trader.pagetitle=页面标题
+cnpcplus.trader.prev=上一页
+cnpcplus.trader.next=下一页
+cnpcplus.trader.deletepage=删除第 %s 页（共 %s 页）

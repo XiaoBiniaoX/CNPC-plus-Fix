@@ -25,7 +25,14 @@
     "puppet.MixinContainerNPCBankInterface",
     "puppet.MixinContainerNPCInv",
     "command.MixinCommandNoppesPerm",
-    "command.MixinCommandNoppesBasePerm"
+    "command.MixinCommandNoppesBasePerm",
+    "invpage.MixinDataInventoryDropPage",
+    "trader.MixinRoleTraderPages",
+    "trader.MixinContainerNPCTraderSync",
+    "quest.MixinQuestItemGrid",
+    "quest.MixinQuestRewardGrid",
+    "quest.MixinContainerNpcQuestTypeItem",
+    "quest.MixinContainerNpcQuestReward"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -37,7 +44,13 @@
     "puppet.MixinModelPlayerAltBodyOffset",
     "puppet.MixinModelBipedAltBodyOffset",
     "animation.MixinEntityUtilSwing",
-    "animation.MixinNetHandlerSwing"
+    "animation.MixinNetHandlerSwing",
+    "invpage.MixinGuiNPCInv",
+    "trader.MixinGuiNPCTraderPages",
+    "trader.MixinGuiNpcTraderSetupPages",
+    "trader.MixinGuiContainerNPCInterfaceTitle",
+    "quest.MixinGuiNpcQuestTypeItem",
+    "quest.MixinGuiNpcQuestReward"
   ],
   "server": [],
   "injectors": {

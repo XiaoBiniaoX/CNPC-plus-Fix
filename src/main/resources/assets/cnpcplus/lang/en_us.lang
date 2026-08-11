@@ -29,3 +29,7 @@ cnpcplus.puppet.helmet=Helmet
 cnpcplus.puppet.chestplate=Chestplate
 cnpcplus.puppet.leggings=Leggings
 cnpcplus.puppet.boots=Boots
+cnpcplus.trader.pagetitle=Page Title
+cnpcplus.trader.prev=Prev Page
+cnpcplus.trader.next=Next Page
+cnpcplus.trader.deletepage=Delete Page %s (%s pages)
