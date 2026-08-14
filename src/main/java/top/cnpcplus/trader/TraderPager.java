@@ -4,7 +4,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.world.item.ItemStack;
 import noppes.npcs.NpcMiscInventory;
 import noppes.npcs.roles.RoleTrader;
 
@@ -160,26 +159,7 @@ public class TraderPager {
             }
             tag.put("PageTitles", titleList);
         }
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").warn(
-                "[trader] toNBT pages={} titles={} cur=[{}] sold=[{}]",
-                c.size(), titles == null ? "null" : titles.toString(),
-                cnpcplus$summary(c), cnpcplus$summary(SOLD.get(role)));
         return tag;
-    }
-
-    private static String cnpcplus$summary(List<NpcMiscInventory> list) {
-        StringBuilder sb = new StringBuilder();
-        for (int p = 0; p < list.size(); p++) {
-            NpcMiscInventory inv = list.get(p);
-            if (p > 0) sb.append("|");
-            for (int i = 0; i < Math.min(4, inv.getContainerSize()); i++) {
-                ItemStack st = inv.getItem(i);
-                if (!st.isEmpty()) {
-                    sb.append(p).append(':').append(i).append('=').append(st.getItem()).append('x').append(st.getCount()).append(' ');
-                }
-            }
-        }
-        return sb.toString().trim();
     }
 
     public static void fromNBT(RoleTrader role, CompoundTag compound) {
@@ -236,9 +216,5 @@ public class TraderPager {
             }
             TITLES.put(role, titles);
         }
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").warn(
-                "[trader] fromNBT pages={} full={} titles={} cur=[{}] sold=[{}]",
-                c.size(), full, titles.toString(),
-                cnpcplus$summary(c), cnpcplus$summary(s));
     }
 }

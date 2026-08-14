@@ -76,7 +76,7 @@ public class QuestTriggerOverlay {
 
             pose.popPose();
         } catch (Throwable t) {
-            System.out.println("[QuestTrigger] overlay draw error: " + t);
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("任务触发器区域绘制失败", t);
         }
     }
 

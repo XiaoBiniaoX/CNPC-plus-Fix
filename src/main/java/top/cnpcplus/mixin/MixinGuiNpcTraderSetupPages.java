@@ -93,8 +93,6 @@ public class MixinGuiNpcTraderSetupPages {
             int page = TraderPager.getPage(this.role);
             String value = tf.getValue();
             TraderPager.setPageTitle(this.role, page, value);
-            org.slf4j.LoggerFactory.getLogger("cnpcplus").warn(
-                    "[trader] title page={} value={}", page, value);
         }
     }
 }

@@ -38,7 +38,7 @@ public class MixinCmdNoppesCommandBlock {
             f.setAccessible(true);
             return f;
         } catch (Exception e) {
-            e.printStackTrace();
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("获取命令节点 requirement 字段失败", e);
             return null;
         }
     }

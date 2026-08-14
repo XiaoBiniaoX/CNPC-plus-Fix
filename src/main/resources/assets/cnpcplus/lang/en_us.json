@@ -45,5 +45,6 @@
   "cnpcplus.questtrigger.select": "Select",
   "cnpcplus.questtrigger.overlayOn": "Region Display: On",
   "cnpcplus.questtrigger.overlayOff": "Region Display: Off",
-  "cnpcplus.questtrigger.done": "Done"
+  "cnpcplus.questtrigger.done": "Done",
+  "cnpcplus.follower.dismiss": "Dismiss"
 }

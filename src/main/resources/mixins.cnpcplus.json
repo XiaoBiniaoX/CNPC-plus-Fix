@@ -46,7 +46,13 @@
     "AbstractContainerMenuInvoker",
     "MixinDataInventoryDropPage",
     "MixinRoleTraderPages",
-    "MixinJobBard"
+    "MixinJobBard",
+    "MixinEntityWrapperParticles",
+    "MixinBlockWrapperParticles",
+    "MixinItemScriptedWrapperParticles",
+    "MixinDataAIWalkingSpeed",
+    "MixinEntityNPCWalkingSpeed",
+    "MixinEntityNPCFlyingFix"
   ],
   "client": [
     "MixinGuiCreationScale",
@@ -80,7 +86,9 @@
     "MixinSoundOptionsScreen",
     "MixinJobBardClient",
     "MixinGuiNpcQuestTypeItem",
-    "MixinGuiNpcQuestReward"
+    "MixinGuiNpcQuestReward",
+    "MixinGuiNpcFollowerDismiss",
+    "MixinSubGuiNpcMovementSpeed"
   ],
   "server": []
 }

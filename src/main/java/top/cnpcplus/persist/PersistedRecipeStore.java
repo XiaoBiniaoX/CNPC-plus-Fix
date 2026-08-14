@@ -53,7 +53,7 @@ public final class PersistedRecipeStore {
                 map.put(recipe.getId(), recipe);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("读取持久化配方文件失败", e);
         }
         return map;
     }
@@ -86,7 +86,7 @@ public final class PersistedRecipeStore {
                 tmp.delete();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("写入持久化配方文件失败", e);
         }
     }
 

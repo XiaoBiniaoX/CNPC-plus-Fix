@@ -45,5 +45,6 @@
   "cnpcplus.questtrigger.select": "Выбрать",
   "cnpcplus.questtrigger.overlayOn": "Область: Вкл",
   "cnpcplus.questtrigger.overlayOff": "Область: Выкл",
-  "cnpcplus.questtrigger.done": "Готово"
+  "cnpcplus.questtrigger.done": "Готово",
+  "cnpcplus.follower.dismiss": "Уволить"
 }

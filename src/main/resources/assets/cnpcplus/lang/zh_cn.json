@@ -45,5 +45,6 @@
   "cnpcplus.questtrigger.select": "选择",
   "cnpcplus.questtrigger.overlayOn": "区域显示: 开",
   "cnpcplus.questtrigger.overlayOff": "区域显示: 关",
-  "cnpcplus.questtrigger.done": "完成"
+  "cnpcplus.questtrigger.done": "完成",
+  "cnpcplus.follower.dismiss": "解雇"
 }

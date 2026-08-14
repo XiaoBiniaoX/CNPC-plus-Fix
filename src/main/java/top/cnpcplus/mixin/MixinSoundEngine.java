@@ -60,7 +60,11 @@ public abstract class MixinSoundEngine {
 
     @Redirect(method = "tickNonPaused", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;getSoundSourceVolume(Lnet/minecraft/sounds/SoundSource;)F"))
     private float cnpcplus$tickSourceVolume(Options options, SoundSource source) {
-        if (source == SoundSource.MUSIC
+        // 原版 tickNonPaused 对源音量为 0 的通道执行 stop + remove。
+        // 吟游诗人使用 MUSIC/RECORDS 通道，玩家把这两个通道调 0 时通道会被每 tick 掐死，
+        // 导致 isActive 恒为 false，引发 500ms 重播叠加、距离检查失效、滑块失去实时控制。
+        // 这里仅在诗人正在播放时保活其所属通道，真实音量由 applyBardVolume 决定。
+        if ((source == SoundSource.MUSIC || source == SoundSource.RECORDS)
                 && MusicController.Instance != null && MusicController.Instance.playing != null) {
             return 1.0F;
         }
@@ -85,7 +89,9 @@ public abstract class MixinSoundEngine {
     @Unique
     private float cnpcplus$applyBardVolume(SoundInstance inst, float volume, SoundSource source) {
         if (inst != null && MusicController.Instance != null && inst == MusicController.Instance.playing) {
-            return (float) (volume * CnpcPlusConfigData.BardVolume.get().doubleValue());
+            // 诗人音乐只受「吟游诗人」滑块与主音量控制，不受被保活的 MUSIC/RECORDS 通道影响
+            float master = Minecraft.getInstance().options.getSoundSourceVolume(SoundSource.MASTER);
+            return (float) (volume * master * CnpcPlusConfigData.BardVolume.get().doubleValue());
         }
         return volume * Minecraft.getInstance().options.getSoundSourceVolume(source);
     }

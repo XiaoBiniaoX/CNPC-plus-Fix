@@ -69,7 +69,7 @@ public final class ExternalScriptStore {
             }
             return sb.toString();
         } catch (Exception e) {
-            e.printStackTrace();
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("读取外部脚本文件失败: {}", file, e);
             return null;
         }
     }

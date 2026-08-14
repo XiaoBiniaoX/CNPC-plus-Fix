@@ -103,7 +103,7 @@ public class MixinRecipeControllerSaveId {
             m.setAccessible(true);
             m.invoke(self);
         } catch (Exception e) {
-            e.printStackTrace();
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("保存配方分类失败", e);
         }
     }
 }

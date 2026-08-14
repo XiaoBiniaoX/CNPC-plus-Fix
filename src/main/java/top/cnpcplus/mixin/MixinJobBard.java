@@ -32,16 +32,12 @@ public class MixinJobBard {
             songs.add(new String[]{s, String.valueOf(e.getInt("weight"))});
         }
         SongListStore.set((JobBard) (Object) this, songs);
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").debug(
-                "[bard] load nbt={} store={}",
-                list.size(), SongListStore.desc(songs));
     }
 
     @Inject(method = "save", at = @At("RETURN"))
     private void cnpcplus$saveSongs(CompoundTag tag, CallbackInfoReturnable<CompoundTag> cir) {
         List<String[]> songs = SongListStore.get((JobBard) (Object) this);
         if (songs == null || songs.isEmpty()) {
-            org.slf4j.LoggerFactory.getLogger("cnpcplus").debug("[bard] save skipped store=null");
             return;
         }
         ListTag list = new ListTag();
@@ -52,8 +48,5 @@ public class MixinJobBard {
             list.add(t);
         }
         tag.put("BardSongs", list);
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").debug(
-                "[bard] save nbt={} store=[{}]",
-                list.size(), SongListStore.desc(songs));
     }
 }

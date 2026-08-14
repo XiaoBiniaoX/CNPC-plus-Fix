@@ -14,7 +14,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.bard.SongListStore;
-import top.cnpcplus.config.CnpcPlusConfigData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,9 +34,6 @@ public class MixinJobBardClient {
     private String cnpcplus$lastSong = "";
 
     @Unique
-    private boolean cnpcplus$warnedEmpty = false;
-
-    @Unique
     private boolean cnpcplus$lastActive = false;
 
     @Inject(method = "aiStep", at = @At("HEAD"), cancellable = true)
@@ -48,13 +44,8 @@ public class MixinJobBardClient {
         boolean fallback = false;
         if (songs == null || songs.isEmpty()) {
             if (self.song.isEmpty()) {
-                if (!this.cnpcplus$warnedEmpty) {
-                    this.cnpcplus$warnedEmpty = true;
-                    org.slf4j.LoggerFactory.getLogger("cnpcplus").warn("[bard] empty store=0 song=null");
-                }
                 return;
             }
-            this.cnpcplus$warnedEmpty = false;
             fallback = true;
             songs = new ArrayList<>();
             songs.add(new String[]{self.song, "1"});
@@ -67,42 +58,48 @@ public class MixinJobBardClient {
         Player player = CustomNpcs.proxy.getPlayer();
         if (player == null) return;
 
-        String current = c.playingResource == null ? "" : c.playingResource.toString();
         boolean active = c.playing != null && sm.isActive(c.playing);
-        if (active != this.cnpcplus$lastActive) {
-            this.cnpcplus$lastActive = active;
-        }
-        if (!current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
-            if (active && System.currentTimeMillis() - this.cnpcplus$lastPlay < CnpcPlusConfigData.BardWatchdogSeconds.get() * 1000L) return;
-            if (!active && System.currentTimeMillis() - this.cnpcplus$lastPlay < 500) return;
-            if (active) {
-                c.stopMusic();
-                this.cnpcplus$lastPlay = 0L;
-                this.cnpcplus$lastPicked = "";
-            }
-        }
-        boolean mine = c.playingEntity == self.npc && c.playing != null;
-        if (mine && active) {
-            if (self.hasOffRange && !self.npc.closerThan(player, self.maxRange)) {
-                c.stopMusic();
-            }
-            return;
-        }
-        if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc && active) {
-            if (!self.npc.closerThan(player, c.playingEntity.distanceTo(player))) return;
-        }
-        if (!self.npc.closerThan(player, self.minRange)) {
-            if (mine) c.stopMusic();
+        boolean mine = c.playing != null && c.playingEntity == self.npc;
+        boolean inStartRange = self.npc.level().getEntitiesOfClass(
+                Player.class,
+                self.npc.getBoundingBox().inflate(self.minRange, self.minRange / 2.0, self.minRange)
+        ).contains(player);
+
+        // 原版语义：minRange 只决定是否开始播放，不负责停止已经开始的音乐。
+        // 只有开启 hasOffRange 后，玩家离开 maxRange 才停止。
+        if (mine && self.hasOffRange && !self.npc.level().getEntitiesOfClass(
+                Player.class,
+                self.npc.getBoundingBox().inflate(self.maxRange, self.maxRange / 2.0, self.maxRange)
+        ).contains(player)) {
+            c.stopMusic();
+            this.cnpcplus$lastPlay = 0L;
+            this.cnpcplus$lastPicked = "";
             return;
         }
 
+        if (mine) {
+            if (active) {
+                return;
+            }
+            // 自然播放完成：释放旧实例，允许在起始范围内立即按权重选择下一首。
+            c.stopMusic();
+            this.cnpcplus$lastPlay = 0L;
+            this.cnpcplus$lastPicked = "";
+        }
+
+        // 尚未播放时必须进入 minRange 才能开始；离开 minRange 不会终止已在播放的音乐。
+        if (!inStartRange) return;
+
+        // 其他 NPC 正在播放：仅本 NPC 更近玩家时才接管
+        if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc) {
+            if (!self.npc.closerThan(player, c.playingEntity.distanceTo(player))) return;
+        }
+
+        if (active != this.cnpcplus$lastActive) {
+            this.cnpcplus$lastActive = active;
+        }
+
         String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").debug(
-                "[bard] pick cur={} picked={} lastSong={} streamer={} min={} max={} songs=[{}]",
-                current.isEmpty() ? "null" : current,
-                picked == null ? "null" : picked,
-                this.cnpcplus$lastSong.isEmpty() ? "null" : this.cnpcplus$lastSong,
-                self.isStreamer, self.minRange, self.maxRange, SongListStore.desc(songs));
         if (picked == null || picked.isEmpty()) return;
         if (self.isStreamer) {
             c.playStreaming(picked, self.npc, false);
@@ -116,11 +113,5 @@ public class MixinJobBardClient {
             ((noppes.npcs.mixin.MusicManagerMixin) Minecraft.getInstance().getMusicManager()).nextSongDelay(12000);
         } catch (Exception ignored) {
         }
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").info(
-                "[bard] played picked={} nowPlaying={} resource={} entity={} loop=forced-false",
-                picked,
-                c.playing == null ? "null" : String.valueOf(c.playing),
-                c.playingResource == null ? "null" : c.playingResource.toString(),
-                c.playingEntity == null ? "null" : c.playingEntity.getStringUUID());
     }
 }
