@@ -9,8 +9,6 @@ import noppes.npcs.CustomNpcs;
 import noppes.npcs.client.controllers.MusicController;
 import noppes.npcs.mixin.MusicManagerMixin;
 import noppes.npcs.roles.JobBard;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -23,8 +21,6 @@ import java.util.List;
 
 @Mixin(value = JobBard.class, remap = false)
 public class MixinJobBardClient {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger("cnpcplus");
 
     @Shadow(remap = false)
     public String song;
@@ -51,14 +47,7 @@ public class MixinJobBardClient {
         List<String[]> songs = SongListStore.get(self);
         boolean fallback = false;
         if (songs == null || songs.isEmpty()) {
-            if (self.song.isEmpty()) {
-                if (!this.cnpcplus$warnedEmpty) {
-                    this.cnpcplus$warnedEmpty = true;
-                    LOGGER.warn("[bard] empty store=0 song=null");
-                }
-                return;
-            }
-            this.cnpcplus$warnedEmpty = false;
+            if (self.song.isEmpty()) return;
             fallback = true;
             songs = new ArrayList<>();
             songs.add(new String[]{self.song, "1"});
@@ -71,33 +60,29 @@ public class MixinJobBardClient {
         Player player = CustomNpcs.proxy.getPlayer();
         if (player == null) return;
 
-        String current = c.playingResource == null ? "" : c.playingResource.toString();
         boolean active = c.playing != null && sm.isActive(c.playing);
-        if (active != this.cnpcplus$lastActive) {
-            this.cnpcplus$lastActive = active;
-        }
-        if (!current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
-            if (active && System.currentTimeMillis() - this.cnpcplus$lastPlay < CnpcPlusConfig.BARD_WATCHDOG_SECONDS.get() * 1000L) return;
-            if (!active && System.currentTimeMillis() - this.cnpcplus$lastPlay < 500) return;
-            if (active) {
-                c.stopMusic();
-                this.cnpcplus$lastPlay = 0L;
-                this.cnpcplus$lastPicked = "";
-            }
-        }
         boolean mine = c.playingEntity == self.npc && c.playing != null;
-        if (mine && active) {
-            if (self.hasOffRange && !self.npc.closerThan(player, self.maxRange)) {
+        double minRange = self.minRange;
+        double maxRange = self.maxRange;
+        boolean inStartRange = self.npc.distanceToSqr(player) <= minRange * minRange;
+        boolean inStopRange = self.npc.distanceToSqr(player) <= maxRange * maxRange;
+        if (mine && active && self.hasOffRange && !inStopRange) {
+            c.stopMusic();
+            this.cnpcplus$lastPlay = 0L;
+            this.cnpcplus$lastPicked = "";
+            return;
+        }
+        if (mine) {
+            if (active) {
+                if (System.currentTimeMillis() - this.cnpcplus$lastPlay < CnpcPlusConfig.BARD_WATCHDOG_SECONDS.get() * 1000L) return;
                 c.stopMusic();
             }
-            return;
+            this.cnpcplus$lastPlay = 0L;
+            this.cnpcplus$lastPicked = "";
         }
-        if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc && active) {
+        if (!inStartRange) return;
+        if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc) {
             if (!self.npc.closerThan(player, c.playingEntity.distanceTo(player))) return;
-        }
-        if (!self.npc.closerThan(player, self.minRange)) {
-            if (mine) c.stopMusic();
-            return;
         }
 
         String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);

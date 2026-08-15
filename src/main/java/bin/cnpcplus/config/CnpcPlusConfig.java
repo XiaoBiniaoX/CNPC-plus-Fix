@@ -55,6 +55,13 @@ public class CnpcPlusConfig {
             )
             .define("craftingViewEnabled", true);
 
+    public static final ModConfigSpec.BooleanValue NPC_NAMES_OBSCURED = BUILDER
+            .comment(
+                "NPC 名字是否会被其他实体和方块遮挡",
+                "默认 true；false 时保留原来的穿墙显示"
+            )
+            .define("npcNamesObscured", true);
+
     public static final ModConfigSpec.DoubleValue BARD_VOLUME = BUILDER
             .comment(
                 "吟游诗人音乐/唱片机音量倍数（默认1.0，0.0-1.0）",

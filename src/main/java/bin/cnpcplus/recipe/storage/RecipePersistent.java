@@ -69,7 +69,6 @@ public final class RecipePersistent {
     private void saveToDisk() {
         File f = file();
         if (f == null) {
-            CnpcPlus.LOGGER.warn("[RecipePersistent] cannot save: Dir null");
             return;
         }
         try {
@@ -87,8 +86,8 @@ public final class RecipePersistent {
                 NbtIo.writeCompressed(root, out);
                 out.flush();
             }
-            if (f.exists() && !f.delete()) {
-                CnpcPlus.LOGGER.warn("[RecipePersistent] could not delete old file");
+            if (f.exists()) {
+                f.delete();
             }
             if (!tmp.renameTo(f)) {
                 try (InputStream in = new FileInputStream(tmp); OutputStream out = new FileOutputStream(f)) {

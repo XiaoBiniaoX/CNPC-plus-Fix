@@ -98,8 +98,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
                     PacketDistributor.sendToServer(new PacketRecipePersist(syncId, persist));
                     RecipePersistent.INSTANCE.reloadFromDisk();
                     cnpcplusRefresh(self);
-                } else {
-                    CnpcPlus.LOGGER.warn("[GUI] persist skipped: save recipe first");
                 }
             } catch (Throwable t) {
                 CnpcPlus.LOGGER.error("[GUI] persist button failed", t);

@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin;
 
+import bin.cnpcplus.ai.AiSpeedAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -48,13 +49,25 @@ public class EntityNPCInterfaceMixin {
             cir.setReturnValue(tag);
         }
         tag.putInt("Faction", self.getFaction().id);
+        float speed = ((AiSpeedAccess) self.ais).cnpcplus$getWalkingSpeed();
+        tag.putInt("Speed", Math.round(speed));
+        tag.putFloat("CNPCPlusSpeed", speed);
     }
 
     @Inject(method = "readSpawnData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At("TAIL"), remap = false)
     private void cnpcplus$readSpawnData(CompoundTag compound, CallbackInfo ci) {
+        EntityNPCInterface self = (EntityNPCInterface)(Object)this;
         if (compound.contains("Faction")) {
-            EntityNPCInterface self = (EntityNPCInterface)(Object)this;
             self.getEntityData().set(getFactionData(), compound.getInt("Faction"));
         }
+        if (compound.contains("CNPCPlusSpeed")) {
+            ((AiSpeedAccess) self.ais).cnpcplus$setWalkingSpeed(compound.getFloat("CNPCPlusSpeed"));
+        }
+    }
+
+    @Inject(method = "getSpeed", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$getFloatSpeed(CallbackInfoReturnable<Float> cir) {
+        EntityNPCInterface self = (EntityNPCInterface)(Object)this;
+        cir.setReturnValue(((AiSpeedAccess) self.ais).cnpcplus$getWalkingSpeed() / 20.0F);
     }
 }

@@ -42,7 +42,6 @@ public record PacketRecipePersist(int syncId, boolean persist) implements Custom
             if (controller == null) return;
             RecipeCarpentry recipe = RecipeIds.INSTANCE.bySyncId(packet.syncId);
             if (recipe == null) {
-                CnpcPlus.LOGGER.warn("[RecipePersist] unknown syncId={}", packet.syncId);
                 return;
             }
             if (packet.persist) {

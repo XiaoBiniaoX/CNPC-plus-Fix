@@ -33,7 +33,6 @@ public final class RecipeStorage {
         RecipeIds.INSTANCE.clear();
         File saveDir = CustomNpcs.getLevelSaveDirectory();
         if (saveDir == null) {
-            CnpcPlus.LOGGER.warn("[RecipeStorage] level save dir null");
             controller.globalRecipes = new HashMap<>();
             controller.anvilRecipes = new HashMap<>();
             return;
@@ -107,12 +106,10 @@ public final class RecipeStorage {
 
     public void saveAll(HolderLookup.Provider provider, RecipeController controller) {
         if (provider == null) {
-            CnpcPlus.LOGGER.warn("[RecipeStorage] save skipped: provider null");
             return;
         }
         File saveDir = CustomNpcs.getLevelSaveDirectory();
         if (saveDir == null) {
-            CnpcPlus.LOGGER.warn("[RecipeStorage] cannot save, no level dir");
             return;
         }
         try {

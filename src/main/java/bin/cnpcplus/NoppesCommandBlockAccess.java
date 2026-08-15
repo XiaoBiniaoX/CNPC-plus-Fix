@@ -34,7 +34,6 @@ public final class NoppesCommandBlockAccess {
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         CommandNode<CommandSourceStack> root = event.getDispatcher().getRoot().getChild("noppes");
         if (root == null) {
-            CnpcPlus.LOGGER.warn("/noppes not registered, skipping command block access patch");
             return;
         }
         try {

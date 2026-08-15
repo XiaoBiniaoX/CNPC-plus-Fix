@@ -44,7 +44,8 @@
     "quest.MixinContainerNpcQuestTypeItem",
     "quest.MixinContainerNpcQuestReward",
     "invpage.MixinDataInventoryDropPage",
-    "bard.MixinJobBard"
+    "bard.MixinJobBard",
+    "ai.MixinDataAISpeed"
   ],
   "client": [
     "AbstractContainerScreenAccess",
@@ -80,7 +81,9 @@
     "bard.MixinSoundEngine",
     "bard.MixinSoundOptionsScreen",
     "bard.MixinGuiNpcBard",
-    "bard.MixinJobBardClient"
+    "bard.MixinJobBardClient",
+    "ai.MixinSubGuiNpcMovementSpeed",
+    "follower.MixinGuiNpcFollowerDismiss"
   ],
   "injectors": {
     "defaultRequire": 0
