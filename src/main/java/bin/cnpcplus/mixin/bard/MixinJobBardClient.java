@@ -58,6 +58,12 @@ public class MixinJobBardClient {
 
         String current = c.playingResource == null ? "" : c.playingResource.toString();
         boolean active = c.playing != null && sm.isSoundPlaying(c.playing);
+        boolean mine = c.playingEntity == self.npc && c.playing != null;
+        if (mine && active && self.hasOffRange
+                && self.npc.getDistanceSq(player) > (double) (self.maxRange * self.maxRange)) {
+            c.stopMusic();
+            return;
+        }
         if (!current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
             if (active && System.currentTimeMillis() - this.cnpcplus$lastPlay < CnpcPlusConfig.getBardWatchdogSeconds() * 1000L) return;
             if (!active && System.currentTimeMillis() - this.cnpcplus$lastPlay < 500L) return;
@@ -67,13 +73,7 @@ public class MixinJobBardClient {
                 this.cnpcplus$lastPicked = "";
             }
         }
-        boolean mine = c.playingEntity == self.npc && c.playing != null;
-        if (mine && active) {
-            if (self.hasOffRange && self.npc.getDistanceSq(player) > (double) (self.maxRange * self.maxRange)) {
-                c.stopMusic();
-            }
-            return;
-        }
+        if (mine && active) return;
         if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc && active) {
             if (self.npc.getDistanceSq(player) > player.getDistanceSq(c.playingEntity)) return;
         }

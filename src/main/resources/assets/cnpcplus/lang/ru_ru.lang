@@ -44,3 +44,4 @@ soundCategory.bard=Бард
 bard=Бард
 BardVolume=Громкость барда
 BardWatchdogSeconds=Секунды сторожа барда
+cnpcplus.follower.dismiss=Уволить

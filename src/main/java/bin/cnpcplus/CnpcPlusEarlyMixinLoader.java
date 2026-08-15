@@ -22,7 +22,7 @@ public class CnpcPlusEarlyMixinLoader implements IFMLLoadingPlugin, IEarlyMixinL
 
     @Override
     public List<String> getMixinConfigs() {
-        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json");
+        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json");
     }
 
     @Override

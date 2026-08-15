@@ -2,6 +2,7 @@ package bin.cnpcplus.craftingview.network;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.invpage.network.PacketNpcInvPage;
+import bin.cnpcplus.follower.network.PacketFollowerDismiss;
 import bin.cnpcplus.recipe.network.PacketPersistState;
 import bin.cnpcplus.recipe.network.PacketQueryPersist;
 import bin.cnpcplus.recipe.network.PacketRecipePersist;
@@ -27,5 +28,6 @@ public final class CraftingViewNetwork {
         CHANNEL.registerMessage(PacketNpcInvPage.Handler.class, PacketNpcInvPage.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(PacketTraderPage.Handler.class, PacketTraderPage.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(PacketTraderPageSync.Handler.class, PacketTraderPageSync.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(PacketFollowerDismiss.Handler.class, PacketFollowerDismiss.class, nextId++, Side.SERVER);
     }
 }

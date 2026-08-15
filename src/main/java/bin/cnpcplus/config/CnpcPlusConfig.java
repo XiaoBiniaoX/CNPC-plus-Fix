@@ -64,6 +64,13 @@ public class CnpcPlusConfig {
                 "Bard music volume multiplier (0.0-1.0)");
     }
 
+    public static void setBardVolume(float volume) {
+        if (config == null) return;
+        float value = Math.max(0.0F, Math.min(1.0F, volume));
+        config.get("bard", "BardVolume", 1.0D, "Bard music volume multiplier (0.0-1.0)").set(value);
+        config.save();
+    }
+
     /** Watchdog: force-switch a bard song that plays longer than this (seconds). */
     public static int getBardWatchdogSeconds() {
         return config == null ? 300 : config.getInt("BardWatchdogSeconds", "bard", 300, 1, 3600,

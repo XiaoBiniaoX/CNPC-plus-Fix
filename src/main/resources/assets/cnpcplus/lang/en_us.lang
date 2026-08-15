@@ -44,3 +44,5 @@ soundCategory.bard=Bard
 bard=Bard
 BardVolume=Bard Volume
 BardWatchdogSeconds=Bard Watchdog Seconds
+cnpcplus.follower.dismiss=Dismiss
+

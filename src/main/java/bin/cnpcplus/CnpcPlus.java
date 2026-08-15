@@ -1,6 +1,5 @@
 package bin.cnpcplus;
 
-import bin.cnpcplus.bard.BardSoundCategory;
 import bin.cnpcplus.config.CnpcPlusConfig;
 import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
 import bin.cnpcplus.recipe.RecipeDebugCommand;
@@ -19,22 +18,18 @@ import org.apache.logging.log4j.Logger;
 public class CnpcPlus {
     public static final String MODID = "cnpcplus";
     public static final String NAME = "CNPCPlus";
-    public static final String VERSION = "3.0.0";
+    public static final String VERSION = "3.1.0";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
         CnpcPlusConfig.init(event.getSuggestedConfigurationFile());
         CraftingViewNetwork.init();
-        LOGGER.info("CNPCPlus patch loaded - by Bin");
     }
 
     @Mod.EventHandler
     public void onInit(FMLInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
-        if (event.getSide().isClient()) {
-            BardSoundCategory.init();
-        }
     }
 
     @Mod.EventHandler

@@ -63,7 +63,7 @@ public final class RecipeServices {
                 }
             }
         } catch (Throwable t) {
-            CnpcPlus.LOGGER.warn("[RecipeServices] iterate failed: " + t);
+            CnpcPlus.LOGGER.error("[RecipeServices] iterate failed: " + t);
         }
 
         for (int i = 0; i < toRemove.size(); i++) {
@@ -86,7 +86,7 @@ public final class RecipeServices {
                         RecipeDebug.info("inject id={} name={} valid={}", id, recipe.name, Boolean.valueOf(recipe.isValid()));
                     }
                 } catch (Throwable t) {
-                    CnpcPlus.LOGGER.warn("[RecipeServices] register failed id=" + id + " : " + t);
+                    CnpcPlus.LOGGER.error("[RecipeServices] register failed id=" + id + " : " + t);
                 }
             }
         }
@@ -102,21 +102,15 @@ public final class RecipeServices {
         try {
             unfreezeMethod = ForgeRegistry.class.getDeclaredMethod("unfreeze");
             unfreezeMethod.setAccessible(true);
-        } catch (Throwable t) {
-            CnpcPlus.LOGGER.warn("[RecipeServices] no unfreeze: " + t);
-        }
+        } catch (Throwable ignored) {}
         try {
             freezeMethod = ForgeRegistry.class.getDeclaredMethod("freeze");
             freezeMethod.setAccessible(true);
-        } catch (Throwable t) {
-            CnpcPlus.LOGGER.warn("[RecipeServices] no freeze: " + t);
-        }
+        } catch (Throwable ignored) {}
         try {
             removeMethod = ForgeRegistry.class.getDeclaredMethod("remove", ResourceLocation.class);
             removeMethod.setAccessible(true);
-        } catch (Throwable t) {
-            CnpcPlus.LOGGER.warn("[RecipeServices] no remove: " + t);
-        }
+        } catch (Throwable ignored) {}
         try {
             // package-private: int add(int id, V value, String owner)
             addMethod = ForgeRegistry.class.getDeclaredMethod("add", int.class, Object.class, String.class);
@@ -126,7 +120,7 @@ public final class RecipeServices {
                 addMethod = ForgeRegistry.class.getDeclaredMethod("add", int.class, IRecipe.class, String.class);
                 addMethod.setAccessible(true);
             } catch (Throwable t2) {
-                CnpcPlus.LOGGER.warn("[RecipeServices] no add: " + t2);
+                CnpcPlus.LOGGER.error("[RecipeServices] no add: " + t2);
             }
         }
     }
@@ -137,7 +131,7 @@ public final class RecipeServices {
             unfreezeMethod.invoke(registry);
             return true;
         } catch (Throwable t) {
-            CnpcPlus.LOGGER.warn("[RecipeServices] unfreeze invoke failed: " + t);
+            CnpcPlus.LOGGER.error("[RecipeServices] unfreeze invoke failed: " + t);
             return false;
         }
     }

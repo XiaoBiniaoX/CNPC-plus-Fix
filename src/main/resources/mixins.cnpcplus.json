@@ -16,6 +16,11 @@
     "recipe.MixinNoppesUtilServerRecipes",
     "recipe.MixinPacketHandlerServerRecipes",
     "script.MixinScriptController",
+    "script.MixinEntityWrapperParticles",
+    "script.MixinBlockWrapperParticles",
+    "script.MixinItemScriptedWrapperParticles",
+    "speed.MixinDataAIWalkingSpeed",
+    "speed.MixinEntityNPCWalkingSpeed",
     "puppet.MixinJobPuppetEquipment",
     "puppet.MixinPuppetPartConfig",
     "puppet.MixinModelDataSharedEquipment",
@@ -34,7 +39,8 @@
     "quest.MixinQuestRewardGrid",
     "quest.MixinContainerNpcQuestTypeItem",
     "quest.MixinContainerNpcQuestReward",
-    "bard.MixinJobBard"
+    "bard.MixinJobBard",
+    "spawner.MixinJobSpawnerSequential"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -42,7 +48,7 @@
     "recipe.MixinGuiNpcManageRecipesLabels",
     "puppet.MixinGuiNpcDisplaySize",
     "puppet.MixinGuiNpcPuppetEquipment",
-"puppet.MixinGuiCreationScale",
+    "puppet.MixinGuiCreationScale",
     "puppet.MixinModelPlayerAltBodyOffset",
     "puppet.MixinModelBipedAltBodyOffset",
     "animation.MixinEntityUtilSwing",
@@ -54,7 +60,13 @@
     "quest.MixinGuiNpcQuestReward",
     "bard.MixinJobBardClient",
     "bard.MixinGuiNpcBard",
-    "bard.MixinMusicController"
+    "bard.MixinMusicController",
+    "bard.MixinGuiScreenOptionsSounds",
+    "speed.MixinSubGuiNpcMovementSpeed",
+    "follower.MixinGuiNpcFollowerDismiss",
+    "spawner.MixinGuiNpcSpawnerTitles",
+    "spawner.MixinGuiNpcMobSpawnerSelectorTitle",
+    "render.MixinRenderNPCShadow"
   ],
   "server": [],
   "injectors": {

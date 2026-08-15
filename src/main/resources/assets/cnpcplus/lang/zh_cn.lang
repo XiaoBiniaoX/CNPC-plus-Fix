@@ -44,3 +44,5 @@ soundCategory.bard=吟游诗人
 bard=吟游诗人
 BardVolume=吟游诗人音量
 BardWatchdogSeconds=吟游诗人看门狗秒数
+cnpcplus.follower.dismiss=解雇
+
