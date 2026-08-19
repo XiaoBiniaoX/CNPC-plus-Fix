@@ -35,7 +35,6 @@
     "ContainerManageRecipesAccess",
     "ContainerCarpentryBenchAccess",
     "MixinContainerNPCInv",
-    "GuiNpcManageRecipesAccess",
     "MixinModelDataSharedEquipment",
     "MixinDataDisplayVisibilitySync",
     "MixinScriptContainerServerThread",
@@ -52,9 +51,24 @@
     "MixinItemScriptedWrapperParticles",
     "MixinDataAIWalkingSpeed",
     "MixinEntityNPCWalkingSpeed",
-    "MixinEntityNPCFlyingFix"
+    "MixinEntityNPCFlyingFix",
+    "MixinJobSpawnerFix",
+    "JobSpawnerInvoker",
+    "MixinEntityNPCMaxHealthSync",
+    "MixinContainerNpcQuestTypeItemQuickMove",
+    "MixinParticleTypeExtra",
+    "MixinEntityAIFollowTeleport",
+    "MixinAbstractFurnaceBlockEntityFuel",
+    "MixinEntityProjectileTrail",
+    "RecipeManagerAccess",
+    "MixinRecipeManagerDynamic",
+    "AbstractContainerMenuSlotsAccess",
+    "AbstractFurnaceBlockEntityAccess",
+    "MixinFurnaceFuelSlotPlace"
   ],
   "client": [
+    "GuiNpcManageRecipesAccess",
+    "MixinRenderNPCInterfaceShadow",
     "MixinGuiCreationScale",
     "MixinSubGuiMeleeProperties",
     "MixinSubGuiRangeProperties",
@@ -88,7 +102,11 @@
     "MixinGuiNpcQuestTypeItem",
     "MixinGuiNpcQuestReward",
     "MixinGuiNpcFollowerDismiss",
-    "MixinSubGuiNpcMovementSpeed"
+    "MixinSubGuiNpcMovementSpeed",
+    "MixinSubGuiNpcProjectilesTrails",
+    "MixinGuiNPCGlobalMainMenuSmelting",
+    "MixinRenderCustomNpcTranslucent",
+    "SubGuiNpcMeleePropertiesAccess"
   ],
   "server": []
 }

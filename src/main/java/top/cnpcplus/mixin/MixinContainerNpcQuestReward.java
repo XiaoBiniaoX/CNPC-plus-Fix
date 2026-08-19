@@ -18,6 +18,8 @@ public class MixinContainerNpcQuestReward {
     private void cnpcplus$symmetricGrid(int containerId, Inventory playerInventory, CallbackInfo ci) {
         ContainerNpcQuestReward self = (ContainerNpcQuestReward) (Object) this;
         ((AbstractContainerMenu) self).slots.clear();
+        ((AbstractContainerMenuSlotsAccess) self).cnpcplus$getLastSlots().clear();
+        ((AbstractContainerMenuSlotsAccess) self).cnpcplus$getRemoteSlots().clear();
         Quest quest = NoppesUtilServer.getEditingQuest(playerInventory.player);
         for (int l = 0; l < 3; ++l) {
             for (int k = 0; k < 5; ++k) {

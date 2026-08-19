@@ -46,5 +46,13 @@
   "cnpcplus.questtrigger.overlayOn": "Region Display: On",
   "cnpcplus.questtrigger.overlayOff": "Region Display: Off",
   "cnpcplus.questtrigger.done": "Done",
-  "cnpcplus.follower.dismiss": "Dismiss"
+  "cnpcplus.follower.dismiss": "Dismiss",
+  "cnpcplus.smelting.open": "Visual Smelting Recipes",
+  "cnpcplus.smelting.title": "Visual Smelting Recipes",
+  "cnpcplus.smelting.name": "Recipe Name",
+  "cnpcplus.smelting.blast": "Allow Blast Furnace",
+  "cnpcplus.smelting.smoker": "Allow Smoker",
+  "cnpcplus.smelting.generic": "Allow Generic Fuel",
+  "cnpcplus.smelting.cooktime": "Cook Time",
+  "cnpcplus.smelting.xp": "Experience"
 }

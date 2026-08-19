@@ -46,5 +46,13 @@
   "cnpcplus.questtrigger.overlayOn": "区域显示: 开",
   "cnpcplus.questtrigger.overlayOff": "区域显示: 关",
   "cnpcplus.questtrigger.done": "完成",
-  "cnpcplus.follower.dismiss": "解雇"
+  "cnpcplus.follower.dismiss": "解雇",
+  "cnpcplus.smelting.open": "可视化自定义熔炼配方",
+  "cnpcplus.smelting.title": "可视化自定义熔炼配方",
+  "cnpcplus.smelting.name": "配方名称",
+  "cnpcplus.smelting.blast": "高炉允许",
+  "cnpcplus.smelting.smoker": "烟熏炉允许",
+  "cnpcplus.smelting.generic": "通用燃料允许",
+  "cnpcplus.smelting.cooktime": "熔炼时间",
+  "cnpcplus.smelting.xp": "熔炼经验"
 }
