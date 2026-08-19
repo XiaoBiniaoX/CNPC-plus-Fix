@@ -7,6 +7,9 @@
     "AbstractContainerMenuInvoker",
     "EntityNPCInterfaceMixin",
     "EntityProjectileSpinFixMixin",
+    "EntityProjectileTrailMixin",
+    "smelting.MixinAbstractFurnaceBlockEntity",
+    "smelting.MixinFurnaceFuelSlot",
     "CnpcBranchPatchProviderMixin",
     "DataDisplayMixin",
     "EntityCustomNpcMixin",
@@ -48,9 +51,11 @@
     "ai.MixinDataAISpeed"
   ],
   "client": [
+    "smelting.MixinGuiNPCGlobalMainMenuSmelting",
     "AbstractContainerScreenAccess",
     "ClientLevelProjectileCodecMixin",
     "RenderProjectileMixin",
+    "SubGuiNpcProjectilesTrailsMixin",
     "RenderNPCInterfaceMixin",
     "GuiDialogInteractMixin",
     "LivingEntityRendererMixin",

@@ -53,18 +53,11 @@ public class GuiDialogInteractMixin {
 
     @ModifyArg(method = "drawLinedOptions", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)I"), index = 4, remap = false)
     private int cnpcplus$optionColor(int color) {
-        int hex = FormatUtil.parseHexColor(CnpcPlusConfig.DIALOG_OPTION_COLOR.get(), 0xE0E0E0);
-        String fmt = CnpcPlusConfig.DIALOG_OPTION_FORMAT.get();
-        return FormatUtil.resolveColor(hex, fmt, color);
+        return color;
     }
 
     @Redirect(method = "drawWheel", at = @At(value = "FIELD", target = "Lnoppes/npcs/controllers/data/DialogOption;optionColor:I"), remap = false)
     private int cnpcplus$wheelOptionColor(DialogOption option) {
-        int hex = FormatUtil.parseHexColor(CnpcPlusConfig.DIALOG_OPTION_COLOR.get(), 0xE0E0E0);
-        String fmt = CnpcPlusConfig.DIALOG_OPTION_FORMAT.get();
-        if (FormatUtil.hasFormatCodes(option.title)) {
-            return option.optionColor;
-        }
-        return FormatUtil.resolveColor(hex, fmt, option.optionColor);
+        return option.optionColor;
     }
 }

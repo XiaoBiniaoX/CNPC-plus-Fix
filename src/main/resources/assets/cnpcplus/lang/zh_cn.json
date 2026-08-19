@@ -51,5 +51,14 @@
   "cnpcplus.trader.pageTitle": "页面标题",
   "cnpcplus.trader.prevPage": "上一页",
   "cnpcplus.trader.nextPage": "下一页",
-  "cnpcplus.trader.deletePage": "删除本页(%s/%s)"
+  "cnpcplus.trader.deletePage": "删除本页(%s/%s)",
+  "cnpcplus.smelting.open": "可视化自定义熔炼配方",
+  "cnpcplus.smelting.title": "自定义熔炼配方",
+  "cnpcplus.smelting.name": "配方名称",
+  "cnpcplus.smelting.recipes": "配方列表",
+  "cnpcplus.smelting.blast": "允许高炉",
+  "cnpcplus.smelting.smoker": "允许烟熏炉",
+  "cnpcplus.smelting.generic": "允许通用燃料",
+  "cnpcplus.smelting.cooktime": "熔炼时间",
+  "cnpcplus.smelting.xp": "熔炼经验"
 }

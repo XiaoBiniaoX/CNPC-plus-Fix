@@ -11,6 +11,9 @@ import net.minecraft.world.item.crafting.RecipeManager;
 import noppes.npcs.CustomNpcs;
 import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
+import bin.cnpcplus.smelting.SmeltingRecipeData;
+import bin.cnpcplus.smelting.SmeltingRecipeParser;
+import bin.cnpcplus.smelting.SmeltingRecipeRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,5 +77,25 @@ public final class RecipeServices {
         } catch (Exception ex) {
             CnpcPlus.LOGGER.error("[RecipeServices] replaceRecipes failed", ex);
         }
+    }
+
+    public static void reloadSmeltingRecipes(MinecraftServer server) {
+        if (server == null || server.getRecipeManager() == null) return;
+        List<RecipeHolder<?>> next = new ArrayList<>();
+        for (RecipeHolder<?> holder : server.getRecipeManager().getRecipes()) {
+            ResourceLocation id = holder.id();
+            if (id == null || !"cnpcplus".equals(id.getNamespace()) ||
+                    !(id.getPath().startsWith("smelting/") || id.getPath().startsWith("blasting/") || id.getPath().startsWith("smoking/"))) {
+                next.add(holder);
+            }
+        }
+        for (SmeltingRecipeData data : SmeltingRecipeRegistry.list(server.registryAccess())) {
+            for (var recipe : SmeltingRecipeParser.parse(data)) {
+                String path = recipe.getType() == net.minecraft.world.item.crafting.RecipeType.BLASTING ? "blasting/" :
+                        recipe.getType() == net.minecraft.world.item.crafting.RecipeType.SMOKING ? "smoking/" : "smelting/";
+                next.add(new RecipeHolder<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", path + data.id), recipe));
+            }
+        }
+        server.getRecipeManager().replaceRecipes(next);
     }
 }

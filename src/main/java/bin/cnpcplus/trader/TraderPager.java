@@ -84,6 +84,17 @@ public class TraderPager {
         }
     }
 
+    /** 返回编辑界面前固定恢复第一页，避免原版保存链把当前交易页写成第一页。 */
+    public static void resetToFirstPage(RoleTrader role) {
+        ensure(role);
+        synchronized (LOCK) {
+            flushCurrent(role);
+            copyTo(CURRENCY.get(role).get(0), role.inventoryCurrency);
+            copyTo(SOLD.get(role).get(0), role.inventorySold);
+            PAGE.put(role, 0);
+        }
+    }
+
     public static void switchPage(RoleTrader role, int page) {
         ensure(role);
         synchronized (LOCK) {

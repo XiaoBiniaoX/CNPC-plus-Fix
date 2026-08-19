@@ -25,6 +25,10 @@ public class MixinContainerNPCTraderSync {
         } else {
             role = ((ContainerNPCTrader) (Object) this).role;
         }
+        if ((Object) this instanceof ContainerNPCTraderSetup) {
+            TraderPager.resetToFirstPage(role);
+            ((net.minecraft.world.inventory.AbstractContainerMenu) (Object) this).broadcastChanges();
+        }
         PacketDistributor.sendToPlayer(sp, new PacketTraderPageSync(TraderPager.getPage(role)));
     }
 }

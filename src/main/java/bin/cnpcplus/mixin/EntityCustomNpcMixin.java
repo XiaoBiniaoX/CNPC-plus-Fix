@@ -70,6 +70,9 @@ public class EntityCustomNpcMixin {
         EntityCustomNpc self = (EntityCustomNpc)(Object)this;
         if (!self.isKilled()) return;
 
+        // 已死亡 NPC 的客户端模型不应在远距离重新加载后从死亡动画第 0 帧重播。
+        if (self.level().isClientSide && self.deathTime < 20) self.deathTime = 20;
+
         self.setPos(cnpcplus$savedX, cnpcplus$savedY, cnpcplus$savedZ);
         self.setYRot(cnpcplus$savedYRot);
         self.yBodyRot = cnpcplus$savedYBodyRot;

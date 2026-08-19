@@ -6,6 +6,8 @@ import bin.cnpcplus.recipe.network.PacketRecipePersist;
 import bin.cnpcplus.trader.network.PacketTraderPage;
 import bin.cnpcplus.trader.network.PacketTraderPageSync;
 import bin.cnpcplus.follower.network.PacketFollowerDismiss;
+import bin.cnpcplus.smelting.network.PacketSmeltingAction;
+import bin.cnpcplus.smelting.network.PacketSmeltingSync;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -48,6 +50,16 @@ public final class CraftingViewNetwork {
                 PacketTraderPageSync.TYPE,
                 PacketTraderPageSync.STREAM_CODEC,
                 PacketTraderPageSync::handle
+        );
+        registrar.playToServer(
+                PacketSmeltingAction.TYPE,
+                PacketSmeltingAction.STREAM_CODEC,
+                PacketSmeltingAction::handle
+        );
+        registrar.playToClient(
+                PacketSmeltingSync.TYPE,
+                PacketSmeltingSync.STREAM_CODEC,
+                PacketSmeltingSync::handle
         );
     }
 }

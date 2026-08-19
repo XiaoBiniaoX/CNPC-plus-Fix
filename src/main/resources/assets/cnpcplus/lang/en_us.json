@@ -51,5 +51,14 @@
   "cnpcplus.trader.pageTitle": "Page Title",
   "cnpcplus.trader.prevPage": "Previous Page",
   "cnpcplus.trader.nextPage": "Next Page",
-  "cnpcplus.trader.deletePage": "Delete Page (%s/%s)"
+  "cnpcplus.trader.deletePage": "Delete Page (%s/%s)",
+  "cnpcplus.smelting.open": "Custom Smelting Recipes",
+  "cnpcplus.smelting.title": "Custom Smelting Recipes",
+  "cnpcplus.smelting.name": "Recipe Name",
+  "cnpcplus.smelting.recipes": "Recipes",
+  "cnpcplus.smelting.blast": "Allow Blast Furnace",
+  "cnpcplus.smelting.smoker": "Allow Smoker",
+  "cnpcplus.smelting.generic": "Allow Generic Fuel",
+  "cnpcplus.smelting.cooktime": "Cook Time",
+  "cnpcplus.smelting.xp": "Experience"
 }

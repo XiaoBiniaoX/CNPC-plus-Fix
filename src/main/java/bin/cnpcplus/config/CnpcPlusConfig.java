@@ -76,5 +76,13 @@ public class CnpcPlusConfig {
             )
             .defineInRange("bardWatchdogSeconds", 300, 1, 3600);
 
+    public static final ModConfigSpec.IntValue SMELTING_GUI_OFFSET_X = BUILDER
+            .comment("可视化自定义熔炼配方界面整体X偏移")
+            .defineInRange("smeltingGuiOffsetX", 0, -300, 300);
+
+    public static final ModConfigSpec.IntValue SMELTING_GUI_OFFSET_Y = BUILDER
+            .comment("可视化自定义熔炼配方界面整体Y偏移；1.20.1参考默认20")
+            .defineInRange("smeltingGuiOffsetY", 20, -300, 300);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }
