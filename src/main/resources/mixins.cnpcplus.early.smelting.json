@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.smelting",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": [
+    "MixinFurnaceRecipesSmelting",
+    "MixinTileEntityFurnaceSmelting",
+    "MixinTileEntityFurnaceBurnContext",
+    "MixinSlotFurnaceFuelSmelting",
+    "MixinSlotFurnaceOutputSmelting"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

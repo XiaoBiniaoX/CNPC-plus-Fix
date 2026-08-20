@@ -2,7 +2,6 @@ package bin.cnpcplus.recipe.services;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.CraftUtils;
-import bin.cnpcplus.recipe.RecipeDebug;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.util.ResourceLocation;
@@ -82,9 +81,6 @@ public final class RecipeServices {
                     recipe.setRegistryName(id);
                     invokeRemove(registry, id);
                     invokeAdd(registry, recipe);
-                    if (RecipeDebug.enabled()) {
-                        RecipeDebug.info("inject id={} name={} valid={}", id, recipe.name, Boolean.valueOf(recipe.isValid()));
-                    }
                 } catch (Throwable t) {
                     CnpcPlus.LOGGER.error("[RecipeServices] register failed id=" + id + " : " + t);
                 }

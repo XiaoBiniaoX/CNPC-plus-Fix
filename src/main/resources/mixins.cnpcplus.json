@@ -5,6 +5,17 @@
   "package": "bin.cnpcplus.mixin",
   "refmap": "refmap.cnpcplus.json",
   "mixins": [
+    "lifecycle.MixinEntityNPCInterfaceHitbox",
+    "lifecycle.MixinEntityCustomNpcHitbox",
+    "lifecycle.MixinEntityNpcCrystalMount",
+    "lifecycle.MixinJobSpawnerDeath",
+    "lifecycle.MixinServerEventsHandlerMount",
+    "lifecycle.MixinPacketHandlerServerMount",
+    "mount.MixinDataAIMountControl",
+    "mount.MixinEntityNPCMountControl",
+    "mount.MixinEntityNPCMountControlSync",
+    "mount.MixinEntityNPCFlyingMountControl",
+    "mount.MixinEntityAIReturnMount",
     "recipe.MixinRecipeController",
     "recipe.MixinRecipeCarpentryMatches",
     "recipe.MixinRecipeCarpentryFix",
@@ -38,9 +49,18 @@
     "quest.MixinQuestItemGrid",
     "quest.MixinQuestRewardGrid",
     "quest.MixinContainerNpcQuestTypeItem",
+    "quest.MixinServerEventsHandler",
+    "quest.MixinPlayerQuestData",
     "quest.MixinContainerNpcQuestReward",
     "bard.MixinJobBard",
-    "spawner.MixinJobSpawnerSequential"
+    "spawner.MixinJobSpawnerSequential",
+    "knockback.MixinEntityNPCInterfaceKnockback",
+    "knockback.MixinEntityProjectileKnockback",
+    "penetration.MixinDataRangedPenetration",
+    "penetration.MixinEntityProjectilePenetration",
+    "penetration.MixinINPCRangedPenetration",
+    "penetration.MixinIProjectilePenetration",
+    "penetration.MixinProjectileWrapperPenetration"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -63,10 +83,13 @@
     "bard.MixinMusicController",
     "bard.MixinGuiScreenOptionsSounds",
     "speed.MixinSubGuiNpcMovementSpeed",
+    "mount.MixinGuiNpcAIMountControl",
     "follower.MixinGuiNpcFollowerDismiss",
     "spawner.MixinGuiNpcSpawnerTitles",
     "spawner.MixinGuiNpcMobSpawnerSelectorTitle",
-    "render.MixinRenderNPCShadow"
+    "render.MixinRenderNPCShadow",
+    "penetration.MixinSubGuiNpcProjectilesPenetration",
+    "smelting.MixinGuiNPCGlobalMainMenuSmelting"
   ],
   "server": [],
   "injectors": {

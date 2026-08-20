@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Rebuild the container as a 3x3 collect grid (9 slots, was 1x3). Player
@@ -19,6 +20,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(value = ContainerNpcQuestTypeItem.class, remap = false)
 public class MixinContainerNpcQuestTypeItem {
+
+    @Inject(method = "func_82846_b", at = @At("HEAD"), cancellable = true, require = 1, remap = false)
+    private void cnpcplus$disableShiftClick(EntityPlayer player, int slotId,
+                                             CallbackInfoReturnable<ItemStack> cir) {
+        cir.setReturnValue(ItemStack.EMPTY);
+    }
 
     private void cnpcplus$addSlot(ContainerNpcQuestTypeItem self, Slot slot) {
         slot.slotNumber = self.inventorySlots.size();

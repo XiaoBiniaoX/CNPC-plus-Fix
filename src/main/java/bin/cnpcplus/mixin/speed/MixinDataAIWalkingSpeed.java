@@ -33,7 +33,9 @@ public class MixinDataAIWalkingSpeed implements WalkingSpeedFloatAccess {
     private void cnpcplus$readFloatSpeed(NBTTagCompound compound, CallbackInfo ci) {
         float speed = compound.hasKey("CNPCPlusMoveSpeed")
                 ? compound.getFloat("CNPCPlusMoveSpeed") : compound.getInteger("MoveSpeed");
-        if (speed >= 0.01F) cnpcplus$setWalkingSpeed(speed);
+        if (!Float.isNaN(speed) && !Float.isInfinite(speed) && speed >= 0.0F && speed <= 10.0F) {
+            cnpcplus$setWalkingSpeed(speed);
+        }
     }
 
     @Inject(method = "writeToNBT", at = @At("RETURN"), remap = false)
@@ -49,7 +51,7 @@ public class MixinDataAIWalkingSpeed implements WalkingSpeedFloatAccess {
 
     @Override
     public void cnpcplus$setWalkingSpeed(float speed) {
-        if (Float.isNaN(speed) || Float.isInfinite(speed) || speed < 0.01F || speed > 10.0F) {
+        if (Float.isNaN(speed) || Float.isInfinite(speed) || speed < 0.0F || speed > 10.0F) {
             throw new CustomNPCsException("Wrong speed: " + speed, new Object[0]);
         }
         this.cnpcplus$walkingSpeed = speed;

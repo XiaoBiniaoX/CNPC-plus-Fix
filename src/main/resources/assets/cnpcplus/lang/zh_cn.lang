@@ -45,4 +45,11 @@ bard=吟游诗人
 BardVolume=吟游诗人音量
 BardWatchdogSeconds=吟游诗人看门狗秒数
 cnpcplus.follower.dismiss=解雇
-
+cnpcplus.penetration=目标穿透次数
+cnpcplus.smelting.open=可视化自定义熔炼配方
+cnpcplus.smelting.title=可视化自定义熔炼配方
+cnpcplus.smelting.blast=允许高炉（1.12.2 无高炉，不生效）
+cnpcplus.smelting.smoker=允许烟熏炉（1.12.2 无烟熏炉，不生效）
+cnpcplus.smelting.generic=允许通用燃料
+cnpcplus.smelting.cooktime=熔炼时间
+cnpcplus.smelting.xp=熔炼经验

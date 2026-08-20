@@ -22,7 +22,11 @@ public class CnpcPlusEarlyMixinLoader implements IFMLLoadingPlugin, IEarlyMixinL
 
     @Override
     public List<String> getMixinConfigs() {
-        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json");
+        // Vanilla furnace classes are on the classloader before late-mixin time
+        // (FurnaceRecipes has a static SMELTING_BASE instance), so the smelting
+        // hooks must be applied here or Mixin fails with
+        // MixinTargetAlreadyLoadedException during PREPARE.
+        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json");
     }
 
     @Override

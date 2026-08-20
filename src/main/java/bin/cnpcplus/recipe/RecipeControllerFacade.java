@@ -22,9 +22,6 @@ public final class RecipeControllerFacade {
     public static void loadAll(RecipeController controller) {
         RecipeStorage.INSTANCE.loadAll(controller);
         reloadGlobalRecipes(controller);
-        if (RecipeDebug.enabled()) {
-            RecipeDebug.probeAllGlobals();
-        }
     }
 
     public static void reloadGlobalRecipes(RecipeController controller) {

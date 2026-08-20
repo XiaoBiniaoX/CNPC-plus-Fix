@@ -45,4 +45,11 @@ bard=Bard
 BardVolume=Bard Volume
 BardWatchdogSeconds=Bard Watchdog Seconds
 cnpcplus.follower.dismiss=Dismiss
-
+cnpcplus.penetration=Target Penetration
+cnpcplus.smelting.open=Custom Smelting Recipes
+cnpcplus.smelting.title=Custom Smelting Recipes
+cnpcplus.smelting.blast=Allow Blast Furnace (no effect in 1.12.2)
+cnpcplus.smelting.smoker=Allow Smoker (no effect in 1.12.2)
+cnpcplus.smelting.generic=Allow Generic Fuel
+cnpcplus.smelting.cooktime=Cook Time
+cnpcplus.smelting.xp=Experience
