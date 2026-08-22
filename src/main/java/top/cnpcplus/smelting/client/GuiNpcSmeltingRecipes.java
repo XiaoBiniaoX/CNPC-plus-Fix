@@ -268,9 +268,10 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         if (d.name.equals("new") && d.id < 0) {
             d.name = "new" + System.currentTimeMillis() % 10000;
         }
-        d.input = this.container.getInput().copy();
-        d.fuel = this.container.getFuel().copy();
-        d.output = this.container.getOutput().copy();
+        // 三个槽位物品刻意不带进包里：服务端只认它自己容器里的 ItemStack（见 PacketSmeltingSave），
+        // 客户端发过去的会被直接丢弃。而 C→S 自定义载荷硬上限是 32767 字节（javap 实证
+        // ServerboundCustomPayloadPacket 读取时超限直接抛 IllegalArgumentException → 玩家被踢），
+        // 槽位里放个装满物品的潜影盒或大 NBT 物品就可能撞线。既然是废数据，就别发。
         d.blastAllowed = this.blast;
         d.smokerAllowed = this.smoker;
         d.genericFuelAllowed = this.generic;
@@ -282,7 +283,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             try { d.xp = Float.parseFloat(this.getTextField(21).getValue()); }
             catch (Exception e) { d.xp = 0.0f; }
         } else d.xp = 0.0f;
-        SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingSave(d.toNBT()));
+        SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingSave(d.toNBT(false)));
     }
 
     @Override

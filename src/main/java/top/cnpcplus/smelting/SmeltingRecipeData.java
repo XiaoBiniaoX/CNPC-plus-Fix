@@ -20,12 +20,24 @@ public class SmeltingRecipeData {
     public boolean genericFuelAllowed = false;  // 通用燃料允许
 
     public CompoundTag toNBT() {
+        return this.toNBT(true);
+    }
+
+    /**
+     * @param withItems 是否写入三个槽位物品。
+     *   客户端往服务端发保存请求时传 false：服务端只认自己容器里的 ItemStack（见 PacketSmeltingSave），
+     *   带上去纯属废数据，还会把 C→S 载荷推向 32767 字节硬上限（超限玩家直接被踢）。
+     *   落盘与 S→C 同步必须传 true。
+     */
+    public CompoundTag toNBT(boolean withItems) {
         CompoundTag t = new CompoundTag();
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
-        t.put("Input", this.input.save(new CompoundTag()));
-        t.put("Fuel", this.fuel.save(new CompoundTag()));
-        t.put("Output", this.output.save(new CompoundTag()));
+        if (withItems) {
+            t.put("Input", this.input.save(new CompoundTag()));
+            t.put("Fuel", this.fuel.save(new CompoundTag()));
+            t.put("Output", this.output.save(new CompoundTag()));
+        }
         t.putFloat("CookTime", this.cookTime);
         t.putFloat("Xp", this.xp);
         t.putBoolean("Blast", this.blastAllowed);

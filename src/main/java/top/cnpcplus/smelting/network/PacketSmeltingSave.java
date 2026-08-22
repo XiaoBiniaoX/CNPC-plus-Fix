@@ -29,6 +29,9 @@ public class PacketSmeltingSave {
             if (sender == null || !sender.hasPermissions(2)) return;
             if (this.data == null) return;
             SmeltingRecipeData d = SmeltingRecipeData.fromNBT(this.data);
+            // 名称长度设上限：它会落盘并被 S→C 同步包重新广播，而 S→C 自定义载荷上限是 1MB。
+            // 客户端发来的字符串属于不可信输入，不设限的话攒够超长名称就能让同步包超限、把所有客户端打崩。
+            if (d.name != null && d.name.length() > 64) d.name = d.name.substring(0, 64);
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             // 没有打开编辑容器就直接拒绝——否则会退化成信任客户端发来的 ItemStack（可伪造任意 NBT）。
             if (!(sender.containerMenu instanceof ContainerSmeltingRecipes c)) return;
