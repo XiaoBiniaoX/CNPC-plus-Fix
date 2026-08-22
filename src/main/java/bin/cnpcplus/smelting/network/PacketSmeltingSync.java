@@ -15,8 +15,13 @@ public record PacketSmeltingSync(List<SmeltingRecipeData> recipes, int selectedI
     public static final Type<PacketSmeltingSync> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "smelting_sync"));
     public static final StreamCodec<RegistryFriendlyByteBuf, PacketSmeltingSync> STREAM_CODEC = StreamCodec.of(
             (buf, packet) -> {
-                buf.writeVarInt(Math.min(packet.recipes.size(), 256));
-                for (SmeltingRecipeData d : packet.recipes) {
+                // 长度头必须与实际写入的元素数完全一致。
+                // 旧写法写的是 min(size,256) 却循环写全部元素，配方超过 256 条时
+                // 读取侧只读 256 条，缓冲区剩余字节被当成下一个包解析 —— 直接协议错位断线。
+                int count = Math.min(packet.recipes.size(), 256);
+                buf.writeVarInt(count);
+                for (int i = 0; i < count; i++) {
+                    SmeltingRecipeData d = packet.recipes.get(i);
                     buf.writeVarInt(d.id); buf.writeUtf(d.name == null ? "" : d.name, 256);
                     buf.writeFloat(d.cookTime); buf.writeFloat(d.xp);
                     buf.writeBoolean(d.blastAllowed); buf.writeBoolean(d.smokerAllowed); buf.writeBoolean(d.genericFuelAllowed);
@@ -28,7 +33,10 @@ public record PacketSmeltingSync(List<SmeltingRecipeData> recipes, int selectedI
             },
             buf -> {
                 List<SmeltingRecipeData> list = new ArrayList<>();
-                int count = Math.min(buf.readVarInt(), 256);
+                // 负数或超限一律视为非法包，直接拒绝，不做「截断后继续读」的容忍处理，
+                // 否则同样会把剩余字节错当下一个包。
+                int count = buf.readVarInt();
+                if (count < 0 || count > 256) throw new IllegalArgumentException("Invalid smelting recipe count: " + count);
                 for (int i = 0; i < count; i++) {
                     SmeltingRecipeData d = new SmeltingRecipeData();
                     d.id = buf.readVarInt(); d.name = buf.readUtf(256); d.cookTime = buf.readFloat(); d.xp = buf.readFloat();

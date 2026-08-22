@@ -2,17 +2,12 @@ package bin.cnpcplus.trader.network;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.trader.TraderPager;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
-import noppes.npcs.containers.ContainerNPCTrader;
-import noppes.npcs.containers.ContainerNPCTraderSetup;
-import noppes.npcs.roles.RoleTrader;
-import noppes.npcs.shared.client.gui.components.GuiBasicContainer;
 
 public record PacketTraderPageSync(int page) implements CustomPacketPayload {
     public static final Type<PacketTraderPageSync> TYPE =
@@ -28,20 +23,10 @@ public record PacketTraderPageSync(int page) implements CustomPacketPayload {
 
     public static void handle(PacketTraderPageSync msg, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
-            if (ctx.player() == null) return;
-            RoleTrader role = cnpcplus$roleOf(ctx.player().containerMenu);
-            if (role == null) return;
-            TraderPager.setPageOnly(role, msg.page());
-            if (Minecraft.getInstance().screen instanceof GuiBasicContainer gui
-                    && gui.getMenu() == ctx.player().containerMenu) {
-                gui.init();
-            }
+            // 页号来自网络，先做边界校验；实际客户端处理放在 TraderPageSyncClient，
+            // 本类不得直接引用客户端类型（服务端会构造本类来下发）。
+            if (msg.page() < 0 || msg.page() >= TraderPager.MAX_PAGES) return;
+            bin.cnpcplus.trader.client.TraderPageSyncClient.apply(ctx.player(), msg.page());
         });
-    }
-
-    private static RoleTrader cnpcplus$roleOf(Object menu) {
-        if (menu instanceof ContainerNPCTrader c) return c.role;
-        if (menu instanceof ContainerNPCTraderSetup s) return s.role;
-        return null;
     }
 }

@@ -14,6 +14,9 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 public class TraderPager {
+    /** 分页上限。防止客户端页号或存档 NBT 驱动页表无限扩张（每页 36+18 个槽位）。 */
+    public static final int MAX_PAGES = 64;
+
     private static final Map<RoleTrader, List<NpcMiscInventory>> CURRENCY = new WeakHashMap<>();
     private static final Map<RoleTrader, List<NpcMiscInventory>> SOLD = new WeakHashMap<>();
     private static final Map<RoleTrader, Integer> PAGE = new WeakHashMap<>();
@@ -127,6 +130,7 @@ public class TraderPager {
     public static void addPage(RoleTrader role) {
         ensure(role);
         synchronized (LOCK) {
+            if (CURRENCY.get(role).size() >= MAX_PAGES) return;
             CURRENCY.get(role).add(new NpcMiscInventory(36));
             SOLD.get(role).add(new NpcMiscInventory(18));
             TITLES.get(role).add("");
@@ -198,8 +202,9 @@ public class TraderPager {
         List<NpcMiscInventory> c = new ArrayList<>();
         List<NpcMiscInventory> s = new ArrayList<>();
         if (full && !pages.isEmpty()) {
-            for (Tag tag : pages) {
-                CompoundTag p = (CompoundTag) tag;
+            // 存档页数同样受 MAX_PAGES 约束，避免损坏或被构造的 NBT 造成内存放大。
+            for (int i = 0; i < pages.size() && c.size() < MAX_PAGES; i++) {
+                CompoundTag p = pages.getCompound(i);
                 NpcMiscInventory ci = new NpcMiscInventory(36);
                 NpcMiscInventory si = new NpcMiscInventory(18);
                 ci.setFromNBT(lookupProvider, p.getCompound("Tc"));
@@ -216,8 +221,8 @@ public class TraderPager {
             copyTo(role.inventorySold, s0);
             c.add(c0);
             s.add(s0);
-            for (Tag tag : pages) {
-                CompoundTag p = (CompoundTag) tag;
+            for (int i = 0; i < pages.size() && c.size() < MAX_PAGES; i++) {
+                CompoundTag p = pages.getCompound(i);
                 NpcMiscInventory ci = new NpcMiscInventory(36);
                 NpcMiscInventory si = new NpcMiscInventory(18);
                 ci.setFromNBT(lookupProvider, p.getCompound("Tc"));
@@ -233,7 +238,9 @@ public class TraderPager {
             PAGE.put(role, 0);
             ListTag titleList = compound.getList("PageTitles", 8);
             for (Tag tag : titleList) {
-                titles.add(tag.getAsString());
+                if (titles.size() >= MAX_PAGES) break;
+                String t = tag.getAsString();
+                titles.add(t.length() > 256 ? t.substring(0, 256) : t);
             }
             while (titles.size() < c.size()) {
                 titles.add("");

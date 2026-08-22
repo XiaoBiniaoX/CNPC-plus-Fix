@@ -21,9 +21,15 @@ public abstract class MixinAbstractFurnaceBlockEntity implements SmeltingFuelRul
         if (slot == 1 && stack != null && !stack.isEmpty()) cir.setReturnValue(true);
     }
 
+    /**
+     * 只有普通熔炉会真正用到这里的返回值。
+     * 高炉与烟熏炉自己 override 了 getBurnDuration 并对 super 结果整除 2，
+     * 它们由 MixinBlastFurnaceBurnDuration / MixinSmokerBurnDuration 在子类 HEAD 拦截，
+     * 不会走到本注入，所以这里传 finalValue=false（不做 /2 补偿）。
+     */
     @Inject(method = "getBurnDuration", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
     private void cnpcplus$customFuelBurnTime(ItemStack stack, CallbackInfoReturnable<Integer> cir) {
-        Integer custom = SmeltingFuelRules.customBurnTime((AbstractFurnaceBlockEntity) (Object) this, stack);
+        Integer custom = SmeltingFuelRules.customBurnTime((AbstractFurnaceBlockEntity) (Object) this, stack, false);
         if (custom != null) cir.setReturnValue(custom);
     }
 }

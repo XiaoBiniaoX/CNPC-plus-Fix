@@ -9,6 +9,8 @@
     "EntityProjectileSpinFixMixin",
     "EntityProjectileTrailMixin",
     "smelting.MixinAbstractFurnaceBlockEntity",
+    "smelting.MixinBlastFurnaceBurnDuration",
+    "smelting.MixinSmokerBurnDuration",
     "smelting.MixinFurnaceFuelSlot",
     "CnpcBranchPatchProviderMixin",
     "DataDisplayMixin",

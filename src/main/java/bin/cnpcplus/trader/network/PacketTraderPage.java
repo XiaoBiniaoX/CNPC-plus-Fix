@@ -34,7 +34,12 @@ public record PacketTraderPage(int page, boolean delete) implements CustomPacket
     public static void handle(PacketTraderPage msg, IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
             if (!(ctx.player() instanceof ServerPlayer player)) return;
+            // 页号来自客户端，先做边界校验再使用：负数直接丢弃，上限同 TraderPager.MAX_PAGES。
+            // 不校验会让恶意客户端用超大页号驱动 addPage 无限扩张页表（每页 36+18 槽位）造成内存放大。
+            if (msg.page < 0 || msg.page >= TraderPager.MAX_PAGES) return;
             if (player.containerMenu instanceof ContainerNPCTraderSetup menu) {
+                // Setup 是管理界面，必须要求 OP 权限；仅靠「菜单已打开」不足以证明有编辑权。
+                if (!player.hasPermissions(2)) return;
                 if (msg.delete) {
                     if (TraderPager.removePage(menu.role, msg.page)) {
                         menu.role.toSave = true;
