@@ -33,7 +33,9 @@ public class MixinRenderNPCInterfaceShadow {
     @Unique
     private boolean cnpcplus$translucent = false;
 
-    @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/EntityNPCInterface;m_20205_()F"))
+    // render 在生产 jar 里有两个同名重载（泛型桥接 m_7392_ 会被算作候选），
+    // 只写 "render" 会匹配到错误的签名并报 Invalid descriptor，必须写全描述符。
+    @Redirect(method = "render(Lnoppes/npcs/entity/EntityNPCInterface;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/EntityNPCInterface;m_20205_()F"))
     private float cnpcplus$scaledShadow(EntityNPCInterface npc) {
         float sizeRatio = 1.0f;
         if (npc instanceof EntityCustomNpc custom) {
@@ -55,8 +57,11 @@ public class MixinRenderNPCInterfaceShadow {
     }
 
     // --- 半透明：标记当前 NPC 是否半透明 ---
-    @Inject(method = "render", at = @At("HEAD"))
-    private void cnpcplus$markRender(EntityNPCInterface npc, CallbackInfo ci) {
+    @Inject(method = "render(Lnoppes/npcs/entity/EntityNPCInterface;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"))
+    private void cnpcplus$markRender(EntityNPCInterface npc, float entityYaw, float partialTicks,
+                                     com.mojang.blaze3d.vertex.PoseStack poseStack,
+                                     net.minecraft.client.renderer.MultiBufferSource buffer,
+                                     int packedLight, CallbackInfo ci) {
         this.cnpcplus$translucent = npc instanceof EntityCustomNpc custom && custom.display.getVisible() == 2;
     }
 

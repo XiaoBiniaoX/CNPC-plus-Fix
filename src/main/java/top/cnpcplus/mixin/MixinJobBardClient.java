@@ -67,15 +67,10 @@ public class MixinJobBardClient {
 
         // 原版语义：minRange 只决定是否开始播放，不负责停止已经开始的音乐。
         // 只有开启 hasOffRange 后，玩家离开 maxRange 才停止。
-        if (mine && self.hasOffRange && !self.npc.level().getEntitiesOfClass(
-                Player.class,
-                self.npc.getBoundingBox().inflate(self.maxRange, self.maxRange / 2.0, self.maxRange)
-        ).contains(player)) {
-            c.stopMusic();
-            this.cnpcplus$lastPlay = 0L;
-            this.cnpcplus$lastPicked = "";
-            return;
-        }
+        //
+        // 停止判定不放在这里：玩家走远后本 NPC 会离开客户端实体加载范围，aiStep 不再被调用，
+        // 写在这里的 stopMusic 永远等不到执行时机（表现就是「勾了停止距离激活也不断歌」）。
+        // 判定已移到 BardRangeGuard，由 SoundEngine.tickNonPaused 每 tick 驱动。
 
         if (mine) {
             if (active) {

@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.bard.BardRangeGuard;
 import top.cnpcplus.config.CnpcPlusConfigData;
 
 import java.util.Map;
@@ -23,13 +24,16 @@ import java.util.Map;
 @Mixin(SoundEngine.class)
 public abstract class MixinSoundEngine {
 
-    @Shadow
+    // MixinGradle 的 refmap 只收录 @Inject/@Redirect/@Accessor 的目标，不收录 @Shadow。
+    // 开发环境是 official(mojmap)，生产环境是 SRG，所以 @Shadow 必须靠 aliases 补生产名，
+    // 否则整个 mixin 在生产会因「was not located in the target class」被整体丢弃。
+    @Shadow(aliases = "f_120226_")
     private Map<SoundInstance, ChannelAccess.ChannelHandle> instanceToChannel;
 
-    @Shadow
+    @Shadow(aliases = "m_120327_")
     private float calculateVolume(SoundInstance inst) { return 0.0F; }
 
-    @Shadow
+    @Shadow(aliases = "m_120324_")
     private float calculatePitch(SoundInstance inst) { return 1.0F; }
 
     @Unique
@@ -75,6 +79,16 @@ public abstract class MixinSoundEngine {
     private void cnpcplus$applyVolumeTick(CallbackInfo ci) {
         MusicController c = MusicController.Instance;
         if (c == null || c.playing == null) return;
+
+        // 「停止距离激活」必须在这里判定，不能只放在 JobBard.aiStep 里。
+        // 原因：玩家走远后诗人 NPC 会离开客户端实体加载范围，它的 aiStep 直接不再被调用，
+        // 写在 aiStep 里的 stopMusic 就永远没机会执行，于是歌一定被放完。
+        // tickNonPaused 由声音引擎每 tick 驱动，与诗人是否还在 tick 无关，判定才可靠。
+        if (BardRangeGuard.shouldStop(c)) {
+            c.stopMusic();
+            return;
+        }
+
         ChannelAccess.ChannelHandle h = this.instanceToChannel.get(c.playing);
         if (h != null) {
             float v = this.calculateVolume(c.playing);
