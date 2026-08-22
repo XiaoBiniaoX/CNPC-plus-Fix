@@ -29,16 +29,7 @@ public class MixinJobBardClient {
     private long cnpcplus$lastPlay = 0L;
 
     @Unique
-    private String cnpcplus$lastPicked = "";
-
-    @Unique
     private String cnpcplus$lastSong = "";
-
-    @Unique
-    private boolean cnpcplus$warnedEmpty = false;
-
-    @Unique
-    private boolean cnpcplus$lastActive = false;
 
     @Inject(method = "aiStep", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$bardAiStep(CallbackInfo ci) {
@@ -61,26 +52,40 @@ public class MixinJobBardClient {
         if (player == null) return;
 
         boolean active = c.playing != null && sm.isActive(c.playing);
-        boolean mine = c.playingEntity == self.npc && c.playing != null;
-        double minRange = self.minRange;
-        double maxRange = self.maxRange;
-        boolean inStartRange = self.npc.distanceToSqr(player) <= minRange * minRange;
-        boolean inStopRange = self.npc.distanceToSqr(player) <= maxRange * maxRange;
-        if (mine && active && self.hasOffRange && !inStopRange) {
-            c.stopMusic();
-            this.cnpcplus$lastPlay = 0L;
-            this.cnpcplus$lastPicked = "";
-            return;
-        }
+        boolean mine = c.playing != null && c.playingEntity == self.npc;
+        // 与原版一致用 AABB 判定：水平取 minRange，垂直取 minRange/2。
+        boolean inStartRange = self.npc.level().getEntitiesOfClass(
+                Player.class,
+                self.npc.getBoundingBox().inflate(self.minRange, self.minRange / 2.0, self.minRange)
+        ).contains(player);
+
+        // 原版语义：minRange 只决定是否开始播放，不负责停止已经开始的音乐。
+        // 只有开启 hasOffRange 后，玩家离开 maxRange 才停止。
+        //
+        // 停止判定不放在这里：玩家走远后本 NPC 会离开客户端实体加载范围，aiStep 不再被调用，
+        // 写在这里的 stopMusic 永远等不到执行时机（表现就是「勾了停止距离激活也不断歌」）。
+        // 判定已移到 BardRangeGuard，由 SoundEngine.tickNonPaused 每 tick 驱动。
+
         if (mine) {
             if (active) {
-                if (System.currentTimeMillis() - this.cnpcplus$lastPlay < CnpcPlusConfig.BARD_WATCHDOG_SECONDS.get() * 1000L) return;
-                c.stopMusic();
+                // 仍在播且未超看门狗时长：什么都不做，等它自然放完。
+                // 看门狗只负责「卡住不结束」这一种异常，不能顺手把自然结束也一起吃掉，
+                // 否则 active 变 false 后走不到下面的选曲逻辑，歌单就只播第一首不续上。
+                if (System.currentTimeMillis() - this.cnpcplus$lastPlay
+                        < CnpcPlusConfig.BARD_WATCHDOG_SECONDS.get() * 1000L) {
+                    return;
+                }
             }
+            // 自然播放完成（active=false）或看门狗超时：释放旧实例，
+            // 允许在起始范围内立即按权重选择下一首。
+            c.stopMusic();
             this.cnpcplus$lastPlay = 0L;
-            this.cnpcplus$lastPicked = "";
         }
+
+        // 尚未播放时必须进入 minRange 才能开始；离开 minRange 不会终止已在播放的音乐。
         if (!inStartRange) return;
+
+        // 其他 NPC 正在播放：仅本 NPC 更近玩家时才接管
         if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc) {
             if (!self.npc.closerThan(player, c.playingEntity.distanceTo(player))) return;
         }
@@ -92,7 +97,6 @@ public class MixinJobBardClient {
         } else {
             c.playMusic(picked, self.npc, false);
         }
-        this.cnpcplus$lastPicked = picked;
         this.cnpcplus$lastSong = picked;
         this.cnpcplus$lastPlay = System.currentTimeMillis();
         try {

@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardRangeGuard;
 import bin.cnpcplus.config.CnpcPlusConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
@@ -75,6 +76,16 @@ public abstract class MixinSoundEngine {
     private void cnpcplus$applyVolumeTick(CallbackInfo ci) {
         MusicController c = MusicController.Instance;
         if (c == null || c.playing == null) return;
+
+        // 「停止距离激活」必须在这里判定，不能只放在 JobBard.aiStep 里。
+        // 原因：玩家走远后诗人 NPC 会离开客户端实体加载范围，它的 aiStep 直接不再被调用，
+        // 写在 aiStep 里的 stopMusic 就永远没机会执行，于是歌一定被放完。
+        // tickNonPaused 由声音引擎每 tick 驱动，与诗人是否还在 tick 无关，判定才可靠。
+        if (BardRangeGuard.shouldStop(c)) {
+            c.stopMusic();
+            return;
+        }
+
         ChannelAccess.ChannelHandle h = this.instanceToChannel.get(c.playing);
         if (h != null) {
             float v = this.calculateVolume(c.playing);
