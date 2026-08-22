@@ -46,14 +46,6 @@ public class CnpcPlusConfigData {
         BardWatchdogSeconds = builder.defineInRange("BardWatchdogSeconds", 300, 1, 3600);
         builder.pop();
 
-        builder.push("熔炼配方界面布局");
-        builder.comment("「可视化自定义熔炼配方」界面的整体偏移（单位像素）。热修改后重新打开界面即生效。");
-        builder.comment("其余元素坐标（槽位/火焰/箭头/开关/输入框/按钮）已按满意布局硬编码，不再提供配置。");
-        builder.comment("整个界面一起移动：背景板、顶部菜单条、全部按钮/输入框、三个槽位。Y 增大 = 整体往下（默认20，在默认窗口下露出顶部菜单）");
-        SmeltingGuiOffsetX = builder.defineInRange("SmeltingGuiOffsetX", 0, -300, 300);
-        SmeltingGuiOffsetY = builder.defineInRange("SmeltingGuiOffsetY", 52, -300, 300);
-        builder.pop();
-
         CONFIG_SPEC = builder.build();
     }
 
@@ -72,8 +64,6 @@ public class CnpcPlusConfigData {
     public static ForgeConfigSpec.IntValue DialogOptionSpacing;
     public static ForgeConfigSpec.DoubleValue BardVolume;
     public static ForgeConfigSpec.IntValue BardWatchdogSeconds;
-    public static ForgeConfigSpec.IntValue SmeltingGuiOffsetX;
-    public static ForgeConfigSpec.IntValue SmeltingGuiOffsetY;
 
     @SubscribeEvent
     public static void onConfigChanged(ModConfigEvent event) {

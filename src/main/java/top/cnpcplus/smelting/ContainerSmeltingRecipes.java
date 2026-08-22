@@ -76,6 +76,10 @@ public class ContainerSmeltingRecipes extends AbstractContainerMenu {
     @Override
     public void removed(Player player) {
         super.removed(player);
+        // 只在服务端还物品。removed 两端都会跑，客户端那次 clearContainer 会走
+        // Inventory.placeItemBackInInventory → 在客户端也生成一份，于是「保存后点 X」
+        // 会凭空多出一份物品（用户实测复现）。服务端才是权威。
+        if (player.level().isClientSide()) return;
         this.clearContainer(player, this.recipe);
     }
 

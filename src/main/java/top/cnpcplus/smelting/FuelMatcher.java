@@ -15,9 +15,33 @@ public interface FuelMatcher {
     /** 返回该物品作为此配方燃料时的燃烧时长（刻）；不满足规则返回 0。 */
     int burnTime(ItemStack fuel, RecipeType<?> type);
 
-    /** 通用燃料：任何 MC/Forge 认定的燃料都可以烧。 */
+    /**
+     * 通用燃料：任何 MC/Forge 认定的燃料都可以烧。
+     *
+     * <p>只在没有指定燃料时才单独使用。开了通用燃料并不等于「只认原版燃料」——
+     * 见 SmeltingRecipeParser.fuelFor 的 either() 组合。
+     */
     static FuelMatcher generic() {
         return (stack, type) -> ForgeHooks.getBurnTime(stack, type);
+    }
+
+    /**
+     * 「指定燃料 或 通用燃料」二者取其一可用。
+     *
+     * <p>通用燃料的开关不应该影响到自定义物品燃料，通用燃料哪怕为开，也要保证自定义物品燃料
+     * 在本配方可用，而不是拒绝非原版 Minecraft 的燃料物品进入熔炉燃料槽。
+     *
+     * <p>之前的实现是三元选择（开通用就整个换成 generic()），于是指定燃料被顶掉，
+     * 盔甲之类非原版燃料既进不了燃料槽、也点不着火。改成并集：先问指定燃料，
+     * 命中就用配方设定的时长；没命中再退回 Forge 判定。
+     */
+    static FuelMatcher either(ItemStack spec, int burnTime) {
+        FuelMatcher specified = specified(spec, burnTime);
+        FuelMatcher generic = generic();
+        return (stack, type) -> {
+            int t = specified.burnTime(stack, type);
+            return t > 0 ? t : generic.burnTime(stack, type);
+        };
     }
 
     /**

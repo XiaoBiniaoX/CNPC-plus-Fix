@@ -54,5 +54,6 @@
   "cnpcplus.smelting.smoker": "Allow Smoker",
   "cnpcplus.smelting.generic": "Allow Generic Fuel",
   "cnpcplus.smelting.cooktime": "Cook Time",
-  "cnpcplus.smelting.xp": "Experience"
+  "cnpcplus.smelting.xp": "Experience",
+  "cnpcplus.smelting.needio": "Input and output items are required"
 }

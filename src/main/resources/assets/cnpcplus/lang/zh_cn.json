@@ -54,5 +54,6 @@
   "cnpcplus.smelting.smoker": "烟熏炉允许",
   "cnpcplus.smelting.generic": "通用燃料允许",
   "cnpcplus.smelting.cooktime": "熔炼时间",
-  "cnpcplus.smelting.xp": "熔炼经验"
+  "cnpcplus.smelting.xp": "熔炼经验",
+  "cnpcplus.smelting.needio": "需要放入被熔炼物和熔炼物"
 }

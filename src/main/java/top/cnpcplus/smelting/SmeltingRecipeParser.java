@@ -31,35 +31,42 @@ public final class SmeltingRecipeParser {
                 new ResourceLocation("cnpcplus", "smelting/" + data.id),
                 RECIPE_GROUP, CookingBookCategory.MISC,
                 ingredient, data.output.copy(), data.xp, cookTime, fuelFor(data, cookTime)));
-        // 高炉/烟熏炉：熔炼时间减半（与原版一致）。注意燃料时长要传「未减半」的值——
-        // BlastFurnaceBlockEntity / SmokerBlockEntity 的 getBurnDuration 是
-        // super.getBurnDuration(stack) / 2（javap 实证），我们的 mixin 打在父类上，
-        // 返回值还会被子类再除以 2。传完整 cookTime，经子类减半后正好等于本配方的 cookingTime。
+        // 高炉/烟熏炉：熔炼时间减半（与原版一致）。燃料时长传该配方的真实 cookingTime 即可——
+        // 现在有 MixinBlastFurnaceBurnDuration / MixinSmokerBurnDuration 在子类 HEAD 直接
+        // setReturnValue，绕过了子类那个 `super.getBurnDuration(stack) / 2`，不再需要
+        // 早先那种「先乘 2 等着被子类除回来」的预补偿（那个做法在换配方时会算错，
+        // 表现为「烧了其他东西再换回这个配方就 1 换 1 失效」）。
         if (data.blastAllowed) {
             out.add(new SmeltingCookingRecipe(
                     RecipeType.BLASTING,
                     new ResourceLocation("cnpcplus", "blasting/" + data.id),
                     RECIPE_GROUP, CookingBookCategory.BLOCKS,
-                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime * 2)));
+                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime)));
         }
         if (data.smokerAllowed) {
             out.add(new SmeltingCookingRecipe(
                     RecipeType.SMOKING,
                     new ResourceLocation("cnpcplus", "smoking/" + data.id),
                     RECIPE_GROUP, CookingBookCategory.FOOD,
-                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime * 2)));
+                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime)));
         }
         return out;
     }
 
     /**
-     * 通用燃料开关：开→通用燃料匹配器；关→仅指定槽1燃料（槽1为空则不可烧）。
-     * burnTime 参数是「父类 getBurnDuration 应返回的值」，不一定等于该配方的 cookingTime
+     * 通用燃料开关：开→「指定燃料 或 通用燃料」并集；关→仅指定槽1燃料（槽1为空则不可烧）。
+     *
+     * <p>通用燃料的开关不应该影响到自定义物品燃料，通用燃料哪怕为开，也要保证自定义物品燃料
+     * 在本配方可用，而不是拒绝非原版 Minecraft 的燃料物品进入熔炉燃料槽。
+     * 早先写成三元选择（开通用就整个换成 generic()），指定燃料被顶掉，
+     * 盔甲这类非原版燃料既进不了燃料槽也点不着火。
+     *
+     * <p>burnTime 参数是「父类 getBurnDuration 应返回的值」，不一定等于该配方的 cookingTime
      * （高炉/烟熏炉的子类会再减半，见上方调用处注释）。
      */
     private static FuelMatcher fuelFor(SmeltingRecipeData data, int burnTime) {
         return data.genericFuelAllowed
-                ? FuelMatcher.generic()
+                ? FuelMatcher.either(data.fuel, burnTime)
                 : FuelMatcher.specified(data.fuel, burnTime);
     }
 

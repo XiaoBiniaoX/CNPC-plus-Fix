@@ -64,7 +64,9 @@
     "MixinRecipeManagerDynamic",
     "AbstractContainerMenuSlotsAccess",
     "AbstractFurnaceBlockEntityAccess",
-    "MixinFurnaceFuelSlotPlace"
+    "MixinFurnaceFuelSlotPlace",
+    "MixinBlastFurnaceBurnDuration",
+    "MixinSmokerBurnDuration"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",

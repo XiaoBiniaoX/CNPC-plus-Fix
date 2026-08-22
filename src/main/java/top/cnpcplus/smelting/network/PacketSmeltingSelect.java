@@ -27,6 +27,15 @@ public class PacketSmeltingSelect {
             if (player.containerMenu instanceof ContainerSmeltingRecipes c) {
                 c.selectedId = this.id;
                 SmeltingRecipeData d = SmeltingRecipeRegistry.get(this.id);
+                // 覆盖之前先把槽里原有的东西还给玩家：这三个槽装的是玩家从背包拖进来的真实物品，
+                // 直接 setItem 覆盖等于静默销毁。切换配方和点「添加配方」都会走到这里。
+                for (int i = 0; i < 3; i++) {
+                    net.minecraft.world.item.ItemStack old = c.recipe.getItem(i);
+                    if (!old.isEmpty()) {
+                        c.recipe.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+                        if (!player.getInventory().add(old)) player.drop(old, false);
+                    }
+                }
                 c.recipe.setItem(0, d == null ? net.minecraft.world.item.ItemStack.EMPTY : d.fuel.copy());
                 c.recipe.setItem(1, d == null ? net.minecraft.world.item.ItemStack.EMPTY : d.input.copy());
                 c.recipe.setItem(2, d == null ? net.minecraft.world.item.ItemStack.EMPTY : d.output.copy());

@@ -58,6 +58,14 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     private boolean blast = false, smoker = false, generic = false;
 
+    /**
+     * 「新建草稿」状态：点过「添加配方」但还没保存。
+     * 没有这个状态就会死锁——三个开关和两个输入框原本只在 selectedId>=0 时显示，
+     * 而 selectedId 只能靠从右侧列表里选中已存在的配方来获得；
+     * 于是新配方永远没法设置熔炼时间/经验/高炉开关，也就永远存不出第一条配方。
+     */
+    private boolean draft = false;
+
     public GuiNpcSmeltingRecipes(ContainerSmeltingRecipes container, Inventory inv, Component titleIn) {
         super(NoppesUtil.getLastNpc(), container, inv, titleIn);
         this.container = container;
@@ -75,16 +83,20 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         super.m_7856_();
         // 界面整体偏移：同时移动 CNPC 的 guiLeft/guiTop（背景板、顶部菜单条、我们的控件都用它）
         // 和 vanilla 的 leftPos/topPos（原版用它渲染槽位与物品）。两者一起动才不会错位。
-        int ox = SmeltingLayout.guiOffsetX();
-        int oy = SmeltingLayout.guiOffsetY();
-        this.guiLeft += ox;
-        this.guiTop += oy;
+        // 用 vanilla 的居中值作为基准重新计算，不做 += 累加。
+        // 基类 GuiBasicContainer.m_7856_ 会把 guiLeft/guiTop 重算为居中值，但 vanilla 的
+        // leftPos/topPos 是 AbstractContainerScreen.init 算的、并不等于 CNPC 那两个字段；
+        // 之前写 `guiTop += oy` 在 m_7856_ 被二次调用（refreshFromServer/buttonEvent 都会调）时
+        // 会把偏移叠加上去，日志实证 guiTop 从 5 跳到 26，界面越点越往下跑。
+        this.guiLeft = (this.width - this.imageWidth) / 2 + SmeltingLayout.guiOffsetX();
+        this.guiTop = (this.height - this.imageHeight) / 2 + SmeltingLayout.guiOffsetY();
         this.leftPos = this.guiLeft;
         this.topPos = this.guiTop;
         // 顶部菜单条位置在 super.m_7856_() 里已按旧 guiTop 定好，用偏移后的值重新定位一次
         this.repositionMenu();
 
-        boolean hasSelected = this.selectedId >= 0;
+        // 已选中已存在的配方，或正在录入新配方草稿，都要显示开关与输入框
+        boolean hasSelected = this.selectedId >= 0 || this.draft;
 
         if (this.scroll == null) {
             this.scroll = new GuiCustomScrollNop(this, 0);
@@ -142,6 +154,9 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.refreshScroll();
     }
 
+    /** 保存失败等提示语（画在按钮列下方，null 表示不显示）。 */
+    private String notice = null;
+
     /** 输入框悬停提示：id → 语言键。 */
     private static final int[] TIP_FIELDS = {20, 21};
     private static final String[] TIP_KEYS = {"cnpcplus.smelting.cooktime", "cnpcplus.smelting.xp"};
@@ -150,6 +165,13 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.render(graphics, mouseX, mouseY, partialTicks);
         if (this.hasSubGui()) return;
+        // 保存失败提示（红字，画在右侧按钮列下方）
+        if (this.notice != null) {
+            graphics.drawString(this.font, this.notice,
+                    this.guiLeft + SmeltingLayout.btnX(),
+                    this.guiTop + SmeltingLayout.btnY() + SmeltingLayout.btnSpacing() * 3 + 6,
+                    0xFFFF5555, false);
+        }
         // 时间/经验输入框没有文字标签，悬停时说明它是哪个（父类渲染完再画，保证浮在最上层）
         for (int i = 0; i < TIP_FIELDS.length; i++) {
             GuiTextFieldNop tf = this.getTextField(TIP_FIELDS[i]);
@@ -235,17 +257,22 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == BTN_NEW) {
+            // 「添加配方」= 清空表单 + 清空三个槽 + 进入草稿 + 自动生成随机名字。
+            // 既然是新建配方，旧配方留在槽里的物品就该清掉（用户明确要求）。
+            // 清槽由服务端权威执行（PacketSmeltingSelect(-1) 在查不到配方时会把三槽设为 EMPTY），
+            // 客户端不自己 setItem，避免与点击包的 stateId 对不上导致物品显示错乱。
+            SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingSelect(-1));
             this.selectedId = -1;
+            this.draft = true;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             this.blast = this.smoker = this.generic = false;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
-            // 由服务端权威清空容器槽位（避免客户端本地 setItem 与点击包 stateId 冲突导致物品消失）
-            SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingSelect(-1));
             this.m_7856_();
         } else if (button.id == BTN_REMOVE) {
             if (this.selectedId >= 0) {
                 SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingRemove(this.selectedId));
                 this.selectedId = -1;
+                this.draft = false;
                 this.selectedName = null;
                 SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingRequestList());
             }
@@ -261,8 +288,16 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
     }
 
     private void saveRecipe() {
+        // 客户端先自检：输出槽为空时服务端会静默 return（用户实测「点保存完全无反应」就是这条），
+        // 这里直接给出可见提示，别让玩家对着没反应的按钮猜。
+        if (this.container.getInput().isEmpty() || this.container.getOutput().isEmpty()) {
+            this.notice = Component.translatable("cnpcplus.smelting.needio").getString();
+            return;
+        }
+        this.notice = null;
         SmeltingRecipeData d = new SmeltingRecipeData();
         d.id = this.selectedId;
+
         String name = this.getTextField(30) != null ? this.getTextField(30).getValue() : "";
         d.name = (name == null || name.trim().isEmpty()) ? "new" : name.trim();
         if (d.name.equals("new") && d.id < 0) {
@@ -302,8 +337,20 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.m_7856_();
     }
 
-    /** 收到服务端配方列表同步后刷新（由 PacketSmeltingSync 客户端处理调用）。 */
+    /**
+     * 收到服务端配方列表同步后刷新（由 PacketSmeltingSync 客户端处理调用）。
+     * 保存成功会触发同步下发，此时草稿已经变成正式配方，按名字把它选中，草稿状态收尾。
+     */
     public void refreshFromServer() {
+        if (this.draft && this.selectedName != null) {
+            for (SmeltingRecipeData d : SmeltingClientData.get()) {
+                if (this.selectedName.equals(d.name)) {
+                    this.selectedId = d.id;
+                    this.draft = false;
+                    break;
+                }
+            }
+        }
         this.m_7856_();
     }
 

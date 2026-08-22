@@ -1,25 +1,12 @@
 package top.cnpcplus.smelting;
 
-import net.minecraftforge.common.ForgeConfigSpec;
-import top.cnpcplus.config.CnpcPlusConfigData;
-
 /**
- * 熔炼配方界面布局。
- * 用户已确认满意的坐标一律硬编码（不再走 config）；仅保留仍需微调的项走 config 热加载。
+ * 熔炼配方界面布局，全部坐标硬编码。
  * 放在 common 包，容器（服务端）也能安全引用。
  */
 public final class SmeltingLayout {
 
     private SmeltingLayout() {}
-
-    private static int orDefault(ForgeConfigSpec.IntValue v, int def) {
-        try {
-            if (v == null) return def;
-            return v.get();
-        } catch (Exception e) {
-            return def;
-        }
-    }
 
     // ===== 硬编码（用户 2026-08-19 确认满意的布局，勿改） =====
     /** 实际槽位·被熔炼物槽 */
@@ -64,8 +51,12 @@ public final class SmeltingLayout {
     public static int btnY() { return 12; }
     public static int btnSpacing() { return 22; }
 
-    // ===== 仍走 config（可热加载微调） =====
-    /** 整个界面（背景板+顶部菜单+全部控件+槽位）的整体偏移 */
-    public static int guiOffsetX() { return orDefault(CnpcPlusConfigData.SmeltingGuiOffsetX, 0); }
-    public static int guiOffsetY() { return orDefault(CnpcPlusConfigData.SmeltingGuiOffsetY, 52); }
+    /**
+     * 整个界面（背景板+顶部菜单+全部控件+槽位）的整体偏移。
+     * 这两个值原本走 config，目的只是让用户按自己的视角调参；用户 2026-08-22 实测确认 X=0 / Y=28
+     * 最合适，调参使命结束，按约定收回硬编码（config 项已同步移除，避免旧配置文件里的
+     * 过时值继续覆盖代码默认值 —— 之前正是文件里残留的 Y=10 让界面一直偏上）。
+     */
+    public static int guiOffsetX() { return 0; }
+    public static int guiOffsetY() { return 28; }
 }

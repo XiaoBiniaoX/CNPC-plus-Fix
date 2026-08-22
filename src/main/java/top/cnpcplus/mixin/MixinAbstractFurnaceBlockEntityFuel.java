@@ -31,8 +31,12 @@ public class MixinAbstractFurnaceBlockEntityFuel {
 
     @Inject(method = {"canPlaceItem", "m_7013_"}, at = @At("RETURN"), cancellable = true, require = 1)
     private void cnpcplus$allowAnyFuel(int slot, ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
-        // 燃料槽放行任何物品（与 MixinFurnaceFuelSlotPlace 规则一致，这条覆盖漏斗/自动化入口）
-        if (slot == 1 && !cir.getReturnValueZ()) {
+        // 燃料槽只放行「被某条自定义配方指定为燃料」的物品（漏斗/自动化入口）。
+        // 早先是无条件放行任何物品，打破了原版「能放进燃料槽的必然是燃料」的前提，
+        // 导致原版 quickMoveStack 在燃料槽分支把非燃料物品搬走却不承认 → shift 点击吞物品。
+        if (slot != 1 || cir.getReturnValueZ()) return;
+        AbstractFurnaceBlockEntity self = (AbstractFurnaceBlockEntity) (Object) this;
+        if (SmeltingFuelLookup.isCustomFuel(self.getLevel(), stack)) {
             cir.setReturnValue(true);
         }
     }
