@@ -20,7 +20,14 @@ public final class CraftingViewNetwork {
     }
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar(CnpcPlus.MODID).versioned("1");
+        // optional() 是服务端场景的关键：本模组的包全部只服务于自身的编辑界面，
+        // 不是进入世界的必要条件。若不标 optional，NeoForge 在频道协商阶段
+        // 会因为对端缺少该频道或版本不一致而直接判定不兼容并拒绝连接
+        // （NetworkComponentNegotiator 的 failure.missing.server.client /
+        //   failure.version.mismatch 分支），玩家侧就表现为进不去游戏。
+        // 标 optional 后，协商失败只会把这些频道降级为禁用（buildDisabledOptionalComponents），
+        // 玩家仍可正常进服，只是用不到本模组的对应界面。
+        PayloadRegistrar registrar = event.registrar(CnpcPlus.MODID).versioned("1").optional();
         registrar.playToServer(
                 PacketFillCraftingGrid.TYPE,
                 PacketFillCraftingGrid.STREAM_CODEC,
