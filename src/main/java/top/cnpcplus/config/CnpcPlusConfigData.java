@@ -1,12 +1,11 @@
 package top.cnpcplus.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
-import top.cnpcplus.CnpcPlus;
 
-@Mod.EventBusSubscriber(modid = CnpcPlus.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+/**
+ * 客户端配置（cnpcplus.toml）。
+ * 不注册 EventBusSubscriber：见文件末尾说明，监听 ModConfigEvent 会导致玩家连服被踢。
+ */
 public class CnpcPlusConfigData {
 
     private static final ForgeConfigSpec CONFIG_SPEC;
@@ -65,10 +64,14 @@ public class CnpcPlusConfigData {
     public static ForgeConfigSpec.DoubleValue BardVolume;
     public static ForgeConfigSpec.IntValue BardWatchdogSeconds;
 
-    @SubscribeEvent
-    public static void onConfigChanged(ModConfigEvent event) {
-        if (event.getConfig().getSpec() == CONFIG_SPEC) {
-            event.getConfig().save();
-        }
-    }
+    /*
+     * 同 CnpcPlusServerConfig：刻意不再监听 ModConfigEvent 去调 save()。
+     *
+     * 这里虽然是 CLIENT 类型配置，但监听的 ModConfigEvent 是全局事件，任何 mod 的配置
+     * 触发它时本方法都会被调用（客户端日志实证：Listeners 列表里 index 1 是
+     * CnpcPlusServerConfig、index 2 就是本类，两个都挂在同一条事件链上）。
+     * 握手期同步 SERVER 配置时一并被触发 → ModConfig.save() 把内存态 SimpleCommentedConfig
+     * 强转 CommentedFileConfig → ClassCastException → 玩家被判「无效的数据包」踢出。
+     * ForgeConfigSpec 自己会在文件变更时回写，这个 save() 从来就是多余的。
+     */
 }

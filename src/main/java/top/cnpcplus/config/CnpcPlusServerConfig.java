@@ -1,15 +1,11 @@
 package top.cnpcplus.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
-import top.cnpcplus.CnpcPlus;
 
 /**
  * 服务端配置（cnpcplus-server.toml）。服务端逻辑（随从 AI、熔炼配方等）读取。
+ * 不注册 EventBusSubscriber：见文件末尾说明，监听 ModConfigEvent 会导致玩家连服被踢。
  */
-@Mod.EventBusSubscriber(modid = CnpcPlus.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class CnpcPlusServerConfig {
 
     private static final ForgeConfigSpec CONFIG_SPEC;
@@ -35,10 +31,18 @@ public class CnpcPlusServerConfig {
     public static ForgeConfigSpec.IntValue FollowerTeleportRange;
     public static ForgeConfigSpec.BooleanValue SmeltingRegisterOnServer;
 
-    @SubscribeEvent
-    public static void onConfigChanged(ModConfigEvent event) {
-        if (event.getConfig().getSpec() == CONFIG_SPEC) {
-            event.getConfig().save();
-        }
-    }
+    /*
+     * 刻意不再监听 ModConfigEvent 去调 event.getConfig().save()。
+     *
+     * 那样写会让玩家连服时被踢，客户端提示「此服务器发送了一个无效的数据包」。原因：
+     * SERVER 类型的配置会在握手阶段由服务端同步给客户端（ConfigSync → acceptSyncedConfig →
+     * fireEvent），此时客户端侧持有的 configData 是内存里的 SimpleCommentedConfig，
+     * 而 ModConfig.save() 内部无条件 cast 成 CommentedFileConfig，于是抛
+     * ClassCastException。异常发生在登录期的 ClientboundCustomQueryPacket 处理链上，
+     * Forge 把它当成握手包解析失败，直接判定为无效数据包并断开连接。
+     *
+     * 而且这个 save() 本来就是多余的：ForgeConfigSpec 在文件被修改时会自行回写，
+     * 我们从未在代码里改过配置值，没有任何需要主动落盘的场景。
+     * 已用本地专用服务器实测复现并验证（客户端 latest.log 完整栈实证）。
+     */
 }

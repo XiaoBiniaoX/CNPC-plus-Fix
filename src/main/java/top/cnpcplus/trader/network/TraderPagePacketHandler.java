@@ -1,9 +1,12 @@
 package top.cnpcplus.trader.network;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 import top.cnpcplus.CnpcPlus;
+
+import java.util.Optional;
 
 public class TraderPagePacketHandler {
     private static final String PROTOCOL_VERSION = "1";
@@ -15,8 +18,10 @@ public class TraderPagePacketHandler {
             .networkProtocolVersion(() -> PROTOCOL_VERSION)
             .simpleChannel();
 
+    /** 必须显式声明方向：缺失会让两端通道登记不一致，玩家进服时报「无效的数据包」。 */
     public static void init() {
         CHANNEL.registerMessage(0, PacketTraderPage.class,
-                PacketTraderPage::encode, PacketTraderPage::decode, PacketTraderPage::handle);
+                PacketTraderPage::encode, PacketTraderPage::decode, PacketTraderPage::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }
