@@ -5,6 +5,7 @@ import bin.cnpcplus.common.ILinkedScriptSyncGui;
 import noppes.npcs.client.gui.global.GuiNPCManageLinkedNpc;
 import noppes.npcs.client.gui.util.GuiCustomScroll;
 import noppes.npcs.client.gui.util.GuiNpcButton;
+import noppes.npcs.client.gui.util.ICustomScrollListener;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -18,7 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Mixin(value = GuiNPCManageLinkedNpc.class, remap = false)
-public abstract class MixinGuiNPCManageLinkedNpcScriptSync implements ILinkedScriptSyncGui {
+public abstract class MixinGuiNPCManageLinkedNpcScriptSync
+        implements ILinkedScriptSyncGui, ICustomScrollListener {
 
     @Shadow(remap = false)
     private GuiCustomScroll scroll;
@@ -68,6 +70,20 @@ public abstract class MixinGuiNPCManageLinkedNpcScriptSync implements ILinkedScr
             cnpcplus$states = states;
         }
         cnpcplus$refreshButton();
+    }
+
+    @Override
+    public void scrollClicked(int x, int y, int button, GuiCustomScroll clickedScroll) {
+        if (clickedScroll == this.scroll) {
+            cnpcplus$refreshButton();
+        }
+    }
+
+    @Override
+    public void scrollDoubleClicked(String selected, GuiCustomScroll clickedScroll) {
+        if (clickedScroll == this.scroll) {
+            cnpcplus$refreshButton();
+        }
     }
 
     @Unique

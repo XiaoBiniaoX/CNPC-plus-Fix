@@ -36,7 +36,7 @@ public abstract class MixinEntityNPCInterfaceStatsSync {
     }
 
     @ModifyArg(method = "func_70636_d", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/entity/EntityLivingBase;func_70691_i(F)V", ordinal = 0),
+            target = "Lnoppes/npcs/entity/EntityNPCInterface;func_70691_i(F)V", ordinal = 0),
             index = 0, require = 1)
     private float cnpcplus$useFloatHealthRegen(float original) {
         EntityNPCInterface self = (EntityNPCInterface) (Object) this;
@@ -44,7 +44,7 @@ public abstract class MixinEntityNPCInterfaceStatsSync {
     }
 
     @ModifyArg(method = "func_70636_d", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/entity/EntityLivingBase;func_70691_i(F)V", ordinal = 1),
+            target = "Lnoppes/npcs/entity/EntityNPCInterface;func_70691_i(F)V", ordinal = 1),
             index = 0, require = 1)
     private float cnpcplus$useFloatCombatRegen(float original) {
         EntityNPCInterface self = (EntityNPCInterface) (Object) this;
