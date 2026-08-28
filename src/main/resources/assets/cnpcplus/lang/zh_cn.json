@@ -60,5 +60,8 @@
   "cnpcplus.smelting.smoker": "允许烟熏炉",
   "cnpcplus.smelting.generic": "允许通用燃料",
   "cnpcplus.smelting.cooktime": "熔炼时间",
-  "cnpcplus.smelting.xp": "熔炼经验"
+  "cnpcplus.smelting.xp": "熔炼经验",
+  "cnpcplus.genericdamage": "通用伤害抗性",
+  "cnpcplus.magicdamage": "魔法伤害抗性",
+  "cnpcplus.scriptSync": "脚本同步"
 }

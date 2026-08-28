@@ -50,7 +50,13 @@
     "quest.MixinContainerNpcQuestReward",
     "invpage.MixinDataInventoryDropPage",
     "bard.MixinJobBard",
-    "ai.MixinDataAISpeed"
+    "ai.MixinDataAISpeed",
+    "stats.MixinDataStatsHealth",
+    "stats.MixinDataMeleeFloat",
+    "stats.MixinResistancesExtra",
+    "linked.MixinLinkedDataScriptSync",
+    "linked.MixinLinkedNpcControllerScriptSync",
+    "linked.MixinSPacketScriptSaveLinked"
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
@@ -89,7 +95,11 @@
     "bard.MixinGuiNpcBard",
     "bard.MixinJobBardClient",
     "ai.MixinSubGuiNpcMovementSpeed",
-    "follower.MixinGuiNpcFollowerDismiss"
+    "follower.MixinGuiNpcFollowerDismiss",
+    "stats.MixinGuiNpcStatsFloat",
+    "stats.MixinSubGuiNpcMeleePropertiesFloat",
+    "stats.MixinSubGuiNpcResistanceExtra",
+    "linked.MixinGuiNPCManageLinkedNpcScriptSync"
   ],
   "injectors": {
     "defaultRequire": 0

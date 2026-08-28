@@ -2,6 +2,9 @@ package bin.cnpcplus.craftingview.network;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.invpage.network.PacketNpcInvPage;
+import bin.cnpcplus.linked.network.PacketLinkedScriptSync;
+import bin.cnpcplus.linked.network.PacketLinkedScriptSyncQuery;
+import bin.cnpcplus.linked.network.PacketLinkedScriptSyncState;
 import bin.cnpcplus.recipe.network.PacketRecipePersist;
 import bin.cnpcplus.trader.network.PacketTraderPage;
 import bin.cnpcplus.trader.network.PacketTraderPageSync;
@@ -67,6 +70,21 @@ public final class CraftingViewNetwork {
                 PacketSmeltingSync.TYPE,
                 PacketSmeltingSync.STREAM_CODEC,
                 PacketSmeltingSync::handle
+        );
+        registrar.playToServer(
+                PacketLinkedScriptSync.TYPE,
+                PacketLinkedScriptSync.STREAM_CODEC,
+                PacketLinkedScriptSync::handle
+        );
+        registrar.playToServer(
+                PacketLinkedScriptSyncQuery.TYPE,
+                PacketLinkedScriptSyncQuery.STREAM_CODEC,
+                PacketLinkedScriptSyncQuery::handle
+        );
+        registrar.playToClient(
+                PacketLinkedScriptSyncState.TYPE,
+                PacketLinkedScriptSyncState.STREAM_CODEC,
+                PacketLinkedScriptSyncState::handle
         );
     }
 }
