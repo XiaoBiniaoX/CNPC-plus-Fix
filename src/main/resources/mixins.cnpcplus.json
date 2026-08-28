@@ -60,7 +60,14 @@
     "penetration.MixinEntityProjectilePenetration",
     "penetration.MixinINPCRangedPenetration",
     "penetration.MixinIProjectilePenetration",
-    "penetration.MixinProjectileWrapperPenetration"
+    "penetration.MixinProjectileWrapperPenetration",
+    "stats.MixinDataStatsFloat",
+    "stats.MixinDataMeleeFloat",
+    "stats.MixinResistancesExtended",
+    "stats.MixinEntityNPCInterfaceStatsSync",
+    "linked.MixinLinkedDataScriptSync",
+    "linked.MixinLinkedNpcControllerScriptSync",
+    "linked.MixinPacketHandlerServerScriptSync"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -89,7 +96,11 @@
     "spawner.MixinGuiNpcMobSpawnerSelectorTitle",
     "render.MixinRenderNPCShadow",
     "penetration.MixinSubGuiNpcProjectilesPenetration",
-    "smelting.MixinGuiNPCGlobalMainMenuSmelting"
+    "smelting.MixinGuiNPCGlobalMainMenuSmelting",
+    "stats.MixinGuiNpcStatsFloat",
+    "stats.MixinSubGuiNpcMeleePropertiesFloat",
+    "stats.MixinSubGuiNpcResistancePropertiesExtended",
+    "linked.MixinGuiNPCManageLinkedNpcScriptSync"
   ],
   "server": [],
   "injectors": {

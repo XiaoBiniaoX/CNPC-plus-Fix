@@ -53,3 +53,7 @@ cnpcplus.smelting.smoker=允许烟熏炉（1.12.2 无烟熏炉，不生效）
 cnpcplus.smelting.generic=允许通用燃料
 cnpcplus.smelting.cooktime=熔炼时间
 cnpcplus.smelting.xp=熔炼经验
+cnpcplus.resistance.generic=通用伤害
+cnpcplus.resistance.magic=魔法伤害
+cnpcplus.linked.syncScript.on=脚本同步：开
+cnpcplus.linked.syncScript.off=脚本同步：关

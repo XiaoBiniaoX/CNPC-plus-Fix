@@ -34,5 +34,7 @@ public final class CraftingViewNetwork {
         CHANNEL.registerMessage(PacketMountControlInput.Handler.class, PacketMountControlInput.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(PacketSmeltingAction.Handler.class, PacketSmeltingAction.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(PacketSmeltingSync.Handler.class, PacketSmeltingSync.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.common.PacketLinkedScriptSync.Handler.class, bin.cnpcplus.common.PacketLinkedScriptSync.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.common.PacketLinkedScriptSync.ClientHandler.class, bin.cnpcplus.common.PacketLinkedScriptSync.class, nextId++, Side.CLIENT);
     }
 }

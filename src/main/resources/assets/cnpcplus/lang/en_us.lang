@@ -53,3 +53,7 @@ cnpcplus.smelting.smoker=Allow Smoker (no effect in 1.12.2)
 cnpcplus.smelting.generic=Allow Generic Fuel
 cnpcplus.smelting.cooktime=Cook Time
 cnpcplus.smelting.xp=Experience
+cnpcplus.resistance.generic=Generic Damage
+cnpcplus.resistance.magic=Magic Damage
+cnpcplus.linked.syncScript.on=Script Sync: ON
+cnpcplus.linked.syncScript.off=Script Sync: OFF
