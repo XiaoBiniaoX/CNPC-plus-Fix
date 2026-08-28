@@ -31,7 +31,7 @@ public class PacketSaveTriggerData {
     public static void handle(PacketSaveTriggerData msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+            if (player == null || msg.data == null) return;
             if (!player.getAbilities().instabuild) return;
             if (player.distanceToSqr(msg.pos.getX() + 0.5, msg.pos.getY() + 0.5, msg.pos.getZ() + 0.5) > 256) return;
             BlockEntity tile = player.level().getBlockEntity(msg.pos);

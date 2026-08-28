@@ -55,5 +55,11 @@
   "cnpcplus.smelting.generic": "通用燃料允许",
   "cnpcplus.smelting.cooktime": "熔炼时间",
   "cnpcplus.smelting.xp": "熔炼经验",
-  "cnpcplus.smelting.needio": "需要放入被熔炼物和熔炼物"
+  "cnpcplus.smelting.needio": "需要放入被熔炼物和熔炼物",
+  "cnpcplus.linked.sync.on": "脚本同步：开",
+  "cnpcplus.linked.sync.off": "脚本同步：关",
+  "cnpcplus.resist.generic": "通用伤害",
+  "cnpcplus.resist.generic.hint": "通用/挤压/铁砧/仙人掌伤害减免",
+  "cnpcplus.resist.magic": "魔法伤害",
+  "cnpcplus.resist.magic.hint": "魔法/音爆/边界/荆棘/雷击/秒杀伤害减免"
 }

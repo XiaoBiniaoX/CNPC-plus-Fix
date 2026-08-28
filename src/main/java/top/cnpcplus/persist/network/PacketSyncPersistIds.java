@@ -5,8 +5,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-import top.cnpcplus.persist.PersistedRecipeStore;
-import top.cnpcplus.persist.client.PersistRecipeClient;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +28,7 @@ public class PacketSyncPersistIds {
 
     public static PacketSyncPersistIds decode(FriendlyByteBuf buf) {
         int n = buf.readVarInt();
+        if (n < 0 || n > 4096) throw new IllegalArgumentException("Invalid persisted recipe count: " + n);
         List<ResourceLocation> ids = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             ids.add(buf.readResourceLocation());
@@ -38,10 +37,8 @@ public class PacketSyncPersistIds {
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            PersistedRecipeStore.clientSetAll(this.ids);
-            PersistRecipeClient.refreshButtons();
-        }));
+        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> top.cnpcplus.persist.client.PersistPacketClientHandler.setAll(this.ids)));
         ctx.get().setPacketHandled(true);
     }
 }

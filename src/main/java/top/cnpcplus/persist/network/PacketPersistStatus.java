@@ -5,8 +5,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-import top.cnpcplus.persist.PersistedRecipeStore;
-import top.cnpcplus.persist.client.PersistRecipeClient;
 
 import java.util.function.Supplier;
 
@@ -31,10 +29,8 @@ public class PacketPersistStatus {
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-            PersistedRecipeStore.clientSet(this.id, this.persisted);
-            PersistRecipeClient.refreshButtons();
-        }));
+        ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
+                () -> () -> top.cnpcplus.persist.client.PersistPacketClientHandler.setStatus(this.id, this.persisted)));
         ctx.get().setPacketHandled(true);
     }
 }

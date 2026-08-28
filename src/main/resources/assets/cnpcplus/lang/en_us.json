@@ -55,5 +55,11 @@
   "cnpcplus.smelting.generic": "Allow Generic Fuel",
   "cnpcplus.smelting.cooktime": "Cook Time",
   "cnpcplus.smelting.xp": "Experience",
-  "cnpcplus.smelting.needio": "Input and output items are required"
+  "cnpcplus.smelting.needio": "Input and output items are required",
+  "cnpcplus.linked.sync.on": "Script Sync: ON",
+  "cnpcplus.linked.sync.off": "Script Sync: OFF",
+  "cnpcplus.resist.generic": "Generic DMG Resist",
+  "cnpcplus.resist.generic.hint": "Generic/Cramming/Anvil/Cactus Damage Reduction",
+  "cnpcplus.resist.magic": "Magic DMG Resist",
+  "cnpcplus.resist.magic.hint": "Magic/Sonic Boom/Thorns/Lightning/Kill Damage Reduction"
 }

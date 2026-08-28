@@ -6,7 +6,6 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
-import top.cnpcplus.questtrigger.client.QuestTriggerClient;
 
 import java.util.function.Supplier;
 
@@ -30,7 +29,7 @@ public class PacketOpenTriggerGui {
 
     public static void handle(PacketOpenTriggerGui msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->
-                QuestTriggerClient.openGui(msg)));
+                top.cnpcplus.questtrigger.client.QuestTriggerPacketClientHandler.open(msg)));
         ctx.get().setPacketHandled(true);
     }
 }

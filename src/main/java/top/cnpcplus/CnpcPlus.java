@@ -10,6 +10,7 @@ import top.cnpcplus.follower.network.FollowerPacketHandler;
 import top.cnpcplus.invpage.network.NpcInvPagePacketHandler;
 import top.cnpcplus.questtrigger.ModRegistry;
 import top.cnpcplus.questtrigger.network.TriggerPacketHandler;
+import top.cnpcplus.linked.network.LinkedPacketHandler;
 import top.cnpcplus.smelting.SmeltingMenus;
 import top.cnpcplus.smelting.network.SmeltingPacketHandler;
 import top.cnpcplus.trader.network.TraderPagePacketHandler;
@@ -30,6 +31,7 @@ public class CnpcPlus {
         FollowerPacketHandler.init();
         SmeltingMenus.register();
         SmeltingPacketHandler.init();
+        LinkedPacketHandler.init();
         // 熔炼配方注入时机：世界加载时 RecipeManager 的首次 apply 发生在 MinecraftServer 实例创建之前，
         // 那时读不到服务端、也就注入不了。所以在服务端启动完成后再补注入一次（/reload 由 mixin 覆盖）。
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
