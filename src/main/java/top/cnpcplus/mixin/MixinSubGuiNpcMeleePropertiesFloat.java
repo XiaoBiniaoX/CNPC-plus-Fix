@@ -46,8 +46,13 @@ public class MixinSubGuiNpcMeleePropertiesFloat {
             } else {
                 try { val = Float.parseFloat(textfield.getValue().trim()); } catch (NumberFormatException e) { val = 0.0f; }
             }
-            ExtraDataStorage.setFloat(stats, 3, val);
+            // 顺序至关重要：必须先调整数 setter，再写小数值。
+            // setStrength 的 RETURN 注入（MixinDataMeleeFloat.cnpcplus$syncStrengthFromInt）会
+            // 无条件把小数槽覆盖成 Math.round 的整数——那是「脚本用整数 API 即放弃精度」的语义。
+            // 旧代码顺序相反（先 setFloat 再 setStrength），于是玩家输入的 7.5 被自己的同步注入
+            // 立刻改写成 8.0，表现为「离开编辑界面小数被四舍五入/回弹」。
             stats.setStrength(Math.round(val));
+            ExtraDataStorage.setFloat(stats, 3, val);
             ci.cancel();
         } else if (textfield.id == 3) {
             float val;
@@ -57,8 +62,9 @@ public class MixinSubGuiNpcMeleePropertiesFloat {
                 try { val = Float.parseFloat(textfield.getValue().trim()); } catch (NumberFormatException e) { val = 1.0f; }
             }
             if (val <= 0.0f) val = 1.0f;
-            ExtraDataStorage.setFloat(stats, 4, val);
+            // 同上：setDelay 的 RETURN 注入会覆盖小数槽，必须放在 setFloat 之前。
             stats.setDelay(Math.round(val));
+            ExtraDataStorage.setFloat(stats, 4, val);
             ci.cancel();
         }
     }

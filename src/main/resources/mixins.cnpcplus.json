@@ -72,7 +72,13 @@
     "MixinResistances",
     "MixinLinkedData",
     "MixinLinkedNpcController",
-    "MixinSPacketScriptSaveLinked"
+    "MixinSPacketScriptSaveLinked",
+    "MixinSPacketMenuSaveLinked",
+    "MixinEntityNPCMeleeFloatDamage",
+    "MixinServerCloneControllerOverwrite",
+    "MixinDataAdvancedMeleeLines",
+    "MixinEntityNPCMeleeLines",
+    "MixinEntityNPCInteractPriority"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -118,7 +124,13 @@
     "MixinGuiNpcStatsFloat",
     "MixinSubGuiNpcMeleePropertiesFloat",
     "MixinSubGuiNpcResistanceProperties",
-    "MixinGuiNPCManageLinkedNpc"
+    "MixinGuiNPCManageLinkedNpc",
+    "MixinGuiNpcMobSpawnerAddTab",
+    "MixinGuiNPCLinesMenuMelee",
+    "MixinTrueTypeFontAtlas",
+    "MixinGuiQuestCompletionScroll",
+    "MixinGuiDialogInteractScroll",
+    "MixinGuiDialogModernScroll"
   ],
   "server": []
 }

@@ -37,7 +37,10 @@ public class MixinJobBard {
     @Inject(method = "save", at = @At("RETURN"))
     private void cnpcplus$saveSongs(CompoundTag tag, CallbackInfoReturnable<CompoundTag> cir) {
         List<String[]> songs = SongListStore.get((JobBard) (Object) this);
+        // 空列表也必须写入 BardSongs：SPacketNpcJobSave 只覆盖包里出现的键，
+        // 缺这个键时服务端会保留旧歌单，表现为「删光/删歌保存后旧曲又回来」。
         if (songs == null || songs.isEmpty()) {
+            tag.put("BardSongs", new ListTag());
             return;
         }
         ListTag list = new ListTag();

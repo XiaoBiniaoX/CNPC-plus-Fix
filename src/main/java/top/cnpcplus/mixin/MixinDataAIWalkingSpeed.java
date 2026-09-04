@@ -20,25 +20,32 @@ public class MixinDataAIWalkingSpeed implements WalkingSpeedAccess {
     @Shadow(remap = false) public EntityNPCInterface npc;
 
     /**
-     * 小数速度覆盖值。-1 = 未设置，此时一律回落到原版 int 字段 moveSpeed。
+     * 小数速度覆盖值。NaN = 未设置，此时一律回落到原版 int 字段 moveSpeed。
      *
      * <p>初始值绝不能是某个「看起来合理」的速度（曾经是 5.0f）：本 mixin 会让
      * EntityNPCInterface.getSpeed() 改读这个字段，而任何没走过我们同步路径的 DataAI 实例
      * （脚本新建、克隆、旧存档读取）字段都还是初始值，于是速度被硬按成 5/20=0.25，NPC 罚站。
      * 用哨兵值表达「没有自定义值」，语义上才成立。
+     *
+     * <p>哨兵为什么从 -1 换成 NaN（3.4.0 修复）：旧实现用 -1 作哨兵、用 {@code >= 0.01f}
+     * 作「有值」判定，于是「未设置」与「用户明确设为 0」在所有判定里都落进同一分支，
+     * 速度 0 根本无法表达 —— 这是 3.3.0 里「移速无法设为 0」的根本原因。
+     * NaN 不等于任何数（含它自己），与合法取值域 [0,100] 完全不重叠，才能同时表达两者。
+     * 原版 DataAI.setWalkingSpeed(int) 本身只拒绝负数、允许 0，所以支持 0 是回归原版语义。
      */
-    @Unique private float cnpcplus$walkingSpeed = -1.0f;
+    @Unique private float cnpcplus$walkingSpeed = Float.NaN;
 
-    /** 有小数覆盖值就用它，否则回落原版 moveSpeed（getWalkingSpeed 就是读那个字段）。 */
+    /** 有小数覆盖值就用它（含 0），否则回落原版 moveSpeed（getWalkingSpeed 就是读那个字段）。 */
     @Override
     public float cnpcplus$getWalkingSpeed() {
-        if (this.cnpcplus$walkingSpeed >= 0.01f) return this.cnpcplus$walkingSpeed;
+        if (!Float.isNaN(this.cnpcplus$walkingSpeed)) return this.cnpcplus$walkingSpeed;
         return ((DataAI) (Object) this).getWalkingSpeed();
     }
 
     @Override
     public void cnpcplus$setWalkingSpeed(float speed) {
-        if (speed < 0.01f || speed > 100.0f) {
+        // 允许 0（NPC 原地不动，原版整数入口一样允许）；仍拒绝负数、超范围与非有限数。
+        if (!Float.isFinite(speed) || speed < 0.0f || speed > 100.0f) {
             throw new CustomNPCsException("Wrong speed: " + speed);
         }
         this.cnpcplus$walkingSpeed = speed;
@@ -67,7 +74,7 @@ public class MixinDataAIWalkingSpeed implements WalkingSpeedAccess {
      */
     @Inject(method = "setWalkingSpeed", at = @At("HEAD"))
     private void cnpcplus$syncIntegerSpeed(int speed, CallbackInfo ci) {
-        this.cnpcplus$walkingSpeed = -1.0f;
+        this.cnpcplus$walkingSpeed = Float.NaN;
     }
 
     /**
@@ -80,15 +87,16 @@ public class MixinDataAIWalkingSpeed implements WalkingSpeedAccess {
     @Inject(method = "readToNBT", at = @At("RETURN"))
     private void cnpcplus$readFloatSpeed(CompoundTag tag, CallbackInfo ci) {
         if (!tag.contains("CNPCPlusMoveSpeed")) {
-            this.cnpcplus$walkingSpeed = -1.0f;
+            this.cnpcplus$walkingSpeed = Float.NaN;
             return;
         }
         float speed = tag.getFloat("CNPCPlusMoveSpeed");
-        if (speed >= 0.01f && speed <= 100.0f) {
+        // 下限放到 0（含），让「移速 0」能从存档正确恢复；非有限数与超范围仍静默回落原版。
+        if (Float.isFinite(speed) && speed >= 0.0f && speed <= 100.0f) {
             this.cnpcplus$walkingSpeed = speed;
             cnpcplus$applyAttributes(speed);
         } else {
-            this.cnpcplus$walkingSpeed = -1.0f;
+            this.cnpcplus$walkingSpeed = Float.NaN;
         }
     }
 
@@ -101,7 +109,7 @@ public class MixinDataAIWalkingSpeed implements WalkingSpeedAccess {
      */
     @Inject(method = "save", at = @At("RETURN"))
     private void cnpcplus$saveFloatSpeed(CompoundTag tag, CallbackInfoReturnable<CompoundTag> cir) {
-        if (this.cnpcplus$walkingSpeed < 0.01f) return;
+        if (Float.isNaN(this.cnpcplus$walkingSpeed)) return;
         tag.putInt("MoveSpeed", Math.round(this.cnpcplus$walkingSpeed));
         tag.putFloat("CNPCPlusMoveSpeed", this.cnpcplus$walkingSpeed);
     }

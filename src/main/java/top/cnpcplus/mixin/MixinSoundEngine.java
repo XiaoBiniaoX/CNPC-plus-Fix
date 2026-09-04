@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.bard.BardLoopKeeper;
 import top.cnpcplus.bard.BardRangeGuard;
 import top.cnpcplus.config.CnpcPlusConfigData;
 
@@ -88,6 +89,11 @@ public abstract class MixinSoundEngine {
             c.stopMusic();
             return;
         }
+
+        // 循环播放的续播同样必须由声音引擎驱动，不能只放在 aiStep：
+        // 玩家走远后诗人不再 tick，写在 aiStep 里的续播等不到执行，仍会断歌。
+        // 返回 true 表示本 tick 已换了新实例，跳过下面的音量刷新（下一 tick 会正常刷）。
+        if (BardLoopKeeper.tickLoop(c)) return;
 
         ChannelAccess.ChannelHandle h = this.instanceToChannel.get(c.playing);
         if (h != null) {

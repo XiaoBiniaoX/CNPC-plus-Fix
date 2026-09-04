@@ -20,13 +20,16 @@ public class MixinEntityNPCWalkingSpeed {
      *
      * <p>cnpcplus$getWalkingSpeed() 在没有小数覆盖值时会回落到原版 int 字段，
      * 所以这里的返回值与原版等价，不会把 NPC 按成固定速度（曾因字段初始值 5.0f 导致罚站）。
-     * 仍加一道下限保护：拿到非正值就交回原版逻辑，绝不返回 0。
+     *
+     * <p>3.4.0：不再用 `< 0.01f` 当「无值」判据。那个判据把「用户明确设为 0」也当成无值，
+     * 导致移速 0 无法生效。现在「有无值」由 NaN 哨兵单独表达，0 是合法值可以照常返回。
+     * 仍拒绝非有限数与负数，避免把 NaN/负速度送进移动计算。
      */
     @Inject(method = "m_6113_", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$getPreciseSpeed(CallbackInfoReturnable<Float> cir) {
         if (this.ais == null) return;
         float speed = ((WalkingSpeedAccess) this.ais).cnpcplus$getWalkingSpeed();
-        if (speed < 0.01f) return;
+        if (!Float.isFinite(speed) || speed < 0.0f) return;
         cir.setReturnValue(speed / 20.0f);
     }
 
@@ -38,7 +41,8 @@ public class MixinEntityNPCWalkingSpeed {
     private void cnpcplus$writePreciseSpeed(CallbackInfoReturnable<CompoundTag> cir) {
         if (this.ais == null) return;
         float speed = ((WalkingSpeedAccess) this.ais).cnpcplus$getWalkingSpeed();
-        if (speed < 0.01f) return;
+        // 下限含 0，让移速 0 也能同步到客户端；非有限数不写，避免污染同步包。
+        if (!Float.isFinite(speed) || speed < 0.0f) return;
         cir.getReturnValue().putInt("Speed", Math.round(speed));
         cir.getReturnValue().putFloat("CNPCPlusSpeed", speed);
     }
@@ -48,7 +52,7 @@ public class MixinEntityNPCWalkingSpeed {
     private void cnpcplus$readPreciseSpeed(CompoundTag tag, CallbackInfo ci) {
         if (this.ais == null || !tag.contains("CNPCPlusSpeed")) return;
         float speed = tag.getFloat("CNPCPlusSpeed");
-        if (speed >= 0.01f && speed <= 100.0f) {
+        if (Float.isFinite(speed) && speed >= 0.0f && speed <= 100.0f) {
             ((WalkingSpeedAccess) this.ais).cnpcplus$setWalkingSpeed(speed);
         }
     }

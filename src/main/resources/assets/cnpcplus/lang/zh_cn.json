@@ -61,5 +61,6 @@
   "cnpcplus.resist.generic": "通用伤害",
   "cnpcplus.resist.generic.hint": "通用/挤压/铁砧/仙人掌伤害减免",
   "cnpcplus.resist.magic": "魔法伤害",
-  "cnpcplus.resist.magic.hint": "魔法/音爆/边界/荆棘/雷击/秒杀伤害减免"
+  "cnpcplus.resist.magic.hint": "魔法/音爆/边界/荆棘/雷击/秒杀伤害减免",
+  "cnpcplus.lines.melee": "近战打击"
 }

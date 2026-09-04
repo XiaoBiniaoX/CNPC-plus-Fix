@@ -2,8 +2,6 @@ package top.cnpcplus.linked.network;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
-import noppes.npcs.controllers.LinkedNpcController;
-import top.cnpcplus.mixin.MixinLinkedData;
 
 import java.util.HashMap;
 import java.util.Map;

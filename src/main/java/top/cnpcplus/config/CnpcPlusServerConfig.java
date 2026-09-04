@@ -23,6 +23,17 @@ public class CnpcPlusServerConfig {
         SmeltingRegisterOnServer = builder.define("SmeltingRegisterOnServer", true);
         builder.pop();
 
+        builder.push("交互优先级");
+        builder.comment(
+                "准星对准 NPC 时右键，是否让「使用手上物品」优先于「与 NPC 交互」（默认true）。",
+                "解决的问题：对着 NPC 举弓拉不开、吃不了食物、喝不了药水。",
+                "判定顺序：仅当该物品自身有使用行为（弓/弩/食物/药水/望远镜等，即 getUseAnimation 非 NONE）",
+                "时才让物品优先；其余物品仍照原样交互，所以对话、商店、任务全不受影响。",
+                "潜行(Shift)右键始终视为「要交互」，给你一个不改配置也能强制交互的手段。",
+                "设为 false 则完全恢复原版行为。");
+        InteractItemPriority = builder.define("InteractItemPriority", true);
+        builder.pop();
+
         CONFIG_SPEC = builder.build();
     }
 
@@ -30,6 +41,7 @@ public class CnpcPlusServerConfig {
 
     public static ForgeConfigSpec.IntValue FollowerTeleportRange;
     public static ForgeConfigSpec.BooleanValue SmeltingRegisterOnServer;
+    public static ForgeConfigSpec.BooleanValue InteractItemPriority;
 
     /*
      * 刻意不再监听 ModConfigEvent 去调 event.getConfig().save()。

@@ -38,6 +38,20 @@ public final class BardRangeGuard {
         // 只处理吟游诗人职业；其他来源（对话音乐等）不受距离影响
         if (!(npc.job instanceof JobBard bard)) return false;
 
+        // 诗人已经不在世界里（死亡 / 被移除）就必须停，否则会留下一段无主 BGM。
+        //
+        // 这一条必须放在 isLooping 豁免之前：客户端实体卸载走的是
+        // ClientLevel.EntityCallbacks.onTrackingEnd（javap 确认只调 unRide/onRemovedFromWorld），
+        // **根本不会调用 JobBard.delete()**，而 delete() 本身还用 isPlaying(job.song) 判定，
+        // 与我们播放的歌单曲目不一致，同样兜不住。所以这里是唯一可靠的兜底点。
+        if (npc.isRemoved() || !npc.isAlive()) return true;
+
+        // 循环播放优先于停止距离：用户明确要求「开了循环就不要断歌」，
+        // 即使勾了 hasOffRange 也保持当前这首继续循环，避免走出范围时出现 BGM 空窗。
+        // 切歌与夺权仍受 minRange 约束（在 MixinJobBardClient 里），所以走进另一个
+        // 诗人的范围时依然会换成新诗人的音乐。
+        if (bard.isLooping) return false;
+
         // 用户没开「停止距离激活」时，原版语义是走远也继续播，这里必须放过。
         if (!bard.hasOffRange) return false;
 

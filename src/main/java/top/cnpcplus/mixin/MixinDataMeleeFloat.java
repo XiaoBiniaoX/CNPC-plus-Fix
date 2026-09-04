@@ -76,6 +76,13 @@ public class MixinDataMeleeFloat {
         }
     }
 
+    /**
+     * 整数入口的语义 = 「调用方放弃小数精度」，所以这里无条件把小数槽拉回整数值。
+     * 脚本走 INPCMelee.setStrength(int) 时必须如此，否则脚本改完会被旧小数回弹。
+     *
+     * <p>注意：GUI 回写路径必须「先调这个整数 setter、再写小数槽」，顺序颠倒会让
+     * 玩家输入的小数被本注入抹平（这正是 3.3.0 里「近战小数自动四舍五入」的成因）。
+     */
     @Inject(method = "setStrength", at = @At("RETURN"), remap = false)
     private void cnpcplus$syncStrengthFromInt(int value, CallbackInfo ci) {
         ExtraDataStorage.setFloat(this, 3, Math.max(0, value));

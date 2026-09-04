@@ -110,6 +110,13 @@ public class MixinGuiNpcBard {
                         break;
                     }
                 }
+                SongListStore.set(this.job, songs);
+                noppes.npcs.client.controllers.MusicController c =
+                        noppes.npcs.client.controllers.MusicController.Instance;
+                if (c != null && c.playingEntity == self.npc && c.playingResource != null
+                        && selected.equals(c.playingResource.toString())) {
+                    c.stopMusic();
+                }
             }
             self.m_7856_();
             ci.cancel();

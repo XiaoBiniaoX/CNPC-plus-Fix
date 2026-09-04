@@ -3,7 +3,7 @@ package top.cnpcplus.linked.network;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 import noppes.npcs.controllers.LinkedNpcController;
-import top.cnpcplus.data.ExtraDataStorage;
+import top.cnpcplus.linked.LinkedSyncFlags;
 
 import java.util.HashMap;
 import java.util.function.Supplier;
@@ -21,9 +21,10 @@ public class PacketLinkedRequestSyncStatus {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null) return;
+            if (LinkedNpcController.Instance == null) return;
             var map = new HashMap<String, Boolean>();
             for (var data : LinkedNpcController.Instance.list) {
-                map.put(data.name, ExtraDataStorage.getBool(data));
+                map.put(data.name, LinkedSyncFlags.isSyncScripts(data.name));
             }
             LinkedPacketHandler.CHANNEL.sendTo(new PacketLinkedSyncStatus(map),
                     sender.connection.connection,

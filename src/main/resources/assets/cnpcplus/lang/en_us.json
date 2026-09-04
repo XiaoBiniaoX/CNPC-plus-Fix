@@ -61,5 +61,6 @@
   "cnpcplus.resist.generic": "Generic DMG Resist",
   "cnpcplus.resist.generic.hint": "Generic/Cramming/Anvil/Cactus Damage Reduction",
   "cnpcplus.resist.magic": "Magic DMG Resist",
-  "cnpcplus.resist.magic.hint": "Magic/Sonic Boom/Thorns/Lightning/Kill Damage Reduction"
+  "cnpcplus.resist.magic.hint": "Magic/Sonic Boom/Thorns/Lightning/Kill Damage Reduction",
+  "cnpcplus.lines.melee": "Melee Hit"
 }
