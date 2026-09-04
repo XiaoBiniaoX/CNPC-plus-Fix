@@ -33,6 +33,8 @@ public class CnpcPlusConfig {
                 "Bard music volume multiplier (0.0-1.0)");
         config.getInt("BardWatchdogSeconds", "bard", 300, 1, 3600,
                 "Watchdog seconds: force-switch a bard song that plays longer than this");
+        config.getBoolean("interactPassthrough", "interact", true,
+                "Let held items (bow, food, potion) still work when the crosshair is on an NPC that has nothing to interact with");
         if (config.hasChanged()) {
             config.save();
         }
@@ -75,5 +77,16 @@ public class CnpcPlusConfig {
     public static int getBardWatchdogSeconds() {
         return config == null ? 300 : config.getInt("BardWatchdogSeconds", "bard", 300, 1, 3600,
                 "Watchdog seconds: force-switch a bard song that plays longer than this");
+    }
+
+    /**
+     * 准星对着「没有任何交互内容」的 NPC 时，是否放行手持物品的右键使用。
+     *
+     * 开关留在这里是为了万一与其他改右键的 mod 冲突时能直接关掉，
+     * 而不必回退整个版本。
+     */
+    public static boolean isInteractPassthroughEnabled() {
+        return config == null || config.getBoolean("interactPassthrough", "interact", true,
+                "Let held items (bow, food, potion) still work when the crosshair is on an NPC that has nothing to interact with");
     }
 }

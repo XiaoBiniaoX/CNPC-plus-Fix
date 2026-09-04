@@ -46,6 +46,7 @@
     "drop.MixinDataInventoryDrop",
     "trader.MixinRoleTraderPages",
     "trader.MixinContainerNPCTraderSync",
+    "trader.MixinContainerNPCTraderLock",
     "quest.MixinQuestItemGrid",
     "quest.MixinQuestRewardGrid",
     "quest.MixinContainerNpcQuestTypeItem",
@@ -67,7 +68,9 @@
     "stats.MixinEntityNPCInterfaceStatsSync",
     "linked.MixinLinkedDataScriptSync",
     "linked.MixinLinkedNpcControllerScriptSync",
-    "linked.MixinPacketHandlerServerScriptSync"
+    "linked.MixinPacketHandlerServerScriptSync",
+    "lines.MixinDataAdvancedMeleeLines",
+    "lines.MixinEntityNPCInterfaceMeleeLines"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -86,6 +89,7 @@
     "quest.MixinGuiNpcQuestTypeItem",
     "quest.MixinGuiNpcQuestReward",
     "bard.MixinJobBardClient",
+    "bard.MixinJobBardLoopDelete",
     "bard.MixinGuiNpcBard",
     "bard.MixinMusicController",
     "bard.MixinGuiScreenOptionsSounds",
@@ -100,7 +104,14 @@
     "stats.MixinGuiNpcStatsFloat",
     "stats.MixinSubGuiNpcMeleePropertiesFloat",
     "stats.MixinSubGuiNpcResistancePropertiesExtended",
-    "linked.MixinGuiNPCManageLinkedNpcScriptSync"
+    "linked.MixinGuiNPCManageLinkedNpcScriptSync",
+    "dialog.MixinGuiDialogInteractOptionHeight",
+    "dialog.MixinGuiDialogInteractTextScroll",
+    "quest.MixinGuiQuestCompletionScroll",
+    "customgui.MixinGuiCustomTooltipOrder",
+    "lines.MixinGuiNPCLinesMenuMelee",
+    "interact.MixinEntityNPCInterfaceInteractPassthrough",
+    "font.MixinTrueTypeFontAtlasGuard"
   ],
   "server": [],
   "injectors": {

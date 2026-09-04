@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardLoopStore;
 import bin.cnpcplus.bard.SongListStore;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -31,10 +32,16 @@ public class MixinJobBard {
             songs.add(new String[]{s, String.valueOf(e.getInteger("weight"))});
         }
         SongListStore.set((JobBard) (Object) this, songs);
+        // 循环播放开关。1.12.2 原版没有该字段，键名沿用高版本的 BardLoops。
+        BardLoopStore.set((JobBard) (Object) this, tag.getBoolean(BardLoopStore.NBT_KEY));
     }
 
     @Inject(method = "writeToNBT", at = @At("RETURN"), remap = false)
     private void cnpcplus$saveSongs(NBTTagCompound tag, CallbackInfoReturnable<NBTTagCompound> cir) {
+        // 循环开关先写：它与歌单是否为空无关，不能被下面的 early return 吞掉。
+        if (BardLoopStore.isLooping((JobBard) (Object) this)) {
+            tag.setBoolean(BardLoopStore.NBT_KEY, true);
+        }
         List<String[]> songs = SongListStore.get((JobBard) (Object) this);
         if (songs == null || songs.isEmpty()) return;
         NBTTagList list = new NBTTagList();

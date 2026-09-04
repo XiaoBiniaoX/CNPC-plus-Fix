@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardLoopStore;
 import bin.cnpcplus.bard.SongListStore;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -57,6 +58,11 @@ public class MixinGuiNpcBard {
         self.addScroll(scroll);
         self.addButton(new GuiNpcButton(110, self.guiLeft + 220, self.guiTop + 158, 60, 20, "cnpcplus.bard.add"));
         self.addButton(new GuiNpcButton(111, self.guiLeft + 285, self.guiTop + 158, 60, 20, "cnpcplus.bard.delete"));
+        // 1.12.2 原版没有循环字段；BardLoopStore 用 BardLoops NBT 键持久化。
+        // 放在歌单右侧，避免挤动原版的距离 / 离开触发控件。
+        self.addButton(new GuiNpcButton(112, self.guiLeft + 350, self.guiTop + 158, 68, 20,
+                new String[]{"cnpcplus.bard.loop.off", "cnpcplus.bard.loop.on"},
+                BardLoopStore.isLooping(this.job) ? 1 : 0));
         self.addLabel(new GuiNpcLabel(13, "cnpcplus.bard.weight", self.guiLeft + 220, self.guiTop + 182));
         GuiNpcTextField tf = new GuiNpcTextField(10, (GuiScreen) self, self.guiLeft + 300, self.guiTop + 178, 40, 20, "1");
         self.addTextField(tf);
@@ -111,6 +117,10 @@ public class MixinGuiNpcBard {
                 }
             }
             self.func_73866_w_();
+            ci.cancel();
+        } else if (button.id == 112) {
+            // GuiNpcButton 已经在点击时循环更新 value；这里只读取最终值。
+            BardLoopStore.set(this.job, ((GuiNpcButton) button).getValue() == 1);
             ci.cancel();
         }
     }
