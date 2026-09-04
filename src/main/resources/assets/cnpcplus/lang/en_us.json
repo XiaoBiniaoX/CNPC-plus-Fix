@@ -63,5 +63,6 @@
   "cnpcplus.smelting.xp": "Experience",
   "cnpcplus.genericdamage": "Generic Damage Resistance",
   "cnpcplus.magicdamage": "Magic Damage Resistance",
-  "cnpcplus.scriptSync": "Script Sync"
+  "cnpcplus.scriptSync": "Script Sync",
+  "cnpcplus.lines.meleeHit": "Melee Hit"
 }

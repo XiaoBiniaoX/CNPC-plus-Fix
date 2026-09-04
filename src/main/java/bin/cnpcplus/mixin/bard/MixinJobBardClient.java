@@ -92,6 +92,9 @@ public class MixinJobBardClient {
 
         String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);
         if (picked == null || picked.isEmpty()) return;
+        // 这里必须传 false：一旦交给音频引擎做实例级循环，声音永不结束，
+        // isActive 恒为真，上面的自然结束分支再也走不到，激活范围内的切歌会彻底失效。
+        // 「循环播放」只表示走出停止距离时不断歌，由 BardRangeGuard 负责，与实例循环无关。
         if (self.isStreamer) {
             c.playStreaming(picked, self.npc, false);
         } else {

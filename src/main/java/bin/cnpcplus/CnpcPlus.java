@@ -27,5 +27,6 @@ public class CnpcPlus {
         NeoForge.EVENT_BUS.register(SmeltingRecipeBootstrap.class);
         NeoForge.EVENT_BUS.register(ScoreboardFixListener.class);
         NeoForge.EVENT_BUS.register(NoppesCommandBlockAccess.class);
+        NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerDataLifecycle.class);
     }
 }

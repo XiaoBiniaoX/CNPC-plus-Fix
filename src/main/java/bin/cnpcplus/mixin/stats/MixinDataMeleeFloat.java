@@ -38,6 +38,13 @@ public class MixinDataMeleeFloat implements MeleeFloatAccess {
         }
     }
 
+    @Inject(method = "setStrength", at = @At("RETURN"))
+    private void cnpcplus$syncIntMeleeFloat(int strength, CallbackInfo ci) {
+        // 脚本API调用 setStrength(int) 时同步影子值和 attribute，避免残留旧浮点值
+        this.cnpcplus$attackStrength = strength;
+        this.npc.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(strength);
+    }
+
     @Inject(method = "save", at = @At("HEAD"))
     private void cnpcplus$saveMeleeFloat(CompoundTag compound, CallbackInfoReturnable<CompoundTag> cir) {
         compound.putFloat("CNPCPlusAttackStrength", this.cnpcplus$attackStrength);

@@ -63,5 +63,6 @@
   "cnpcplus.smelting.xp": "熔炼经验",
   "cnpcplus.genericdamage": "通用伤害抗性",
   "cnpcplus.magicdamage": "魔法伤害抗性",
-  "cnpcplus.scriptSync": "脚本同步"
+  "cnpcplus.scriptSync": "脚本同步",
+  "cnpcplus.lines.meleeHit": "近战打击"
 }

@@ -54,13 +54,19 @@
     "stats.MixinDataStatsHealth",
     "stats.MixinDataMeleeFloat",
     "stats.MixinResistancesExtra",
+    "stats.MixinEntityNPCInterfaceMeleeFloat",
+    "lines.MixinDataAdvancedMeleeHitLines",
+    "lines.MixinEntityNPCInterfaceMeleeHitLine",
+    "EntityProjectileEmptyItemFixMixin",
     "linked.MixinLinkedDataScriptSync",
     "linked.MixinLinkedNpcControllerScriptSync",
-    "linked.MixinSPacketScriptSaveLinked"
+    "linked.MixinSPacketScriptSaveLinked",
+    "playerdata.MixinPlayerDataByUuid"
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
     "AbstractContainerScreenAccess",
+    "MinecraftNpcUseItemCooldownMixin",
     "ClientLevelProjectileCodecMixin",
     "RenderProjectileMixin",
     "SubGuiNpcProjectilesTrailsMixin",
@@ -88,6 +94,9 @@
     "trader.MixinGuiNpcTraderSetupPages",
     "quest.MixinGuiNpcQuestTypeItem",
     "quest.MixinGuiNpcQuestReward",
+    "quest.MixinGuiQuestCompletionScroll",
+    "gui.MixinGuiCustomScrollNopScrollDirection",
+    "gui.MixinGuiTextAreaScrollDirection",
     "invpage.MixinGuiNPCInv",
     "bard.AbstractWidgetAccess",
     "bard.MixinSoundEngine",
@@ -99,6 +108,8 @@
     "stats.MixinGuiNpcStatsFloat",
     "stats.MixinSubGuiNpcMeleePropertiesFloat",
     "stats.MixinSubGuiNpcResistanceExtra",
+    "lines.MixinGuiNPCLinesMenuMeleeHit",
+    "font.MixinTrueTypeFontAtlas",
     "linked.MixinGuiNPCManageLinkedNpcScriptSync"
   ],
   "injectors": {

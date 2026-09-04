@@ -23,11 +23,12 @@ public class MixinSubGuiNpcMeleePropertiesFloat {
 
         self.getTextField(1).numbersOnly = false;
         self.getTextField(1).setFloatsOnly().setMinMaxDefault(0.0f, 99999.0f, 5.0f);
-        self.getTextField(1).setValue(String.format("%.1f", access.cnpcplus$getStrength()));
+        // Float.toString 不丢失存档中的第二位及更多小数，避免 5.05 回显为 5.1。
+        self.getTextField(1).setValue(Float.toString(access.cnpcplus$getStrength()));
 
         self.getTextField(3).numbersOnly = false;
         self.getTextField(3).setFloatsOnly().setMinMaxDefault(0.0f, 1000.0f, 20.0f);
-        self.getTextField(3).setValue(String.format("%.1f", access.cnpcplus$getDelay()));
+        self.getTextField(3).setValue(Float.toString(access.cnpcplus$getDelay()));
     }
 
     @Inject(method = "unFocused", at = @At("HEAD"), cancellable = true)

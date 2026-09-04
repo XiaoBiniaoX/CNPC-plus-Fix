@@ -8,6 +8,7 @@ import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.sounds.ChannelAccess;
 import net.minecraft.client.sounds.SoundEngine;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import noppes.npcs.client.controllers.MusicController;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -83,6 +84,26 @@ public abstract class MixinSoundEngine {
         // tickNonPaused 由声音引擎每 tick 驱动，与诗人是否还在 tick 无关，判定才可靠。
         if (BardRangeGuard.shouldStop(c)) {
             c.stopMusic();
+            return;
+        }
+
+        // 开了循环播放且玩家已走出激活距离时，诗人 aiStep 早已不再被调用，
+        // 歌自然放完后没人续播，表现就是「循环开着却直接断歌」。这里补上重播。
+        boolean active = Minecraft.getInstance().getSoundManager().isActive(c.playing);
+        String restart = BardRangeGuard.shouldRestart(c, active);
+        if (restart != null) {
+            Entity source = c.playingEntity;
+            boolean streamer = BardRangeGuard.isStreamer(c);
+            // playStreaming/playMusic 内部会先 stopMusic 再新建实例，
+            // 必须先清掉 playingResource，否则其 isPlaying 幂等判断会直接 return。
+            c.stopMusic();
+            if (source != null) {
+                if (streamer) {
+                    c.playStreaming(restart, source, false);
+                } else {
+                    c.playMusic(restart, source, false);
+                }
+            }
             return;
         }
 
