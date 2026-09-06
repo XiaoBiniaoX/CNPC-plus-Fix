@@ -78,7 +78,9 @@
     "MixinServerCloneControllerOverwrite",
     "MixinDataAdvancedMeleeLines",
     "MixinEntityNPCMeleeLines",
-    "MixinEntityNPCInteractPriority"
+    "MixinEntityNPCInteractPriority",
+    "MixinQuestControllerCategoryDir",
+    "MixinDialogControllerCategoryDir"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",

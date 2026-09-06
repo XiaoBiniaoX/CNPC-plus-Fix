@@ -6,7 +6,9 @@ import noppes.npcs.client.gui.player.moderngui.GuiDialogModern;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.gui.TextScrollBar;
 
 /**
@@ -62,16 +64,21 @@ public abstract class MixinGuiDialogModernScroll extends noppes.npcs.client.gui.
                 this.cnpcplus$modernTotalRows, VISIBLE_ROWS, this.cnpcplus$modernRowStart);
     }
 
-    @Override
-    public boolean m_6375_(double mouseX, double mouseY, int button) {
+    /**
+     * 拖动滑条。必须用 @Inject + cancellable：GuiDialogModern 自己重写了 m_6375_
+     * （内部调 handleDialogSelection），mixin 里写同签名方法会把它整体替换掉，
+     * 结果是左键点选项没反应、只有回车有效。
+     */
+    @Inject(method = "m_6375_", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$modernScrollbarClick(double mouseX, double mouseY, int button,
+                                               CallbackInfoReturnable<Boolean> cir) {
         if (button == 0 && this.cnpcplus$modernTotalRows > VISIBLE_ROWS
                 && mouseX >= this.cnpcplus$clipRight - 4 && mouseX <= this.cnpcplus$clipRight + 2
                 && mouseY >= this.cnpcplus$clipTop && mouseY <= this.cnpcplus$clipBottom) {
             this.cnpcplus$modernRowStart = TextScrollBar.rowForMouse((int) mouseY,
                     this.cnpcplus$clipTop, this.cnpcplus$clipBottom, this.cnpcplus$modernTotalRows, VISIBLE_ROWS);
-            return true;
+            cir.setReturnValue(true);
         }
-        return super.m_6375_(mouseX, mouseY, button);
     }
 
     @Override

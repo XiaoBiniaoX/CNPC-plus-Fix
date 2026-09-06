@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.gui.TextScrollBar;
 
 /**
@@ -64,17 +65,22 @@ public abstract class MixinGuiDialogInteractScroll extends noppes.npcs.client.gu
                 this.guiTop + this.dialogHeight, this.rowTotal, visible, this.rowStart);
     }
 
-    @Override
-    public boolean m_6375_(double mouseX, double mouseY, int button) {
+    /**
+     * 拖动滑条。必须用 @Inject + cancellable，不能像原来那样在 mixin 里写同签名方法：
+     * GuiDialogInteract 自己重写了 m_6375_（内部调 handleDialogSelection），
+     * 同签名方法会整体替换掉它，导致左键点选项完全失效、只剩回车能确认。
+     */
+    @Inject(method = "m_6375_", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$dialogScrollbarClick(double mouseX, double mouseY, int button,
+                                               CallbackInfoReturnable<Boolean> cir) {
         int top = this.guiTop;
         int bottom = this.guiTop + this.dialogHeight;
         int barX = this.guiLeft + this.imageWidth + 116;
         if (button == 0 && this.rowTotal > this.cnpcplus$visibleRows()
                 && mouseX >= barX - 2 && mouseX <= barX + 4 && mouseY >= top && mouseY <= bottom) {
             this.rowStart = TextScrollBar.rowForMouse((int) mouseY, top, bottom, this.rowTotal, this.cnpcplus$visibleRows());
-            return true;
+            cir.setReturnValue(true);
         }
-        return super.m_6375_(mouseX, mouseY, button);
     }
 
     @Override
