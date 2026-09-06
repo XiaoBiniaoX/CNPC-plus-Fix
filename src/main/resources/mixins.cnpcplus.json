@@ -70,7 +70,9 @@
     "linked.MixinLinkedNpcControllerScriptSync",
     "linked.MixinPacketHandlerServerScriptSync",
     "lines.MixinDataAdvancedMeleeLines",
-    "lines.MixinEntityNPCInterfaceMeleeLines"
+    "lines.MixinEntityNPCInterfaceMeleeLines",
+    "category.MixinQuestControllerCategoryRename",
+    "category.MixinDialogControllerCategoryRename"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",

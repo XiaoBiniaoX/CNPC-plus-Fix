@@ -62,6 +62,15 @@ public class MixinGuiDialogInteractOptionHeight {
      * calculateRowHeight 的三个调用点（initGui、选完一项之后、appendDialog 末尾）
      * 都发生在 this.options 填充完毕之后，且该字段声明时已初始化为空 ArrayList，
      * 所以直接用它的 size 是安全的；万一为 null 再回落到原始 map 大小并自行过滤。
+     *
+     * 必须**两处都换**，不能只换其中一处（已由字节码核实）：
+     *   ordinal 0 = offset 51，`if (size > 3)` 的判断
+     *   ordinal 1 = offset 70，`dialogHeight -= (size - 3) * fh` 的算术
+     * 若只换 ordinal 1，会变成 `if (全部数 > 3) dialogHeight -= (可显示数 - 3) * fh`。
+     * 当全部=6、可显示=2 时 `2 - 3 = -1`，减去负数使 dialogHeight 反而变大，
+     * 属于引入新缺陷。因此保持不写 ordinal，两处一起替换，
+     * 使判断与算术使用同一套计数，drawLinedOptions 的绘制与命中判定
+     * 也就始终读到同一个 dialogHeight，保持一致。
      */
     @Redirect(
             method = "calculateRowHeight",
