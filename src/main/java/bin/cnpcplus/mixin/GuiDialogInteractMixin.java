@@ -5,6 +5,7 @@ import bin.cnpcplus.gui.TextScrollBar;
 import bin.cnpcplus.util.FormatUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import noppes.npcs.client.ClientProxy;
 import noppes.npcs.client.gui.player.GuiDialogInteract;
 import noppes.npcs.controllers.data.DialogOption;
 import noppes.npcs.shared.client.util.NoppesStringUtils;
@@ -30,10 +31,18 @@ public class GuiDialogInteractMixin {
     @Shadow(remap = false)
     private int dialogHeight;
 
-    /** 行高与下面实际绘制所用的字体保持同一套，否则裁剪窗口和行距会错位。 */
+    /**
+     * 行高必须用 CNPC 自己的字体，不能用原版 font.lineHeight（恒为 9）。
+     *
+     * <p>CustomNpcs.cfg 的 FontType 默认是 Default，此时 useCustomFont 为真，
+     * ClientProxy.Font.height(null) 走 opensans.ttf，返回值并不等于 9。
+     * 而 dialogHeight 与 drawLinedOptions 里 selected 的计算全部基于它，
+     * 一旦这里用 9，可见行数会被高估两三倍，裁剪窗口和滑条命中范围随之失真，
+     * 最终把选项区的左键一起吞掉（表现为「点选项没反应，只有回车有效」）。
+     */
     @Unique
     private int cnpcplus$lineHeight() {
-        return Math.max(1, Minecraft.getInstance().font.lineHeight);
+        return Math.max(1, ClientProxy.Font.height(null));
     }
 
     @Unique
@@ -91,8 +100,11 @@ public class GuiDialogInteractMixin {
         int top = self.guiTop;
         int bottom = self.guiTop + this.dialogHeight;
         int barX = self.guiLeft + self.imageWidth + 116;
+        // 用 mouseY < bottom 而不是 <=：bottom 正好是第 0 个选项所在的 y
+        // （drawLinedOptions 里 k=0 时 y = guiTop + dialogHeight），
+        // 写成 <= 会在第一个选项那条扫描线上抢走左键。
         if (button == 0 && this.rowTotal > this.cnpcplus$visibleRows()
-                && mouseX >= barX - 2 && mouseX <= barX + 4 && mouseY >= top && mouseY <= bottom) {
+                && mouseX >= barX - 2 && mouseX <= barX + 4 && mouseY >= top && mouseY < bottom) {
             this.rowStart = TextScrollBar.rowForMouse((int) mouseY, top, bottom,
                     this.rowTotal, this.cnpcplus$visibleRows());
             cir.setReturnValue(true);
@@ -106,8 +118,9 @@ public class GuiDialogInteractMixin {
         // 1.21.1 竖直增量在第四个参数；横向滚轮设备只给 scrollX 时退回它。
         double delta = scrollY != 0.0 ? scrollY : scrollX;
         if (delta == 0.0) return;
+        // 下边界同样用 >= 排除：选项区从 guiTop + dialogHeight 开始，不参与正文滚动。
         if (mouseX < self.guiLeft - 60 || mouseX > self.guiLeft + self.imageWidth + 120
-                || mouseY < self.guiTop || mouseY > self.guiTop + this.dialogHeight) {
+                || mouseY < self.guiTop || mouseY >= self.guiTop + this.dialogHeight) {
             return;
         }
         int visible = this.cnpcplus$visibleRows();
