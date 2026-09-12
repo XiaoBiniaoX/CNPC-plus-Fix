@@ -58,12 +58,27 @@ public class MixinGuiNpcBard {
         cnpcplus$rearrange(self);
     }
 
+    /**
+     * 真正藏掉一个原版按钮。
+     *
+     * <p>只置 {@code shown = false} 不够：那是 CNPC 自己的字段，只在
+     * {@code GuiButtonNop.renderWidget:86-91} 用来跳过绘制；而点击路由走原版
+     * {@code AbstractWidget.mouseClicked:157-158} / {@code clicked:218-223}，
+     * 判的是 {@code active && visible}，与 {@code shown} 无关。
+     * 结果按钮看不见却仍占着矩形抢点击。三个标志位都要压。
+     */
+    @Unique
+    private static void cnpcplus$hideButton(GuiButtonNop button) {
+        if (button == null) return;
+        button.shown = false;
+        button.visible = false;
+        button.active = false;
+    }
+
     @Unique
     private void cnpcplus$rearrange(GuiNpcBard self) {
-        GuiButtonNop sel = self.getButton(0);
-        if (sel != null) sel.shown = false;
-        GuiButtonNop x = self.getButton(1);
-        if (x != null) x.shown = false;
+        cnpcplus$hideButton(self.getButton(0));
+        cnpcplus$hideButton(self.getButton(1));
         GuiLabel songLabel = self.getLabel(0);
         if (songLabel != null) {
             songLabel.setMessage(net.minecraft.network.chat.Component.empty());

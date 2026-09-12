@@ -51,8 +51,9 @@ public class MixinSubGuiNpcMeleePropertiesBuffs {
 
         // 隐藏原「附加效果」整组控件。
         // 标签 6/7 与控件 6/7 只在特定 effectType 下才存在，故逐个判空。
-        GuiButtonNop oldEffect = self.getButton(5);
-        if (oldEffect != null) oldEffect.shown = false;
+        cnpcplus$hideButton(self.getButton(5));
+        cnpcplus$hideButton(self.getButton(7));
+
         GuiLabel oldEffectLabel = self.getLabel(5);
         if (oldEffectLabel != null) oldEffectLabel.enabled = false;
 
@@ -61,8 +62,6 @@ public class MixinSubGuiNpcMeleePropertiesBuffs {
         GuiLabel oldTimeLabel = self.getLabel(6);
         if (oldTimeLabel != null) oldTimeLabel.enabled = false;
 
-        GuiButtonNop oldAmp = self.getButton(7);
-        if (oldAmp != null) oldAmp.shown = false;
         GuiLabel oldAmpLabel = self.getLabel(7);
         if (oldAmpLabel != null) oldAmpLabel.enabled = false;
 
@@ -71,6 +70,27 @@ public class MixinSubGuiNpcMeleePropertiesBuffs {
                 self.guiLeft + 5, self.guiTop + 135));
         self.addButton(new GuiButtonNop((IGuiInterface) self, CNPCPLUS_BTN_BUFFS,
                 self.guiLeft + 85, self.guiTop + 130, 100, 20, cnpcplus$buttonText()));
+    }
+
+    /**
+     * 真正藏掉一个原版按钮。
+     *
+     * <p>只置 {@code shown = false} 是不够的 —— 那是 CNPC 自己加的字段，
+     * 只在 {@code GuiButtonNop.renderWidget:86-91} 里用来跳过绘制。
+     * 而点击路由走的是原版 {@code AbstractWidget}：{@code mouseClicked:157-158} 与
+     * {@code clicked:218-223} 判的都是 {@code active && visible}，跟 {@code shown} 无关。
+     * 于是原按钮虽然看不见，却仍然占着同一块矩形抢走点击 —— 而且它比新按钮先注册，
+     * 表现就是「新按钮点不进去」。
+     *
+     * <p>所以三个标志位都要压：{@code visible} 断掉点击与命中测试，
+     * {@code active} 双保险（原版两处判定都要求它为真），
+     * {@code shown} 让 CNPC 自己的绘制分支也跳过。
+     */
+    private static void cnpcplus$hideButton(GuiButtonNop button) {
+        if (button == null) return;
+        button.shown = false;
+        button.visible = false;
+        button.active = false;
     }
 
     /**
