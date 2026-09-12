@@ -84,16 +84,22 @@ public abstract class MixinSoundEngine {
         // tickNonPaused 由声音引擎每 tick 驱动，与诗人是否还在 tick 无关，判定才可靠。
         if (BardRangeGuard.shouldStop(c)) {
             c.stopMusic();
+            BardRangeGuard.forget();
             return;
         }
 
         // 开了循环播放且玩家已走出激活距离时，诗人 aiStep 早已不再被调用，
         // 歌自然放完后没人续播，表现就是「循环开着却直接断歌」。这里补上重播。
         boolean active = Minecraft.getInstance().getSoundManager().isActive(c.playing);
-        String restart = BardRangeGuard.shouldRestart(c, active);
+        String restart = BardRangeGuard.shouldRestart(active);
         if (restart != null) {
-            Entity source = c.playingEntity;
-            boolean streamer = BardRangeGuard.isStreamer(c);
+            boolean streamer = BardRangeGuard.isRestartStreamer();
+            // 音源不能再用 c.playingEntity：走太远或区块卸载后诗人实体已被客户端移除，
+            // 那个引用要么为 null、要么是个 isRemoved 的僵尸对象，playStreaming 里
+            // entity.getX() 拿到的是失效坐标，线性衰减会把音量直接算成 0，听起来就是断了。
+            // 改用玩家自己作为音源：循环续播本身就是「走远了还想继续听」，
+            // 挂在玩家身上音量恒定，且不依赖诗人是否还在客户端存活。
+            Entity source = Minecraft.getInstance().player;
             // playStreaming/playMusic 内部会先 stopMusic 再新建实例，
             // 必须先清掉 playingResource，否则其 isPlaying 幂等判断会直接 return。
             c.stopMusic();

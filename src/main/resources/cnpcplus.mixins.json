@@ -63,7 +63,18 @@
     "linked.MixinSPacketScriptSaveLinked",
     "playerdata.MixinPlayerDataByUuid",
     "category.MixinQuestControllerCategoryDir",
-    "category.MixinDialogControllerCategoryDir"
+    "category.MixinDialogControllerCategoryDir",
+    "spawner.MixinJobSpawnerDelay",
+    "quest.MixinServerEventsHandlerTeamKill",
+    "melee.MixinDataMeleeBuffs",
+    "melee.MixinEntityNPCInterfaceMeleeBuffs",
+    "ai.MixinEntityAIReturn",
+    "ai.MixinEntityNPCInterfaceMountJump",
+    "corpse.MixinEntityNPCInterfaceCorpse",
+    "corpse.MixinEntityCustomNpcCorpse",
+    "corpse.MixinEntityCorpsePickable",
+    "corpse.MixinEntityNPCInterfaceRespawnSize",
+    "corpse.MixinEntityNPCInterfaceRespawnY"
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
@@ -112,7 +123,11 @@
     "stats.MixinSubGuiNpcResistanceExtra",
     "lines.MixinGuiNPCLinesMenuMeleeHit",
     "font.MixinTrueTypeFontAtlas",
-    "linked.MixinGuiNPCManageLinkedNpcScriptSync"
+    "linked.MixinGuiNPCManageLinkedNpcScriptSync",
+    "spawner.MixinGuiNpcSpawnerDelay",
+    "skin.MixinRenderNPCInterfaceSkin",
+    "transform.MixinGuiNPCNightSetupModeLabel",
+    "melee.MixinSubGuiNpcMeleePropertiesBuffs"
   ],
   "injectors": {
     "defaultRequire": 0

@@ -23,6 +23,50 @@ public final class BardRangeGuard {
     private BardRangeGuard() {
     }
 
+    /**
+     * 「循环续播」的独立记账。
+     *
+     * <p>不能依赖 MusicController.playingEntity 来做循环续播：诗人实体一旦被客户端卸载
+     * （走太远、区块卸载），playingEntity 指向的实体对象会 isRemoved，level() 也不再持有它，
+     * 于是 bardOf() 返回的 JobBard 拿不到有效的 npc，playerInRange 必然 false 也无从判断，
+     * 更关键的是 MusicController.stopMusic() 会把 playingEntity 与 playingResource 一起清空，
+     * 重播时再也找不到「该播哪首、以谁为音源」。这就是「循环开着走远了却彻底断掉、不再重播」的根因。
+     *
+     * <p>所以在起播时把「曲目 + 是否流式 + 循环开关 + 停止距离 + 诗人坐标」快照下来，
+     * 之后的续播完全依赖这份快照，不再依赖实体是否还活着。
+     */
+    private static volatile String loopSong = "";
+    private static volatile boolean loopStreamer = true;
+    private static volatile boolean loopEnabled = false;
+    private static volatile int loopMaxRange = 64;
+    private static volatile double loopX = 0.0;
+    private static volatile double loopY = 0.0;
+    private static volatile double loopZ = 0.0;
+
+    /** 起播时记账。由 MixinJobBardClient 在实际调用 playStreaming/playMusic 后调用。 */
+    public static void remember(JobBard bard, String song) {
+        if (bard == null || song == null || song.isEmpty()) {
+            forget();
+            return;
+        }
+        EntityNPCInterface npc = bard.npc;
+        loopSong = song;
+        loopStreamer = bard.isStreamer;
+        loopEnabled = bard.isLooping;
+        loopMaxRange = bard.maxRange;
+        if (npc != null) {
+            loopX = npc.getX();
+            loopY = npc.getY();
+            loopZ = npc.getZ();
+        }
+    }
+
+    /** 清账。音乐被正常停止（切歌、走出停止距离、诗人死亡）时调用。 */
+    public static void forget() {
+        loopSong = "";
+        loopEnabled = false;
+    }
+
     /** 取出当前正在播放的音乐所属的吟游诗人职业，非诗人来源返回 null。 */
     private static JobBard bardOf(MusicController c) {
         if (c == null || c.playing == null) return null;
@@ -43,6 +87,16 @@ public final class BardRangeGuard {
                 Player.class,
                 npc.getBoundingBox().inflate(bard.maxRange, bard.maxRange / 2.0, bard.maxRange)
         ).contains(player);
+    }
+
+    /** 玩家是否还在快照记录的诗人位置的停止距离内。实体已卸载时也能判定。 */
+    private static boolean playerInRememberedRange() {
+        Player player = Minecraft.getInstance().player;
+        if (player == null) return false;
+        double dx = Math.abs(player.getX() - loopX);
+        double dy = Math.abs(player.getY() - loopY);
+        double dz = Math.abs(player.getZ() - loopZ);
+        return dx <= loopMaxRange && dz <= loopMaxRange && dy <= loopMaxRange / 2.0;
     }
 
     /**
@@ -66,29 +120,25 @@ public final class BardRangeGuard {
     /**
      * 开了循环播放时，歌自然放完后是否需要立刻重播当前这一首。
      *
-     * <p>这是「走出激活距离后断歌」的真正缺口：此时诗人 NPC 已离开客户端实体加载范围，
-     * aiStep 不再被调用，没有任何代码会续上下一首，音乐放完即静音。
-     * 玩家仍在范围内时不由这里接管，让 aiStep 正常按歌单权重切歌。
+     * <p>判定完全基于起播时的快照，不依赖诗人实体是否还在客户端存活 ——
+     * 这正是走太远 / 区块卸载后仍能续播的关键。
+     *
+     * <p>玩家仍在快照范围内时不由这里接管，让诗人的 aiStep 按歌单权重正常切歌，两者不抢。
      *
      * @return 需要重播的资源路径；不需要重播时返回 null
      */
-    public static String shouldRestart(MusicController c, boolean active) {
+    public static String shouldRestart(boolean active) {
         if (active) return null;
-
-        JobBard bard = bardOf(c);
-        if (bard == null) return null;
-        if (!bard.isLooping) return null;
-
+        if (!loopEnabled) return null;
+        String song = loopSong;
+        if (song.isEmpty()) return null;
         // 玩家还在范围内时交给 aiStep 走正常的歌单切歌逻辑，避免和它抢。
-        if (playerInRange(bard)) return null;
-
-        String song = c.playingResource == null ? null : c.playingResource.toString();
-        return song == null || song.isEmpty() ? null : song;
+        if (playerInRememberedRange()) return null;
+        return song;
     }
 
-    /** 当前播放来源是否为流式（唱片机）诗人音乐，决定重播走哪个入口。 */
-    public static boolean isStreamer(MusicController c) {
-        JobBard bard = bardOf(c);
-        return bard != null && bard.isStreamer;
+    /** 续播时该走流式（唱片机）入口还是背景音乐入口，取自起播快照。 */
+    public static boolean isRestartStreamer() {
+        return loopStreamer;
     }
 }

@@ -64,5 +64,19 @@
   "cnpcplus.genericdamage": "Generic Damage Resistance",
   "cnpcplus.magicdamage": "Magic Damage Resistance",
   "cnpcplus.scriptSync": "Script Sync",
-  "cnpcplus.lines.meleeHit": "Melee Hit"
+  "cnpcplus.lines.meleeHit": "Melee Hit",
+  "cnpcplus.spawner.delay": "Delay:",
+  "cnpcplus.transform.editingday": "Editing: Day Config",
+  "cnpcplus.transform.editingnight": "Editing: Night Config",
+  "cnpcplus.melee.buffs": "Melee Buffs",
+  "cnpcplus.melee.noBuff": "No Buff",
+  "cnpcplus.melee.buffCount": "%s Buffs",
+  "cnpcplus.melee.availableBuffs": "Available Effects",
+  "cnpcplus.melee.chosenBuffs": "Current Effects",
+  "cnpcplus.melee.amp": "Level",
+  "cnpcplus.melee.duration": "Time (s)",
+  "cnpcplus.configuration.returnToStartTimeoutSeconds": "Return To Start Timeout (s)",
+  "cnpcplus.configuration.returnToStartTimeoutSeconds.tooltip": "Teleport to start if the NPC still hasn't arrived after this many seconds (default 60).",
+  "cnpcplus.configuration.corpseNoCollision": "Corpses Have No Hitbox",
+  "cnpcplus.configuration.corpseNoCollision.tooltip": "Respawning NPCs' corpses no longer block movement, crosshair or projectiles (default on). Restored on respawn."
 }

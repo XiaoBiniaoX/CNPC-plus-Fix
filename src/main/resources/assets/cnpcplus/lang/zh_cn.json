@@ -64,5 +64,19 @@
   "cnpcplus.genericdamage": "通用伤害抗性",
   "cnpcplus.magicdamage": "魔法伤害抗性",
   "cnpcplus.scriptSync": "脚本同步",
-  "cnpcplus.lines.meleeHit": "近战打击"
+  "cnpcplus.lines.meleeHit": "近战打击",
+  "cnpcplus.spawner.delay": "召唤间隔",
+  "cnpcplus.transform.editingday": "当前编辑：日间配置",
+  "cnpcplus.transform.editingnight": "当前编辑：夜间配置",
+  "cnpcplus.melee.buffs": "近战附加BUFF",
+  "cnpcplus.melee.noBuff": "无BUFF",
+  "cnpcplus.melee.buffCount": "%s 个BUFF",
+  "cnpcplus.melee.availableBuffs": "可用效果",
+  "cnpcplus.melee.chosenBuffs": "已选效果",
+  "cnpcplus.melee.amp": "等级",
+  "cnpcplus.melee.duration": "时长(秒)",
+  "cnpcplus.configuration.returnToStartTimeoutSeconds": "返回起点超时瞬移时间(秒)",
+  "cnpcplus.configuration.returnToStartTimeoutSeconds.tooltip": "超过该时长仍未回到起点则直接瞬移过去（默认60秒）。\n用于地形被封死等走不回去的情况。",
+  "cnpcplus.configuration.corpseNoCollision": "尸体去除碰撞箱",
+  "cnpcplus.configuration.corpseNoCollision.tooltip": "会重生的 NPC 死亡后，尸体不再挡路、不挡准星、不吃箭（默认开启）。\n复活后碰撞箱自动恢复。"
 }

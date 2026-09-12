@@ -62,6 +62,15 @@ public class EntityCustomNpcMixin {
             }
         } else {
             cnpcplus$modelDeathPosSaved = false;
+            // 复活后必须把死亡期间对模型实体做的强制状态复位，否则模型会持续隐形、
+            // 或停在死亡姿势上，表现就是「复活后模型与碰撞箱不一致」。
+            Entity modelEntity = self.modelData.getEntity(self);
+            if (modelEntity instanceof LivingEntity living) {
+                if (living.isInvisible()) living.setInvisible(false);
+                if (living.deathTime != 0) living.deathTime = 0;
+                if (living.getHealth() <= 0.0F) living.setHealth(living.getMaxHealth());
+            }
+            if (self.level().isClientSide && self.deathTime != 0) self.deathTime = 0;
         }
     }
 

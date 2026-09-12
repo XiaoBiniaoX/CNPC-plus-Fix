@@ -1,12 +1,15 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardRangeGuard;
 import bin.cnpcplus.bard.SongListStore;
 import bin.cnpcplus.config.CnpcPlusConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.SoundManager;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import noppes.npcs.CustomNpcs;
 import noppes.npcs.client.controllers.MusicController;
+import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.mixin.MusicManagerMixin;
 import noppes.npcs.roles.JobBard;
 import org.spongepowered.asm.mixin.Mixin;
@@ -30,6 +33,16 @@ public class MixinJobBardClient {
 
     @Unique
     private String cnpcplus$lastSong = "";
+
+    /** 本诗人的歌单里是否包含某首曲子（fallback 时即单曲 song）。 */
+    @Unique
+    private static boolean cnpcplus$plays(List<String[]> songs, String resource) {
+        if (songs == null || resource == null || resource.isEmpty()) return false;
+        for (String[] e : songs) {
+            if (e != null && e.length > 0 && resource.equals(e[0])) return true;
+        }
+        return false;
+    }
 
     @Inject(method = "aiStep", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$bardAiStep(CallbackInfo ci) {
@@ -79,13 +92,45 @@ public class MixinJobBardClient {
             // 自然播放完成（active=false）或看门狗超时：释放旧实例，
             // 允许在起始范围内立即按权重选择下一首。
             c.stopMusic();
+            BardRangeGuard.forget();
             this.cnpcplus$lastPlay = 0L;
+        }
+
+        // —— 同曲接管：修复「走进另一个播同一首曲子的诗人范围内音乐直接断掉」——
+        //
+        // 原版 aiStep 在「正在播的就是本 NPC 的曲子」时走的是接管分支：只把 playingEntity 改成
+        // 更近的这个 NPC，不重新起播，所以音乐无缝延续，随后的停止距离判定也自然改按新诗人算。
+        // 之前这里被写成直接 playStreaming/playMusic，而 MusicController.isPlaying 对同一资源
+        // 是幂等的（同资源且仍在播就直接 return），于是 playingEntity 永远停留在旧诗人身上；
+        // 玩家一旦走出旧诗人的 maxRange，BardRangeGuard.shouldStop 就按旧诗人判定并 stopMusic，
+        // 表现正是「进入新诗人范围后音乐直接断开、且不再播放」。
+        //
+        // 这一段必须放在 minRange 判定之前：原版接管分支同样不要求进入 minRange，
+        // 否则在「已出旧诗人 maxRange、尚未进新诗人 minRange」的那段路上音乐仍会被掐掉。
+        if (!mine && active && c.playingResource != null) {
+            String current = c.playingResource.toString();
+            if (cnpcplus$plays(songs, current)) {
+                Entity owner = c.playingEntity;
+                boolean ownerIsNpc = owner instanceof EntityNPCInterface;
+                // 音源是别的诗人时要求本 NPC 更近；音源不是诗人（循环续播期间挂在玩家身上）时直接接管。
+                if (!ownerIsNpc || self.npc.closerThan(player, owner.distanceTo(player))) {
+                    c.playingEntity = self.npc;
+                    BardRangeGuard.remember(self, current);
+                    this.cnpcplus$lastSong = current;
+                    this.cnpcplus$lastPlay = System.currentTimeMillis();
+                    try {
+                        ((MusicManagerMixin) mc.getMusicManager()).nextSongDelay(12000);
+                    } catch (Exception ignored) {
+                    }
+                    return;
+                }
+            }
         }
 
         // 尚未播放时必须进入 minRange 才能开始；离开 minRange 不会终止已在播放的音乐。
         if (!inStartRange) return;
 
-        // 其他 NPC 正在播放：仅本 NPC 更近玩家时才接管
+        // 其他 NPC 正在播放不同的曲子：仅本 NPC 更近玩家时才换成自己的曲子
         if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc) {
             if (!self.npc.closerThan(player, c.playingEntity.distanceTo(player))) return;
         }
@@ -102,6 +147,8 @@ public class MixinJobBardClient {
         }
         this.cnpcplus$lastSong = picked;
         this.cnpcplus$lastPlay = System.currentTimeMillis();
+        // 记账给循环续播用：诗人实体被卸载后，续播只能依赖这份快照。
+        BardRangeGuard.remember(self, picked);
         try {
             ((MusicManagerMixin) Minecraft.getInstance().getMusicManager()).nextSongDelay(12000);
         } catch (Exception ignored) {

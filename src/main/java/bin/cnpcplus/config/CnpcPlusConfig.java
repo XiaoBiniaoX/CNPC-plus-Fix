@@ -76,6 +76,22 @@ public class CnpcPlusConfig {
             )
             .defineInRange("bardWatchdogSeconds", 300, 1, 3600);
 
+    public static final ModConfigSpec.IntValue RETURN_START_TIMEOUT_SECONDS = BUILDER
+            .comment(
+                "NPC「返回起点」的超时瞬移时间（秒，默认60）",
+                "超过该时长仍未回到起点则直接瞬移过去，用于地形被封死等走不回去的情况",
+                "原版硬编码为 30 秒且在快到起点时会因反复重试提前瞬移，本模组已修好末段抖动"
+            )
+            .defineInRange("returnToStartTimeoutSeconds", 60, 1, 3600);
+
+    public static final ModConfigSpec.BooleanValue CORPSE_NO_COLLISION = BUILDER
+            .comment(
+                "固定点位重生的 NPC 死亡后，尸体是否去掉碰撞箱（默认 true）",
+                "开启后尸体不再挡路、不挡准星、不吃箭；复活后碰撞箱自动恢复",
+                "不影响 spawnCycle 为「死后消失」的 NPC，它们本来就会直接移除"
+            )
+            .define("corpseNoCollision", true);
+
     public static final ModConfigSpec.IntValue SMELTING_GUI_OFFSET_X = BUILDER
             .comment("可视化自定义熔炼配方界面整体X偏移")
             .defineInRange("smeltingGuiOffsetX", 0, -300, 300);
