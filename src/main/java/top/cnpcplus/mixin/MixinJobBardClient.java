@@ -148,6 +148,13 @@ public class MixinJobBardClient {
     /** 实际起播 + 记录状态。抽出来是因为循环重播与正常选曲两条路径都要用。 */
     @Unique
     private void cnpcplus$play(MusicController c, JobBard self, String song) {
+        // playStreaming / playMusic 第一行都是 `if (isPlaying(music)) return;`。
+        // 走进另一个诗人范围但两曲同名时，不先清掉 playingResource，起播会被静默吞掉，
+        // 表现为「直接断开而不是播放 BGM」（玩家反馈：因距离关闭音乐为开、循环为关）。
+        // BardLoopKeeper 已经用同一招处理「同曲续播」了，这里是夺权路径的对应处理。
+        if (c.isPlaying(song)) {
+            c.stopMusic();
+        }
         if (self.isStreamer) {
             c.playStreaming(song, self.npc, false);
         } else {

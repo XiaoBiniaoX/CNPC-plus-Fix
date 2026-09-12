@@ -45,8 +45,14 @@ public final class BardLoopKeeper {
         // 只处理开了循环播放的诗人。
         if (!bard.isLooping) return false;
 
-        // 诗人已经不在世界里就不要续播了，交给 BardRangeGuard 去停。
-        if (npc.isRemoved() || !npc.isAlive()) return false;
+        // 刻意**不检查 isRemoved()**：玩家走远后服务端停止 tracking，客户端会把实体移除，
+        // 但那只是「区块卸载」，用户明确要求这种情况循环要继续播。
+        // 真正该停的两种情形（诗人被删除、诗人死亡）由 BardRangeGuard.shouldStop 判定，
+        // 它在本方法之前被调用（见 MixinSoundEngine.cnpcplus$applyVolumeTick），
+        // 命中时会先 stopMusic 并 return，根本走不到这里。
+        //
+        // playingEntity 是强引用，实体被移除后 npc / npc.job / 歌单都仍然可达，
+        // 所以续播不需要缓存快照。
 
         // 还在响就什么都不做。
         if (Minecraft.getInstance().getSoundManager().isActive(c.playing)) return false;
