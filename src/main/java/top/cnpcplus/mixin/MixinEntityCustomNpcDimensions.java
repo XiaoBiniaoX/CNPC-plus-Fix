@@ -10,6 +10,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.config.CnpcPlusServerConfig;
+import top.cnpcplus.config.ServerConfigAccess;
 
 /**
  * 修复「模型/替身」换成其他 mod 生物后，碰撞箱与视觉分离（NPC 摸不到、跑很远还被打到）。
@@ -62,6 +64,12 @@ public abstract class MixinEntityCustomNpcDimensions {
         EntityCustomNpc self = (EntityCustomNpc) (Object) this;
         if (self.modelData == null || !self.modelData.hasEntity()) return;
 
+        // display / stats / level 都必须判空：本方法在**实体构造期**就会被 vanilla 的
+        // Entity 构造器通过 refreshDimensions 调到，那时 CNPC 的这些数据对象可能还没赋值。
+        // 原版自己也防了这一手 —— :112 的 `if (this.modelData == null)` 就是同一个理由。
+        // 缺了任何一个都会在实体创建时 NPE，专用服务器上表现为生成 NPC 即崩。
+        if (self.display == null || self.stats == null || self.level() == null) return;
+
         ResourceLocation name = self.modelData.getEntityName();
         if (name == null) return;
 
@@ -89,8 +97,29 @@ public abstract class MixinEntityCustomNpcDimensions {
         if (height < 0.1f) height = 0.1f;
 
         // 与原版 :134-136 一致：石像模式或「隐藏尸体」的尸体不占碰撞体积。
-        if (self.display.getHitboxState() == 1
-                || (self.isKilled() && self.stats.hideKilledBody)) {
+        //
+        // isKilled() 读 datawatcher（反编译 EntityNPCInterface:1666-1668 的
+        // f_19804_.get(IsDead)），而 defineSynchedData 与 refreshDimensions 都在
+        // Entity 构造器里、顺序不由我们决定；维度先算时那次 get 会抛。
+        // 异常时按「不是尸体」处理，维度照常算。
+        boolean killed = cnpcplus$isKilledSafe(self);
+        if (self.display.getHitboxState() == 1 || (killed && self.stats.hideKilledBody)) {
+            width = 1.0E-5f;
+        }
+
+        // 「固定点位重生」的 NPC 尸体连箭都不该挡（哈基彬需求）。
+        //
+        // 这一段刻意写在本 mixin 里而不是 MixinEntityNPCKilledBody：
+        // EntityCustomNpc 覆写了 m_6972_，替身分支根本不会走到基类实现；
+        // 而两个 mixin 都注入同一方法的 RETURN 时执行顺序没有保证，
+        // 分开写会让「谁的 setReturnValue 生效」变成运气。合并到这里，顺序就是代码顺序。
+        // 走 ServerConfigAccess 而不是裸 get()：本方法在**实体构造期**就会被
+        // vanilla Entity 构造器通过 refreshDimensions 调到，那时 SERVER 配置可能还没 attach，
+        // 开发环境会抛 IllegalStateException 把实体创建炸掉（字节码实证见 ServerConfigAccess）。
+        if (ServerConfigAccess.bool(CnpcPlusServerConfig.KilledBodyNoHitbox, true)
+                && self.ais != null && self.ais.returnToStart
+                && (self.currentAnimation == 2 || self.currentAnimation == 7
+                    || self.deathTime > 0 || killed)) {
             width = 1.0E-5f;
         }
 
@@ -99,5 +128,14 @@ public abstract class MixinEntityCustomNpcDimensions {
             self.level().increaseMaxEntityRadius(Math.min(half, MAX_RADIUS));
         }
         cir.setReturnValue(new EntityDimensions(width, height, false));
+    }
+
+    /** {@code isKilled()} 的安全包装，理由见调用处注释。 */
+    private static boolean cnpcplus$isKilledSafe(EntityCustomNpc npc) {
+        try {
+            return npc.isKilled();
+        } catch (Throwable t) {
+            return false;
+        }
     }
 }

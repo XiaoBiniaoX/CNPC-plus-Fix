@@ -46,5 +46,10 @@
   "cnpcplus.questtrigger.overlayOn": "Область: Вкл",
   "cnpcplus.questtrigger.overlayOff": "Область: Выкл",
   "cnpcplus.questtrigger.done": "Готово",
-  "cnpcplus.follower.dismiss": "Уволить"
+  "cnpcplus.follower.dismiss": "Уволить",
+  "cnpcplus.melee.nobuff": "Без эффектов",
+  "cnpcplus.melee.buffcount": "Эффектов: %s",
+  "cnpcplus.melee.buffs": "Эффекты ближнего боя",
+  "cnpcplus.transform.editingday": "Текущий: дневной режим",
+  "cnpcplus.transform.editingnight": "Текущий: ночной режим"
 }

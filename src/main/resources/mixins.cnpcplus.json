@@ -80,7 +80,16 @@
     "MixinEntityNPCMeleeLines",
     "MixinEntityNPCInteractPriority",
     "MixinQuestControllerCategoryDir",
-    "MixinDialogControllerCategoryDir"
+    "MixinDialogControllerCategoryDir",
+    "MixinEntityCustomNpcDimensions",
+    "MixinEntityNPCKilledBody",
+    "MixinEntityCustomNpcKilledBody",
+    "MixinEntityNPCRespawnY",
+    "MixinEntityAIReturnSmoothArrival",
+    "MixinEntityNPCMountJump",
+    "MixinServerEventsHandlerTeamKill",
+    "MixinDataMeleeBuffNBT",
+    "MixinEntityNPCMeleeBuffs"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -132,7 +141,9 @@
     "MixinTrueTypeFontAtlas",
     "MixinGuiQuestCompletionScroll",
     "MixinGuiDialogInteractScroll",
-    "MixinGuiDialogModernScroll"
+    "MixinGuiDialogModernScroll",
+    "MixinSubGuiMeleePropertiesBuffs",
+    "MixinGuiNPCNightSetupTitle"
   ],
   "server": []
 }

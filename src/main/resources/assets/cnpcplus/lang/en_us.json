@@ -62,5 +62,10 @@
   "cnpcplus.resist.generic.hint": "Generic/Cramming/Anvil/Cactus Damage Reduction",
   "cnpcplus.resist.magic": "Magic DMG Resist",
   "cnpcplus.resist.magic.hint": "Magic/Sonic Boom/Thorns/Lightning/Kill Damage Reduction",
-  "cnpcplus.lines.melee": "Melee Hit"
+  "cnpcplus.lines.melee": "Melee Hit",
+  "cnpcplus.melee.nobuff": "No Buff",
+  "cnpcplus.melee.buffcount": "%s Buff(s)",
+  "cnpcplus.melee.buffs": "Melee Buffs",
+  "cnpcplus.transform.editingday": "Current: Day Mode",
+  "cnpcplus.transform.editingnight": "Current: Night Mode"
 }

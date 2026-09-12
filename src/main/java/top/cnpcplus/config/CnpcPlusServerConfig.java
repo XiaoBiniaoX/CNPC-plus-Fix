@@ -60,6 +60,13 @@ public class CnpcPlusServerConfig {
                 "原版缺陷：推挤逻辑只看「石像模式」开关，完全不看死亡状态，",
                 "所以固定点位重生的 NPC 死后尸体仍会每 tick 把附近玩家推开。");
         KilledBodyNoPush = builder.define("KilledBodyNoPush", true);
+        builder.comment(
+                "「固定点位重生」的 NPC 尸体是否完全没有碰撞箱，连箭都挡不住（默认true）。",
+                "只对 AI 设置里「返回起点」为开的 NPC 生效 —— 那类 NPC 死在哪都会传回起点重生，",
+                "尸体必然留在与重生点无关的位置，挡路且无意义。",
+                "实现方式与原版「隐藏尸体」一致：只把宽度压到 1e-5，包围盒退化成一条竖线，",
+                "保留高度让渲染不受影响。设为 false 恢复原版行为（尸体是 0.8 宽的实心障碍）。");
+        KilledBodyNoHitbox = builder.define("KilledBodyNoHitbox", true);
         builder.pop();
 
         builder.push("骑乘");
@@ -93,6 +100,7 @@ public class CnpcPlusServerConfig {
     public static ForgeConfigSpec.DoubleValue ReturnHomeArrivalTolerance;
     public static ForgeConfigSpec.IntValue ReturnHomeTimeoutSeconds;
     public static ForgeConfigSpec.BooleanValue KilledBodyNoPush;
+    public static ForgeConfigSpec.BooleanValue KilledBodyNoHitbox;
     public static ForgeConfigSpec.BooleanValue MountJumpEnabled;
     public static ForgeConfigSpec.BooleanValue TeamShareKillQuest;
 
