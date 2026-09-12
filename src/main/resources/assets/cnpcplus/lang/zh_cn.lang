@@ -62,3 +62,13 @@ cnpcplus.bard.loop.off=循环播放：关
 cnpcplus.lines.melee=近战打击台词
 interactPassthrough=NPC 无交互内容时放行手持物品
 interact=NPC 交互
+
+cnpcplus.melee.nobuff=无BUFF
+cnpcplus.melee.buffcount=已选 %s 个BUFF
+cnpcplus.melee.buffs=近战附加BUFF
+cnpcplus.transform.editingday=当前：日间模式
+cnpcplus.transform.editingnight=当前：夜间模式
+returnHomeSmoothArrival=返回起点时走完最后一段（不瞬移）
+returnHomeArrivalTolerance=抑制返回起点瞬移的距离（格）
+returnHomeTimeoutSeconds=返回起点超时瞬移时间（秒）
+ai=NPC AI

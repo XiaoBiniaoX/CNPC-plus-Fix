@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardLoopKeeper;
 import bin.cnpcplus.bard.BardLoopStore;
 import bin.cnpcplus.bard.SongListStore;
 import net.minecraft.client.gui.GuiButton;
@@ -120,7 +121,10 @@ public class MixinGuiNpcBard {
             ci.cancel();
         } else if (button.id == 112) {
             // GuiNpcButton 已经在点击时循环更新 value；这里只读取最终值。
-            BardLoopStore.set(this.job, ((GuiNpcButton) button).getValue() == 1);
+            boolean looping = ((GuiNpcButton) button).getValue() == 1;
+            BardLoopStore.set(this.job, looping);
+            // 关循环时立刻清掉兜底续播器，否则它会按旧快照继续重播。
+            if (!looping) BardLoopKeeper.clear();
             ci.cancel();
         }
     }

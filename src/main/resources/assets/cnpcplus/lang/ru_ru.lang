@@ -57,3 +57,13 @@ cnpcplus.bard.loop.off=Повтор: ВЫКЛ
 cnpcplus.lines.melee=Реплики при ударе
 interactPassthrough=Разрешить предмет, если у NPC нет взаимодействия
 interact=Взаимодействие с NPC
+
+cnpcplus.melee.nobuff=Без BUFF
+cnpcplus.melee.buffcount=Выбрано BUFF: %s
+cnpcplus.melee.buffs=BUFF ближнего боя
+cnpcplus.transform.editingday=Редактируется: дневной режим
+cnpcplus.transform.editingnight=Редактируется: ночной режим
+returnHomeSmoothArrival=Доходить до точки старта пешком (без телепорта)
+returnHomeArrivalTolerance=Дистанция подавления телепорта (блоки)
+returnHomeTimeoutSeconds=Таймаут телепорта к точке старта (сек)
+ai=ИИ NPC

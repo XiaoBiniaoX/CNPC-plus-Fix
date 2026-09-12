@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardLoopKeeper;
 import bin.cnpcplus.bard.BardLoopStore;
 import bin.cnpcplus.bard.SongListStore;
 import bin.cnpcplus.config.CnpcPlusConfig;
@@ -38,6 +39,20 @@ import java.util.List;
  *     循环时改为重播当前曲。
  *  3. JobBard.delete()（实体卸载/死亡时按 hasOffRange 停歌）
  *     由 MixinJobBardLoopDelete 单独处理。
+ *
+ * <h3>播放权转移（3.4.1 修复，别再删）</h3>
+ * 本类用 {@code ci.cancel()} 接管了整个 onLivingUpdate，因此必须自己复刻
+ * 原版 {@code JobBard.onLivingUpdate:75-79} 的「更近者直接改写 playingEntity」。
+ * 漏掉它会导致「走进另一个放同一首歌的诗人范围时直接断歌」——
+ * 因为 {@code MusicController.isPlaying} 只比曲目不比实体，乙的 play* 会被短路，
+ * playingEntity 永远留在甲身上，甲一走远就把乙的歌停了。详见方法内注释。
+ *
+ * <h3>循环续播的驱动源</h3>
+ * 循环续播原本只写在本方法里，而本方法是实体 tick 的一部分：诗人被区块卸载后
+ * 就不再执行，于是「走得足够远之后 bgm 不再重播」。真正的兜底在
+ * {@link bin.cnpcplus.bard.BardLoopKeeper}（挂客户端全局 tick）。
+ * 两者以「心跳」互斥：诗人还在 tick 时 keeper 完全沉默，避免它重播旧曲
+ * 而破坏范围内的歌单切歌。
  *
  * 音量独立性红线（务必保持）：
  *  - 播放一律走 MusicController.playStreaming / playMusic，
@@ -85,9 +100,42 @@ public class MixinJobBardClient {
         boolean looping = BardLoopStore.isLooping(self);
         String current = c.playingResource == null ? "" : c.playingResource.toString();
         boolean active = c.playing != null && sm.isSoundPlaying(c.playing);
-        boolean mine = c.playingEntity == self.npc && c.playing != null;
         double distSq = self.npc.getDistanceSq(player);
         boolean inMinRange = distSq <= (double) (self.minRange * self.minRange);
+
+        // 播放权转移（哈基彬反馈 A-1 的真正根因，务必保留）。
+        //
+        // MusicController.isPlaying(String) 只比较 playingResource，**不比较
+        // playingEntity**（字节码 offset 10-42 实证），而 playStreaming/playMusic
+        // 第一行就是 `if (isPlaying(music)) return;`（offset 2）。
+        // 于是当甲、乙两个吟游诗人配了**同一首歌**时：
+        //   1. 甲先播，playingEntity = 甲；
+        //   2. 玩家走进乙的范围，乙调 play* → isPlaying 因曲目相同返回 true → 直接 return，
+        //      playingEntity 仍然是甲；
+        //   3. 玩家继续远离甲，甲的 maxRange 停歌分支命中（此时 mine 对甲成立）→ stopMusic()；
+        //   4. 乙这边 mine 恒 false，且歌已被停，抢占分支要求 active，于是谁也不播 →
+        //      「直接断开而不是播放 bgm」。
+        //
+        // 原版没这个毛病，是因为 JobBard.onLivingUpdate:75-79 有一段
+        // 「更近者直接改写 playingEntity」的逻辑：
+        //     else if (playingEntity != this.npc) {
+        //         if (npc.getDistanceSq(player) < playingEntity.getDistanceSq(player))
+        //             playingEntity = this.npc;      // 只换所有者，不重播
+        //     }
+        // 歌本来就在响，所以只需转移所有权，不需要重新播放。
+        // 我们用 ci.cancel() 接管了整个方法却漏了这一段，这才是回归的来源。
+        //
+        // 放在所有距离判断之前：必须先把所有权算对，后面 mine 的取值才有意义。
+        if (active && c.playingEntity != null && c.playingEntity != self.npc
+                && !current.isEmpty() && cnpcplus$ownsSong(self, songs, fallback, current)
+                && distSq < player.getDistanceSq(c.playingEntity)) {
+            c.playingEntity = self.npc;
+            BardLoopKeeper.record(self, current);
+        }
+
+        boolean mine = c.playingEntity == self.npc && c.playing != null;
+        // 只要这只诗人还在 tick，兜底续播器就不插手（分工见 BardLoopKeeper 类注释）。
+        if (mine) BardLoopKeeper.heartbeat(self);
 
         // 断歌源 1：离开距离。开了循环就不因距离停歌，保持当前这首继续放。
         // 注意这里只在「正在放我的歌」时早退，不影响下面更近的诗人抢占 ——
@@ -95,6 +143,7 @@ public class MixinJobBardClient {
         if (mine && active && self.hasOffRange && !looping
                 && distSq > (double) (self.maxRange * self.maxRange)) {
             c.stopMusic();
+            BardLoopKeeper.clear();
             return;
         }
 
@@ -107,6 +156,7 @@ public class MixinJobBardClient {
             // 循环模式下距离外维持当前曲，不强制切。
             if (active && expired && (inMinRange || !looping)) {
                 c.stopMusic();
+                BardLoopKeeper.clear();
                 this.cnpcplus$lastPlay = 0L;
                 this.cnpcplus$lastPicked = "";
             } else if (active) {
@@ -139,13 +189,35 @@ public class MixinJobBardClient {
                 cnpcplus$play(self, c, this.cnpcplus$lastPicked);
                 return;
             }
-            if (mine && !looping) c.stopMusic();
+            if (mine && !looping) {
+                c.stopMusic();
+                BardLoopKeeper.clear();
+            }
             return;
         }
 
         String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);
         if (picked == null || picked.isEmpty()) return;
         cnpcplus$play(self, c, picked);
+    }
+
+    /**
+     * 这只诗人的曲库里是否包含正在播放的这首曲子。
+     *
+     * 播放权转移的前提条件：只有「我也会放这首歌」时才有资格接管所有权。
+     * 否则两个配了不同歌的诗人会互相抢 playingEntity，导致声音归属错乱。
+     */
+    @Unique
+    private boolean cnpcplus$ownsSong(JobBard self, List<String[]> songs, boolean fallback, String current) {
+        if (fallback) {
+            return !self.song.isEmpty() && self.song.equals(current);
+        }
+        for (String[] entry : songs) {
+            if (entry != null && entry.length > 0 && current.equals(entry[0])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -160,6 +232,11 @@ public class MixinJobBardClient {
         } else {
             c.playMusic(song, self.npc);
         }
+        // 同一首歌换人时 play* 会因 isPlaying 短路而不更新 playingEntity，
+        // 这里补上，保证所有权始终跟随最后一次实际播放决策。
+        c.playingEntity = self.npc;
+        // 交给兜底续播器：诗人被区块卸载后由它接手重播（哈基彬反馈 A-2）。
+        BardLoopKeeper.record(self, song);
         this.cnpcplus$lastPicked = song;
         this.cnpcplus$lastSong = song;
         this.cnpcplus$lastPlay = System.currentTimeMillis();

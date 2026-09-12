@@ -72,7 +72,12 @@
     "lines.MixinDataAdvancedMeleeLines",
     "lines.MixinEntityNPCInterfaceMeleeLines",
     "category.MixinQuestControllerCategoryRename",
-    "category.MixinDialogControllerCategoryRename"
+    "category.MixinDialogControllerCategoryRename",
+    "melee.MixinDataMeleeBuffNBT",
+    "melee.MixinEntityNPCInterfaceMeleeBuffs",
+    "ai.MixinEntityAIReturnSmoothArrival",
+    "lifecycle.MixinEntityNPCInterfaceReviveHitbox",
+    "lifecycle.MixinEntityNPCInterfaceRespawnY"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -113,7 +118,9 @@
     "customgui.MixinGuiCustomTooltipOrder",
     "lines.MixinGuiNPCLinesMenuMelee",
     "interact.MixinEntityNPCInterfaceInteractPassthrough",
-    "font.MixinTrueTypeFontAtlasGuard"
+    "font.MixinTrueTypeFontAtlasGuard",
+    "melee.MixinSubGuiNpcMeleePropertiesBuffs",
+    "advanced.MixinGuiNPCNightSetupTitle"
   ],
   "server": [],
   "injectors": {

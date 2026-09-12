@@ -62,3 +62,13 @@ cnpcplus.bard.loop.off=Loop: OFF
 cnpcplus.lines.melee=Melee Hit Lines
 interactPassthrough=Allow item use when NPC has no interaction
 interact=NPC Interaction
+
+cnpcplus.melee.nobuff=No BUFF
+cnpcplus.melee.buffcount=%s BUFF selected
+cnpcplus.melee.buffs=Melee Attack BUFFs
+cnpcplus.transform.editingday=Editing: Day Mode
+cnpcplus.transform.editingnight=Editing: Night Mode
+returnHomeSmoothArrival=Walk the last steps home (no teleport)
+returnHomeArrivalTolerance=Distance that suppresses the return teleport (blocks)
+returnHomeTimeoutSeconds=Return-to-start teleport timeout (seconds)
+ai=NPC AI
