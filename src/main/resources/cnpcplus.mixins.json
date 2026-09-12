@@ -116,6 +116,7 @@
     "bard.MixinSoundOptionsScreen",
     "bard.MixinGuiNpcBard",
     "bard.MixinJobBardClient",
+    "bard.MixinJobBardDelete",
     "ai.MixinSubGuiNpcMovementSpeed",
     "follower.MixinGuiNpcFollowerDismiss",
     "stats.MixinGuiNpcStatsFloat",

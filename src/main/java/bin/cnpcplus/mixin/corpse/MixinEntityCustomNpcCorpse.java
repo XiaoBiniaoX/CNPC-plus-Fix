@@ -21,6 +21,9 @@ public class MixinEntityCustomNpcCorpse {
     @Inject(method = "getDimensions", at = @At("RETURN"), cancellable = true)
     private void cnpcplus$corpseNoHitbox(Pose pose, CallbackInfoReturnable<EntityDimensions> cir) {
         if (!CorpseHitbox.isRestingCorpse((EntityNPCInterface) (Object) this)) return;
-        cir.setReturnValue(EntityDimensions.scalable(1.0E-5f, 1.0E-5f));
+        EntityDimensions size = cir.getReturnValue();
+        if (size == null) return;
+        // 与 EntityNPCInterface 侧一致：只压宽度、保留高度（渲染要用 getBbHeight）。
+        cir.setReturnValue(EntityDimensions.scalable(1.0E-5f, size.height()));
     }
 }

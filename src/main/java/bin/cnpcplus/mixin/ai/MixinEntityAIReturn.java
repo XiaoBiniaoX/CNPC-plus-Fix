@@ -6,6 +6,7 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -63,8 +64,25 @@ public abstract class MixinEntityAIReturn {
     protected abstract void navigate(boolean towards);
 
     /** 配置的超时瞬移时限，换算成 tick。 */
+    @Unique
     private static int cnpcplus$timeoutTicks() {
         return Math.max(20, CnpcPlusConfig.RETURN_START_TIMEOUT_SECONDS.get() * 20);
+    }
+
+    /**
+     * 是否「已经足够接近起点，不该再当成卡住」。
+     *
+     * <p>只比水平距离：竖直方向的差异通常来自站在台阶/半砖上，不代表没走到。
+     * 容差可配，默认 3 格，理由见 {@code CnpcPlusConfig.RETURN_START_ARRIVAL_TOLERANCE}。
+     */
+    @Unique
+    private boolean cnpcplus$nearHome() {
+        if (this.npc == null) return false;
+        if (!CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL.get()) return false;
+        double tolerance = CnpcPlusConfig.RETURN_START_ARRIVAL_TOLERANCE.get();
+        double dx = this.npc.getX() - this.endPosX;
+        double dz = this.npc.getZ() - this.endPosZ;
+        return dx * dx + dz * dz <= tolerance * tolerance;
     }
 
     /**
@@ -76,14 +94,51 @@ public abstract class MixinEntityAIReturn {
     @Inject(method = "canContinueToUse", at = @At("RETURN"), cancellable = true)
     private void cnpcplus$continueTimeout(CallbackInfoReturnable<Boolean> cir) {
         if (!cir.getReturnValue()) return;
+        if (cnpcplus$blockedByRider()) {
+            cir.setReturnValue(false);
+            return;
+        }
+        // 平滑到位关掉时 tick 不接管、时限回到原版硬编码的 600，这里也必须同步不改，
+        // 否则会出现「goal 已放弃但兜底瞬移永远等不到执行」的错位。
+        if (!CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL.get()) return;
         if (this.totalTicks > cnpcplus$timeoutTicks()) {
             cir.setReturnValue(false);
         }
     }
 
+    /**
+     * 玩家正骑着这个 NPC 时禁止返回起点。
+     *
+     * <p>原版 {@code canUse():45} 与 {@code canContinueToUse():91} 判的都是
+     * {@code isPassenger()}（NPC 自己是乘客），<b>没有判 {@code isVehicle()}</b>
+     * （NPC 被骑）。所以玩家骑着 NPC 时该 goal 照常执行，会把 NPC 连人一起拖回起点，
+     * 超时还会直接瞬移 —— 骑手完全失去控制。骑乘控制本来就是玩家在开车，
+     * 此时返回起点没有意义。
+     */
+    @Inject(method = "canUse", at = @At("RETURN"), cancellable = true)
+    private void cnpcplus$noReturnWhileRidden(CallbackInfoReturnable<Boolean> cir) {
+        if (!cir.getReturnValue()) return;
+        if (cnpcplus$blockedByRider()) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Unique
+    private boolean cnpcplus$blockedByRider() {
+        if (this.npc == null) return false;
+        if (!this.npc.isVehicle()) return false;
+        // 只在「骑乘控制」开着、即玩家真的能操控时让位；
+        // 单纯载着乘客（比如坐骑上的装饰 NPC）不影响原版行为。
+        return this.npc.ais != null && this.npc.ais.mountControl;
+    }
+
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$smoothReturn(CallbackInfo ci) {
         if (this.npc == null) return;
+        // 关掉平滑到位开关时完全不接管，交回原版逻辑 —— 留一个能退回原版行为的逃生口。
+        // 注意超时时限的配置也随之失效（原版硬编码 600 tick），这是刻意的：
+        // 关开关的目的就是「完全恢复原版行为」以便对照。
+        if (!CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL.get()) return;
 
         ++this.totalTicks;
 
@@ -109,11 +164,9 @@ public abstract class MixinEntityAIReturn {
         }
 
         // 路径走完了。先看是不是已经到了「导航认为到了、但 isVeryNearAssignedPlace 还差一点」那个夹缝。
-        double dx = this.npc.getX() - this.endPosX;
-        double dz = this.npc.getZ() - this.endPosZ;
-        if (dx * dx + dz * dz <= 1.0) {
-            // 误差在一格以内：做一次不足半格的精确对位，让 goal 能正常判定结束。
-            // 用 moveTo 而不是 setPos，保留朝向；位移极小，视觉上就是正常走到位。
+        if (cnpcplus$nearHome()) {
+            // 容差内：做一次精确对位，让 goal 能正常判定结束。
+            // 用 moveTo 而不是 setPos，保留朝向；位移不足半格，视觉上就是正常走到位。
             this.npc.getNavigation().stop();
             this.npc.moveTo(this.endPosX, this.npc.getY(), this.endPosZ,
                     this.npc.getYRot(), this.npc.getXRot());

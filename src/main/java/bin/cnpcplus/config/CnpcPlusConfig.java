@@ -78,11 +78,28 @@ public class CnpcPlusConfig {
 
     public static final ModConfigSpec.IntValue RETURN_START_TIMEOUT_SECONDS = BUILDER
             .comment(
-                "NPC「返回起点」的超时瞬移时间（秒，默认60）",
+                "NPC「返回起点」的超时瞬移时间（秒，默认30）",
                 "超过该时长仍未回到起点则直接瞬移过去，用于地形被封死等走不回去的情况",
-                "原版硬编码为 30 秒且在快到起点时会因反复重试提前瞬移，本模组已修好末段抖动"
+                "默认值与原版一致（EntityAIReturn.MaxTotalTicks = 600 tick = 30 秒），仅让它可配",
+                "原版还会在快到起点时因反复重试提前瞬移，那个问题本模组已单独修好"
             )
-            .defineInRange("returnToStartTimeoutSeconds", 60, 1, 3600);
+            .defineInRange("returnToStartTimeoutSeconds", 30, 1, 3600);
+
+    public static final ModConfigSpec.BooleanValue RETURN_START_SMOOTH_ARRIVAL = BUILDER
+            .comment(
+                "修复 NPC「返回起点」快到时反复停顿并瞬移/起跳（默认 true）",
+                "关掉即恢复原版行为，便于出问题时对照"
+            )
+            .define("returnToStartSmoothArrival", true);
+
+    public static final ModConfigSpec.DoubleValue RETURN_START_ARRIVAL_TOLERANCE = BUILDER
+            .comment(
+                "「返回起点」判定已到位的水平容差（格，默认3.0）",
+                "原版要求 X/Z 误差都在 ±0.2 内，而寻路到点精度约 0.45 格，根本达不到，",
+                "于是每次都被当成卡住：停 10 tick、重新寻路、反复抖动，最后直接瞬移。",
+                "NPC 碰撞宽度 0.6、寻路节点整格对齐，3 格能覆盖「路径已走完但差最后一两步」的全部情形"
+            )
+            .defineInRange("returnToStartArrivalTolerance", 3.0, 0.5, 32.0);
 
     public static final ModConfigSpec.BooleanValue CORPSE_NO_COLLISION = BUILDER
             .comment(
