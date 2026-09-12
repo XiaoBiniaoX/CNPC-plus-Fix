@@ -86,7 +86,11 @@ public abstract class MixinSubGuiMeleePropertiesBuffs {
 
         // 隐藏原「附加效果」整组控件（下拉、时间、强度及各自标签）。
         GuiButtonNop oldEffect = self.getButton(5);
-        if (oldEffect != null) oldEffect.shown = false;
+        if (oldEffect != null) {
+            oldEffect.shown = false;
+            oldEffect.visible = false;
+            oldEffect.active = false;
+        }
         GuiLabel oldEffectLabel = self.getLabel(5);
         if (oldEffectLabel != null) oldEffectLabel.enabled = false;
 
@@ -96,7 +100,11 @@ public abstract class MixinSubGuiMeleePropertiesBuffs {
         if (oldTimeLabel != null) oldTimeLabel.enabled = false;
 
         GuiButtonNop oldAmp = self.getButton(7);
-        if (oldAmp != null) oldAmp.shown = false;
+        if (oldAmp != null) {
+            oldAmp.shown = false;
+            oldAmp.visible = false;
+            oldAmp.active = false;
+        }
         GuiLabel oldAmpLabel = self.getLabel(7);
         if (oldAmpLabel != null) oldAmpLabel.enabled = false;
 
