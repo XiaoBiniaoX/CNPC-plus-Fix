@@ -77,7 +77,22 @@
     "melee.MixinEntityNPCInterfaceMeleeBuffs",
     "ai.MixinEntityAIReturnSmoothArrival",
     "lifecycle.MixinEntityNPCInterfaceReviveHitbox",
-    "lifecycle.MixinEntityNPCInterfaceRespawnY"
+    "lifecycle.MixinEntityNPCInterfaceRespawnY",
+    "perf.MixinTileBuilderFastFill",
+    "perf.MixinRoleTraderMarketCache",
+    "perf.MixinCombatHandlerPrune",
+    "perf.MixinEntityNPCScanRange",
+    "perf.MixinEntityNPCRetarget",
+    "perf.MixinEntityNPCGlobalRadius",
+    "perf.MixinEntityCustomNpcGlobalRadius",
+    "perf.MixinJobFarmerRange",
+    "perf.MixinMassBlockControllerSlice",
+    "perf.MixinEntityNPCGroundProbe",
+    "perf.MixinEntityAIFollowBackoff",
+    "perf.MixinItemStackWrapperLazy",
+    "perf.IItemStackWrapperLazyAccess",
+    "perf.MixinTileBorderThrottle",
+    "perf.MixinEventHooksCollide"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -120,7 +135,13 @@
     "interact.MixinEntityNPCInterfaceInteractPassthrough",
     "font.MixinTrueTypeFontAtlasGuard",
     "melee.MixinSubGuiNpcMeleePropertiesBuffs",
-    "advanced.MixinGuiNPCNightSetupTitle"
+    "advanced.MixinGuiNPCNightSetupTitle",
+    "perf.MixinClientEventHandlerBlueprint",
+    "perf.MixinLayerBodySkirtLod",
+    "perf.MixinModelPonySkinCheck",
+    "perf.ILoadSkinInvoker",
+    "perf.MixinRenderNPCSkinCache",
+    "perf.ILayerNpcAccessor"
   ],
   "server": [],
   "injectors": {
