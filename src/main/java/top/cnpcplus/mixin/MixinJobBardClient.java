@@ -120,8 +120,8 @@ public class MixinJobBardClient {
         // 即使新诗人比旧诗人略远。否则旧循环曲会永远霸占播放权，违背「进入其他诗人范围
         // 应播放其他诗人音乐」的需求。
         //
-        // 这个例外只看「旧诗人已不在触发范围」，所以两个触发范围真正重叠时仍保留更近者
-        // 优先，不会发生 A/B 每 tick 互相 stop+play 的抖动。
+        // 3.5.0 修复（2026-09-17）：距离判定加入阈值保护（3.0 格）。只有「旧诗人已不在
+        // 触发范围内」或「新诗人明显更近（距离差 ≥ 3 格）」时才接管，避免交界处反复切换。
         if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc) {
             boolean oldOutsideStartRange = false;
             if (c.playingEntity instanceof noppes.npcs.entity.EntityNPCInterface oldNpc
@@ -132,8 +132,12 @@ public class MixinJobBardClient {
                                 oldBard.minRange / 2.0, oldBard.minRange)
                 ).contains(player);
             }
-            if (!oldOutsideStartRange
-                    && !self.npc.closerThan(player, c.playingEntity.distanceTo(player))) return;
+            // 旧诗人仍在触发范围内时，要求新诗人「明显更近」（距离差 ≥ 3.0）才接管。
+            if (!oldOutsideStartRange) {
+                double oldDist = c.playingEntity.distanceTo(player);
+                double newDist = self.npc.distanceTo(player);
+                if (newDist >= oldDist - 3.0) return;
+            }
         }
 
         if (active != this.cnpcplus$lastActive) {
