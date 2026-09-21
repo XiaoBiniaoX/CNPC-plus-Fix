@@ -72,6 +72,6 @@ public class MixinRenderNPCInterfaceShadow {
 
     @ModifyArg(method = "renderColor", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;setShaderColor(FFFF)V"), index = 3)
     private float cnpcplus$colorAlpha(float alpha) {
-        return this.cnpcplus$translucent ? ALPHA : alpha;
+        return alpha; // 半透明改由顶点 alpha 实现，避免全局状态影响下一只实体。
     }
 }

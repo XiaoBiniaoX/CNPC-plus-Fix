@@ -89,7 +89,9 @@
     "MixinEntityNPCMountJump",
     "MixinServerEventsHandlerTeamKill",
     "MixinDataMeleeBuffNBT",
-    "MixinEntityNPCMeleeBuffs"
+    "MixinEntityNPCMeleeBuffs",
+    "MixinWalkNodeEvaluatorNpcStart",
+    "MixinGroundPathNavigationNpcSurface"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -131,6 +133,7 @@
     "MixinSubGuiNpcProjectilesTrails",
     "MixinGuiNPCGlobalMainMenuSmelting",
     "MixinRenderCustomNpcTranslucent",
+    "MixinLivingEntityRendererNpcAlpha",
     "SubGuiNpcMeleePropertiesAccess",
     "MixinGuiNpcStatsFloat",
     "MixinSubGuiNpcMeleePropertiesFloat",

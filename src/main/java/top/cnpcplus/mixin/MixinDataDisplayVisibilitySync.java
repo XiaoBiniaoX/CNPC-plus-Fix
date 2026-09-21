@@ -16,6 +16,7 @@ public class MixinDataDisplayVisibilitySync {
     @Shadow(remap = false)
     public EntityNPCInterface npc;
 
+
     /**
      * @author cnpcplus
      * @reason sync visibility to client
@@ -34,4 +35,5 @@ public class MixinDataDisplayVisibilitySync {
     public int getVisible() {
         return this.visible;
     }
+
 }
