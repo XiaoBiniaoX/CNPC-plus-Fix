@@ -1,5 +1,7 @@
 package bin.cnpcplus.mixin.bard;
 
+import bin.cnpcplus.bard.BardSoundState;
+
 import net.minecraft.util.SoundCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.ISound;
@@ -33,6 +35,7 @@ public class MixinMusicController {
         self.playingResource = new ResourceLocation(music);
         SoundHandler handler = Minecraft.getMinecraft().getSoundHandler();
         self.playing = new PositionedSoundRecord(self.playingResource, SoundCategory.RECORDS, 4.0F, 1.0F, false, 0, ISound.AttenuationType.LINEAR, (float) entity.posX, (float) entity.posY, (float) entity.posZ);
+        BardSoundState.playing = self.playing;
         handler.playSound(self.playing);
         ci.cancel();
     }
@@ -49,7 +52,13 @@ public class MixinMusicController {
         self.playingEntity = entity;
         SoundHandler handler = Minecraft.getMinecraft().getSoundHandler();
         self.playing = new PositionedSoundRecord(self.playingResource, SoundCategory.MUSIC, 1.0F, 1.0F, false, 0, ISound.AttenuationType.NONE, 0.0F, 0.0F, 0.0F);
+        BardSoundState.playing = self.playing;
         handler.playSound(self.playing);
         ci.cancel();
+    }
+
+    @Inject(method = "stopMusic", at = @At("RETURN"), require = 1)
+    private void cnpcplus$clearSoundIdentity(CallbackInfo ci) {
+        BardSoundState.playing = null;
     }
 }

@@ -2,6 +2,7 @@ package bin.cnpcplus;
 
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
 import zone.rong.mixinbooter.IEarlyMixinLoader;
+import org.spongepowered.asm.service.MixinService;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -22,11 +23,18 @@ public class CnpcPlusEarlyMixinLoader implements IFMLLoadingPlugin, IEarlyMixinL
 
     @Override
     public List<String> getMixinConfigs() {
+        // HookLib consumes its hooks after transforming. Metadata pre-reads must
+        // not consume the NBT/GUI hooks before LaunchWrapper defines the class.
+        // This only excludes Mixin's delegated reads, not the live transformer chain.
+        MixinService.getService().getTransformerProvider().addTransformerExclusion(
+                "com.goodbird.cnpcgeckoaddon.hooklib.minecraft.PrimaryClassTransformer");
+        MixinService.getService().getTransformerProvider().addTransformerExclusion(
+                "com.goodbird.cnpcgeckoaddon.hooklib.minecraft.MinecraftClassTransformer");
         // Vanilla furnace classes are on the classloader before late-mixin time
         // (FurnaceRecipes has a static SMELTING_BASE instance), so the smelting
         // hooks must be applied here or Mixin fails with
         // MixinTargetAlreadyLoadedException during PREPARE.
-        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json");
+        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json", "mixins.cnpcplus.early.ai.json");
     }
 
     @Override

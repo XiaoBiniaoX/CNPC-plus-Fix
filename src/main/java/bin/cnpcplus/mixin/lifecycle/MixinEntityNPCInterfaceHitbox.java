@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 见 {@link #cnpcplus$removeCorpseHitbox}。
  */
 @Mixin(value = EntityNPCInterface.class, remap = false)
-public class MixinEntityNPCInterfaceHitbox {
+public class MixinEntityNPCInterfaceHitbox implements bin.cnpcplus.common.INpcGroundNavigation {
     @Inject(method = "reset", at = @At("TAIL"), remap = false)
     private void cnpcplus$restoreSpawnCycle(CallbackInfo ci) {
         RespawnCycleStore.restore((EntityNPCInterface) (Object) this);

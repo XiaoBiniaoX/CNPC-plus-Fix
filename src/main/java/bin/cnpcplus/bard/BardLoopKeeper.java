@@ -7,7 +7,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
-import noppes.npcs.client.controllers.MusicController;
 import noppes.npcs.roles.JobBard;
 
 import java.lang.ref.WeakReference;
@@ -120,8 +119,16 @@ public final class BardLoopKeeper {
             clear();
             return;
         }
-        MusicController c = MusicController.Instance;
-        if (c == null) return;
+        // 延迟引用 MusicController：@EventBusSubscriber 在早期扫描时不能触发客户端类加载。
+        // 避免类常量/字段描述符促使 Mixin 预处理提前解析它；import 本身不会加载类。
+        Object controller;
+        try {
+            Class<?> clazz = Class.forName("noppes.npcs.client.controllers.MusicController");
+            controller = clazz.getField("Instance").get(null);
+        } catch (Exception e) {
+            return;
+        }
+        if (controller == null) return;
 
         String music;
         boolean isStreamer;
@@ -141,15 +148,24 @@ public final class BardLoopKeeper {
             if (System.currentTimeMillis() - lastReplay < REPLAY_COOLDOWN_MS) return;
 
             // 已经有别的曲子在放 → 别人接管了，让位。
-            if (c.playingResource != null
-                    && !c.playingResource.toString().equals(song)
-                    && c.playing != null
-                    && mc.getSoundHandler().isSoundPlaying(c.playing)) {
-                clear();
+            // 用反射访问 playingResource、playing 字段和 isPlaying 方法
+            try {
+                Class<?> clazz = controller.getClass();
+                Object playingResource = clazz.getField("playingResource").get(controller);
+                Object playing = clazz.getField("playing").get(controller);
+                if (playingResource != null
+                        && !playingResource.toString().equals(song)
+                        && playing != null
+                        && mc.getSoundHandler().isSoundPlaying((net.minecraft.client.audio.ISound) playing)) {
+                    clear();
+                    return;
+                }
+                // 我的歌还在响，不用管。
+                boolean isPlaying = (Boolean) clazz.getMethod("isPlaying", String.class).invoke(controller, song);
+                if (isPlaying) return;
+            } catch (Exception e) {
                 return;
             }
-            // 我的歌还在响，不用管。
-            if (c.isPlaying(song)) return;
 
             // BardVolume 为 0 时 SoundManager.setVolume 会直接 stopSound，
             // 此时重播会变成每 500ms 疯狂重启，直接跳过。
@@ -165,10 +181,16 @@ public final class BardLoopKeeper {
         // 必须经由 MusicController：MixinSoundManager 靠
         // sound == MusicController.Instance.playing 的引用相等来识别吟游诗人的声音，
         // 自建 ISound 会让独立音量滑块失效（阶段 24 的红线）。
-        if (isStreamer) {
-            c.playStreaming(music, anchor);
-        } else {
-            c.playMusic(music, anchor);
+        // 用反射调用 playStreaming / playMusic
+        try {
+            Class<?> clazz = controller.getClass();
+            if (isStreamer) {
+                clazz.getMethod("playStreaming", String.class, Entity.class).invoke(controller, music, anchor);
+            } else {
+                clazz.getMethod("playMusic", String.class, Entity.class).invoke(controller, music, anchor);
+            }
+        } catch (Exception e) {
+            // 反射失败则放弃本次重播
         }
     }
 }

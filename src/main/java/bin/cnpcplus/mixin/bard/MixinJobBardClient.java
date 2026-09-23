@@ -8,8 +8,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.MusicTicker;
 import net.minecraft.client.audio.SoundHandler;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 import noppes.npcs.CustomNpcs;
-import noppes.npcs.client.controllers.MusicController;
 import noppes.npcs.roles.JobBard;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -66,6 +67,7 @@ import java.util.List;
  *  - BardVolume 为 0 时 SoundManager.setVolume 会直接 stopSound，
  *    所以循环重播必须跳过 0 音量，否则会每 500ms 疯狂重播。
  */
+@SideOnly(Side.CLIENT)
 @Mixin(value = JobBard.class, remap = false)
 public class MixinJobBardClient {
 
@@ -92,120 +94,100 @@ public class MixinJobBardClient {
         }
         ci.cancel();
 
-        MusicController c = MusicController.Instance;
-        SoundHandler sm = Minecraft.getMinecraft().getSoundHandler();
-        EntityPlayer player = CustomNpcs.proxy.getPlayer();
-        if (player == null) return;
+        try {
+            Class<?> mcClass = Class.forName("noppes.npcs.client.controllers.MusicController");
+            Field instanceField = mcClass.getField("Instance");
+            Object c = instanceField.get(null);
+            
+            SoundHandler sm = Minecraft.getMinecraft().getSoundHandler();
+            EntityPlayer player = CustomNpcs.proxy.getPlayer();
+            if (player == null) return;
 
-        boolean looping = BardLoopStore.isLooping(self);
-        String current = c.playingResource == null ? "" : c.playingResource.toString();
-        boolean active = c.playing != null && sm.isSoundPlaying(c.playing);
-        double distSq = self.npc.getDistanceSq(player);
-        boolean inMinRange = distSq <= (double) (self.minRange * self.minRange);
+            boolean looping = BardLoopStore.isLooping(self);
+            
+            Field playingResourceField = mcClass.getField("playingResource");
+            Object playingResourceObj = playingResourceField.get(c);
+            String current = playingResourceObj == null ? "" : playingResourceObj.toString();
+            
+            Field playingField = mcClass.getField("playing");
+            Object playing = playingField.get(c);
+            boolean active = playing != null && sm.isSoundPlaying((net.minecraft.client.audio.ISound) playing);
+            
+            double distSq = self.npc.getDistanceSq(player);
+            boolean inMinRange = distSq <= (double) (self.minRange * self.minRange);
 
-        // 播放权转移（哈基彬反馈 A-1 的真正根因，务必保留）。
-        //
-        // MusicController.isPlaying(String) 只比较 playingResource，**不比较
-        // playingEntity**（字节码 offset 10-42 实证），而 playStreaming/playMusic
-        // 第一行就是 `if (isPlaying(music)) return;`（offset 2）。
-        // 于是当甲、乙两个吟游诗人配了**同一首歌**时：
-        //   1. 甲先播，playingEntity = 甲；
-        //   2. 玩家走进乙的范围，乙调 play* → isPlaying 因曲目相同返回 true → 直接 return，
-        //      playingEntity 仍然是甲；
-        //   3. 玩家继续远离甲，甲的 maxRange 停歌分支命中（此时 mine 对甲成立）→ stopMusic()；
-        //   4. 乙这边 mine 恒 false，且歌已被停，抢占分支要求 active，于是谁也不播 →
-        //      「直接断开而不是播放 bgm」。
-        //
-        // 原版没这个毛病，是因为 JobBard.onLivingUpdate:75-79 有一段
-        // 「更近者直接改写 playingEntity」的逻辑：
-        //     else if (playingEntity != this.npc) {
-        //         if (npc.getDistanceSq(player) < playingEntity.getDistanceSq(player))
-        //             playingEntity = this.npc;      // 只换所有者，不重播
-        //     }
-        // 歌本来就在响，所以只需转移所有权，不需要重新播放。
-        // 我们用 ci.cancel() 接管了整个方法却漏了这一段，这才是回归的来源。
-        //
-        // 放在所有距离判断之前：必须先把所有权算对，后面 mine 的取值才有意义。
-        if (active && c.playingEntity != null && c.playingEntity != self.npc
-                && !current.isEmpty() && cnpcplus$ownsSong(self, songs, fallback, current)
-                && distSq < player.getDistanceSq(c.playingEntity)) {
-            c.playingEntity = self.npc;
-            BardLoopKeeper.record(self, current);
-        }
+            Field playingEntityField = mcClass.getField("playingEntity");
+            Object playingEntity = playingEntityField.get(c);
+            
+            // 播放权转移（哈基彬反馈 A-1 的真正根因，务必保留）。
+            if (active && playingEntity != null && playingEntity != self.npc
+                    && !current.isEmpty() && cnpcplus$ownsSong(self, songs, fallback, current)
+                    && distSq < player.getDistanceSq((net.minecraft.entity.Entity) playingEntity)) {
+                playingEntityField.set(c, self.npc);
+                BardLoopKeeper.record(self, current);
+            }
 
-        boolean mine = c.playingEntity == self.npc && c.playing != null;
-        // 只要这只诗人还在 tick，兜底续播器就不插手（分工见 BardLoopKeeper 类注释）。
-        if (mine) BardLoopKeeper.heartbeat(self);
+            boolean mine = playingEntity == self.npc && playing != null;
+            // 只要这只诗人还在 tick，兜底续播器就不插手（分工见 BardLoopKeeper 类注释）。
+            if (mine) BardLoopKeeper.heartbeat(self);
 
-        // 断歌源 1：离开距离。开了循环就不因距离停歌，保持当前这首继续放。
-        // 注意这里只在「正在放我的歌」时早退，不影响下面更近的诗人抢占 ——
-        // 抢占走的是 mine == false 的分支，两者互不干扰。
-        if (mine && active && self.hasOffRange && !looping
-                && distSq > (double) (self.maxRange * self.maxRange)) {
-            c.stopMusic();
-            BardLoopKeeper.clear();
-            return;
-        }
-
-        if (!current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
-            boolean expired = System.currentTimeMillis() - this.cnpcplus$lastPlay
-                    >= CnpcPlusConfig.getBardWatchdogSeconds() * 1000L;
-            if (active && !expired) return;
-            if (!active && System.currentTimeMillis() - this.cnpcplus$lastPlay < 500L) return;
-            // 看门狗强制换曲属于「切歌」，按需求只在触发距离内生效。
-            // 循环模式下距离外维持当前曲，不强制切。
-            if (active && expired && (inMinRange || !looping)) {
-                c.stopMusic();
+            // 断歌源 1：离开距离。开了循环就不因距离停歌，保持当前这首继续放。
+            if (mine && active && self.hasOffRange && !looping
+                    && distSq > (double) (self.maxRange * self.maxRange)) {
+                mcClass.getMethod("stopMusic").invoke(c);
                 BardLoopKeeper.clear();
-                this.cnpcplus$lastPlay = 0L;
-                this.cnpcplus$lastPicked = "";
-            } else if (active) {
                 return;
             }
-        }
-        if (mine && active) return;
 
-        // 更近的吟游诗人优先。放在循环续播之前，保证「走进别人的范围就换人」，
-        // 否则旧诗人会因为循环而永久霸占播放，新诗人永远抢不到。
-        if (c.playing != null && c.playingEntity != null && c.playingEntity != self.npc && active) {
-            if (distSq > player.getDistanceSq(c.playingEntity)) return;
-        }
+            if (!current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
+                boolean expired = System.currentTimeMillis() - this.cnpcplus$lastPlay
+                        >= CnpcPlusConfig.getBardWatchdogSeconds() * 1000L;
+                if (active && !expired) return;
+                if (!active && System.currentTimeMillis() - this.cnpcplus$lastPlay < 500L) return;
+                // 看门狗强制换曲属于「切歌」，按需求只在触发距离内生效。
+                if (active && expired && (inMinRange || !looping)) {
+                    mcClass.getMethod("stopMusic").invoke(c);
+                    BardLoopKeeper.clear();
+                    this.cnpcplus$lastPlay = 0L;
+                    this.cnpcplus$lastPicked = "";
+                } else if (active) {
+                    return;
+                }
+            }
+            if (mine && active) return;
 
-        // 断歌源 2：超出触发距离。循环时不掐掉当前曲，只是不再开新曲。
-        //
-        // 顺序很关键：这一段必须排在「循环续播」之前。
-        // 哈基彬实测反馈：开循环后在可切歌范围内切歌失效、只重复最后一首。
-        // 原因就是我上一版把循环续播放在了 minRange 判断**之前** ——
-        // 于是范围内也命中续播分支，永远重播 lastPicked，走不到下面的加权选曲。
-        // 现在的语义：范围内 → 正常切歌；范围外 → 才进入循环续播。
-        if (!inMinRange) {
-            if (looping && mine && !active && !this.cnpcplus$lastPicked.isEmpty()) {
-                // 循环续播：离开触发距离后，我的歌自然放完就重播同一首。
-                // 不调 stopMusic —— playStreaming/playMusic 内部已有
-                // isPlaying 短路与 stopMusic，交给它们处理，避免出现空窗。
-                // BardVolume 为 0 时 SoundManager.setVolume 会直接 stopSound，
-                // 若此时重播会变成每 500ms 疯狂重启，所以直接跳过。
-                if (CnpcPlusConfig.getBardVolume() <= 0.0F) return;
-                cnpcplus$play(self, c, this.cnpcplus$lastPicked);
+            // 更近的吟游诗人优先。放在循环续播之前，保证「走进别人的范围就换人」。
+            // 3.4.2: 加入距离差阈值，避免交界处因微小距离变化而频繁切歌（哈基彬反馈）。
+            if (playing != null && playingEntity != null && playingEntity != self.npc && active) {
+                double otherDistSq = player.getDistanceSq((net.minecraft.entity.Entity) playingEntity);
+                // 必须显著更近（距离平方差 > 4.0，约 2 格）才抢占，否则维持当前播放。
+                if (distSq > otherDistSq - 4.0) return;
+            }
+
+            // 断歌源 2：超出触发距离。循环时不掐掉当前曲，只是不再开新曲。
+            if (!inMinRange) {
+                if (looping && mine && !active && !this.cnpcplus$lastPicked.isEmpty()) {
+                    if (CnpcPlusConfig.getBardVolume() <= 0.0F) return;
+                    cnpcplus$play(self, c, mcClass, playingEntityField, this.cnpcplus$lastPicked);
+                    return;
+                }
+                if (mine && !looping) {
+                    mcClass.getMethod("stopMusic").invoke(c);
+                    BardLoopKeeper.clear();
+                }
                 return;
             }
-            if (mine && !looping) {
-                c.stopMusic();
-                BardLoopKeeper.clear();
-            }
-            return;
-        }
 
-        String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);
-        if (picked == null || picked.isEmpty()) return;
-        cnpcplus$play(self, c, picked);
+            String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);
+            if (picked == null || picked.isEmpty()) return;
+            cnpcplus$play(self, c, mcClass, playingEntityField, picked);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * 这只诗人的曲库里是否包含正在播放的这首曲子。
-     *
-     * 播放权转移的前提条件：只有「我也会放这首歌」时才有资格接管所有权。
-     * 否则两个配了不同歌的诗人会互相抢 playingEntity，导致声音归属错乱。
      */
     @Unique
     private boolean cnpcplus$ownsSong(JobBard self, List<String[]> songs, boolean fallback, String current) {
@@ -222,29 +204,27 @@ public class MixinJobBardClient {
 
     /**
      * 统一的播放出口。
-     *
-     * 必须经由 MusicController，理由见类注释的音量独立性红线。
      */
     @Unique
-    private void cnpcplus$play(JobBard self, MusicController c, String song) {
-        if (self.isStreamer) {
-            c.playStreaming(song, self.npc);
-        } else {
-            c.playMusic(song, self.npc);
-        }
-        // 同一首歌换人时 play* 会因 isPlaying 短路而不更新 playingEntity，
-        // 这里补上，保证所有权始终跟随最后一次实际播放决策。
-        c.playingEntity = self.npc;
-        // 交给兜底续播器：诗人被区块卸载后由它接手重播（哈基彬反馈 A-2）。
-        BardLoopKeeper.record(self, song);
-        this.cnpcplus$lastPicked = song;
-        this.cnpcplus$lastSong = song;
-        this.cnpcplus$lastPlay = System.currentTimeMillis();
+    private void cnpcplus$play(JobBard self, Object c, Class<?> mcClass, Field playingEntityField, String song) {
         try {
+            if (self.isStreamer) {
+                mcClass.getMethod("playStreaming", String.class, net.minecraft.entity.Entity.class)
+                       .invoke(c, song, self.npc);
+            } else {
+                mcClass.getMethod("playMusic", String.class, net.minecraft.entity.Entity.class)
+                       .invoke(c, song, self.npc);
+            }
+            playingEntityField.set(c, self.npc);
+            BardLoopKeeper.record(self, song);
+            this.cnpcplus$lastPicked = song;
+            this.cnpcplus$lastSong = song;
+            this.cnpcplus$lastPlay = System.currentTimeMillis();
             Field f = MusicTicker.class.getDeclaredField("field_147676_d");
             f.setAccessible(true);
             f.setInt(Minecraft.getMinecraft().getMusicTicker(), 12000);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

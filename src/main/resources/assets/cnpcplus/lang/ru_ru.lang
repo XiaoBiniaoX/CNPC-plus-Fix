@@ -1,5 +1,8 @@
 recipeFuzzyMatchRules=Правила нечёткого сопоставления рецептов
 craftingViewEnabled=Показывать панель рецептов
+realarmor=Настоящая броня NPC
+RealArmorEnabled=Включить настоящую броню NPC
+RealArmorOverrideCompanion=Заменить расчёт брони компаньона
 gui.ignoreDamage=Нечёткое сопоставление
 gui.ignoreNBT=Только по имени
 gui.save=Сохранить

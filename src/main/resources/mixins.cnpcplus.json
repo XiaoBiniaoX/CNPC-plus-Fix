@@ -63,6 +63,7 @@
     "penetration.MixinIProjectilePenetration",
     "penetration.MixinProjectileWrapperPenetration",
     "stats.MixinDataStatsFloat",
+    "stats.MixinEntityNPCRealArmor",
     "stats.MixinDataMeleeFloat",
     "stats.MixinResistancesExtended",
     "stats.MixinEntityNPCInterfaceStatsSync",

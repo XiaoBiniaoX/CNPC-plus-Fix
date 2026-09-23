@@ -1,5 +1,8 @@
 recipeFuzzyMatchRules=配方配置模糊化规则
 craftingViewEnabled=显示合成配方侧栏
+realarmor=NPC真实盔甲
+RealArmorEnabled=启用NPC真实盔甲
+RealArmorOverrideCompanion=真实盔甲覆盖伙伴护甲计算
 gui.ignoreDamage=配置模糊化
 gui.ignoreNBT=仅名字检查
 gui.save=保存

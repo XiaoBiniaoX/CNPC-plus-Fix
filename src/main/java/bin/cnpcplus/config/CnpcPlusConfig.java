@@ -35,6 +35,10 @@ public class CnpcPlusConfig {
                 "Watchdog seconds: force-switch a bard song that plays longer than this");
         config.getBoolean("interactPassthrough", "interact", true,
                 "Let held items (bow, food, potion) still work when the crosshair is on an NPC that has nothing to interact with");
+        config.getBoolean("RealArmorEnabled", "realarmor", false,
+                "Apply equipped NPC armor, toughness and durability loss (server authoritative)");
+        config.getBoolean("RealArmorOverrideCompanion", "realarmor", false,
+                "Also replace the companion role's original armor calculation");
         config.getBoolean("returnHomeSmoothArrival", "ai", true,
                 "Walk the last steps back to the start point instead of pausing and teleporting when almost there");
         config.getFloat("returnHomeArrivalTolerance", "ai", 3.0F, 0.5F, 32.0F,
@@ -78,6 +82,16 @@ public class CnpcPlusConfig {
 
     public static Configuration getConfig() {
         return config;
+    }
+
+    public static boolean isRealArmorEnabled() {
+        return config != null && config.getBoolean("RealArmorEnabled", "realarmor", false,
+                "Apply equipped NPC armor, toughness and durability loss (server authoritative)");
+    }
+
+    public static boolean isRealArmorOverrideCompanion() {
+        return config != null && config.getBoolean("RealArmorOverrideCompanion", "realarmor", false,
+                "Also replace the companion role's original armor calculation");
     }
 
     public static void save() {

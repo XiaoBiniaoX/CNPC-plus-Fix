@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.ai",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": ["MixinWalkNodeProcessorNpcSurface", "MixinPathNavigateGroundNpcSurface"],
+  "client": [],
+  "server": [],
+  "injectors": {"defaultRequire": 1}
+}

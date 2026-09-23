@@ -1,7 +1,6 @@
 package bin.cnpcplus.mixin.bard;
 
 import bin.cnpcplus.bard.BardLoopStore;
-import noppes.npcs.client.controllers.MusicController;
 import noppes.npcs.roles.JobBard;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -46,10 +45,16 @@ public class MixinJobBardLoopDelete {
             return;
         }
         // 不是我在放的歌，就不许我停它。
-        MusicController c = MusicController.Instance;
-        if (c != null && c.playing != null && c.playingEntity != null
-                && c.playingEntity != self.npc) {
-            ci.cancel();
+        try {
+            Class<?> type = Class.forName("noppes.npcs.client.controllers.MusicController");
+            Object controller = type.getField("Instance").get(null);
+            if (controller == null) return;
+            Object owner = type.getField("playingEntity").get(controller);
+            if (type.getField("playing").get(controller) != null && owner != null && owner != self.npc) {
+                ci.cancel();
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot inspect bard playback owner", e);
         }
     }
 }

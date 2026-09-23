@@ -1,5 +1,8 @@
 recipeFuzzyMatchRules=Recipe Fuzzy Match Rules
 craftingViewEnabled=Crafting View Sidebar
+realarmor=NPC Real Armor
+RealArmorEnabled=Enable NPC Real Armor
+RealArmorOverrideCompanion=Override Companion Armor Calculation
 gui.ignoreDamage=Config Fuzzy
 gui.ignoreNBT=Name Only
 gui.save=Save
