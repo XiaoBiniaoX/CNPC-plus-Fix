@@ -36,11 +36,19 @@ public abstract class MixinGuiCreationScale implements ITextfieldListener {
     @Unique
     private static final String[] EQUIP_PARTS = {"mainhand", "offhand", "helmet", "chestplate", "leggings", "boots"};
     @Unique
-    private static int equipSelected = -1;
+    private int equipSelected = -1;
+    @Unique private boolean cnpcplus$building = false;
 
     @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiSliderNop;<init>(Lnet/minecraft/client/gui/screens/Screen;IIIIIF)V"), index = 6)
     private float fixSliderVal(float val) {
         return (val + 0.5f) / 10.0f;
+    }
+
+    @Inject(method = "m_7856_", at = @At("HEAD"))
+    private void cnpcplus$beginRebuild(CallbackInfo ci) {
+        // GuiSliderNop 的构造器会立即回调 mouseDragged。装备页重建时，
+        // 原版身体滑块的默认值不能写回当前装备配置。
+        cnpcplus$building = true;
     }
 
     @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiCustomScrollNop;setUnsortedList(Ljava/util/List;)V"))
@@ -54,6 +62,7 @@ public abstract class MixinGuiCreationScale implements ITextfieldListener {
 
     @Inject(method = "m_7856_", at = @At("TAIL"))
     private void onInitTail(CallbackInfo ci) {
+        cnpcplus$building = true;
         GuiCreationScale self = (GuiCreationScale) (Object) this;
         GuiCreationScreenInterface screen = (GuiCreationScreenInterface) (Object) this;
 
@@ -71,7 +80,7 @@ public abstract class MixinGuiCreationScale implements ITextfieldListener {
             if (s12 != null) s12.visible = false;
 
             ModelPartConfig config = getEquipConfig(EQUIP_PARTS[equipSelected]);
-            if (config == null) return;
+            if (config == null) { cnpcplus$building = false; return; }
 
             int y = self.guiTop + 65;
 
@@ -107,23 +116,25 @@ public abstract class MixinGuiCreationScale implements ITextfieldListener {
 
             GuiTextFieldNop tfW = new GuiTextFieldNop(100, cs, cs.guiLeft + 255, y, 55, 20, "");
             tfW.setFloatsOnly().setMinMaxDefault(0.0f, 10.0f, 1.0f);
-            tfW.setValue(String.format("%.2f", screen.playerdata.getPartConfig(EnumParts.HEAD).scaleX));
+            tfW.setValue(String.format("%.2f", screen.playerdata.getPartConfig(selected).scaleX));
             cs.addTextField(tfW);
 
             GuiTextFieldNop tfH = new GuiTextFieldNop(101, cs, cs.guiLeft + 255, (y += 22), 55, 20, "");
             tfH.setFloatsOnly().setMinMaxDefault(0.0f, 10.0f, 1.0f);
-            tfH.setValue(String.format("%.2f", screen.playerdata.getPartConfig(EnumParts.HEAD).scaleY));
+            tfH.setValue(String.format("%.2f", screen.playerdata.getPartConfig(selected).scaleY));
             cs.addTextField(tfH);
 
             GuiTextFieldNop tfD = new GuiTextFieldNop(102, cs, cs.guiLeft + 255, (y += 22), 55, 20, "");
             tfD.setFloatsOnly().setMinMaxDefault(0.0f, 10.0f, 1.0f);
-            tfD.setValue(String.format("%.2f", screen.playerdata.getPartConfig(EnumParts.HEAD).scaleZ));
+            tfD.setValue(String.format("%.2f", screen.playerdata.getPartConfig(selected).scaleZ));
             cs.addTextField(tfD);
         }
+        cnpcplus$building = false;
     }
 
     @Override
     public void unFocused(GuiTextFieldNop tf) {
+        if (cnpcplus$building) return;
         if (tf.id < 100 || tf.id > 102) return;
         float v = clamp(tf.getValue(), 0.0f, 10.0f);
         GuiCreationScale self = (GuiCreationScale) (Object) this;
@@ -169,6 +180,13 @@ public abstract class MixinGuiCreationScale implements ITextfieldListener {
 
     @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
     private void onMouseDragged(GuiSliderNop slider, CallbackInfo ci) {
+        if (cnpcplus$building) {
+            if (slider.id >= 10 && slider.id <= 12) {
+                slider.setString((int)(slider.sliderValue * 1000.0f) + "%");
+                ci.cancel();
+            }
+            return;
+        }
         if (slider.id < 10 || slider.id > 12) return;
         int percent = (int)(slider.sliderValue * 1000.0f);
         slider.setString(percent + "%");

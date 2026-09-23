@@ -90,6 +90,8 @@
     "MixinServerEventsHandlerTeamKill",
     "MixinDataMeleeBuffNBT",
     "MixinEntityNPCMeleeBuffs",
+    "MixinEntityNPCImmediateRotation",
+    "MixinLivingEntityRealArmor",
     "MixinWalkNodeEvaluatorNpcStart",
     "MixinGroundPathNavigationNpcSurface"
   ],

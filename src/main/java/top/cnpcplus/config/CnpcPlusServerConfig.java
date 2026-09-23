@@ -88,6 +88,12 @@ public class CnpcPlusServerConfig {
         TeamShareKillQuest = builder.define("TeamShareKillQuest", false);
         builder.pop();
 
+        builder.push("真实护甲");
+        builder.comment("让 CustomNPC 身上的原版盔甲提供原版护甲值、护甲韧性与耐久损耗（默认关闭，支持热重载）。");
+        RealArmorEnabled = builder.define("RealArmorEnabled", false);
+        RealArmorOverrideCompanion = builder.define("RealArmorOverrideCompanion", false);
+        builder.pop();
+
         CONFIG_SPEC = builder.build();
     }
 
@@ -103,6 +109,8 @@ public class CnpcPlusServerConfig {
     public static ForgeConfigSpec.BooleanValue KilledBodyNoHitbox;
     public static ForgeConfigSpec.BooleanValue MountJumpEnabled;
     public static ForgeConfigSpec.BooleanValue TeamShareKillQuest;
+    public static ForgeConfigSpec.BooleanValue RealArmorEnabled;
+    public static ForgeConfigSpec.BooleanValue RealArmorOverrideCompanion;
 
     /*
      * 刻意不再监听 ModConfigEvent 去调 event.getConfig().save()。
