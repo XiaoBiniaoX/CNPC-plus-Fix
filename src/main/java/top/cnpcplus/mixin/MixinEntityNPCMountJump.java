@@ -5,7 +5,7 @@ import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.data.DataAI;
 import noppes.npcs.mixin.EntityLivingIMixin;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -64,10 +64,13 @@ import top.cnpcplus.config.ServerConfigAccess;
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public class MixinEntityNPCMountJump {
 
-    @Shadow(remap = false) public DataAI ais;
+    @Unique
+    private boolean cnpcplus$mountJumpHeld;
 
-    @Inject(method = "m_8107_", at = @At("HEAD"), remap = false)
-    private void cnpcplus$mountJump(CallbackInfo ci) {
+    @org.spongepowered.asm.mixin.Shadow(remap = false) public DataAI ais;
+
+    @Inject(method = "m_7023_", at = @At("HEAD"), remap = false)
+    private void cnpcplus$mountJump(net.minecraft.world.phys.Vec3 travelVector, CallbackInfo ci) {
         if (!ServerConfigAccess.bool(CnpcPlusServerConfig.MountJumpEnabled, true)) return;
 
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
@@ -83,11 +86,17 @@ public class MixinEntityNPCMountJump {
         LivingEntity rider = npc.getControllingPassenger();
         if (rider == null) return;
 
+        boolean jumping = ((EntityLivingIMixin) rider).jumping();
+        if (!jumping) {
+            this.cnpcplus$mountJumpHeld = false;
+            return;
+        }
+        if (this.cnpcplus$mountJumpHeld) return;
+        this.cnpcplus$mountJumpHeld = true;
         if (!npc.onGround()) return;
-        if (!((EntityLivingIMixin) rider).jumping()) return;
 
-        // 交给原版跳跃管线：jumpControl.tick() 会在稍后把 jumping 置真，
-        // 由 LivingEntity.aiStep 的 jump 段真正起跳。
-        npc.getJumpControl().jump();
+        // CNPC 自己的 m_8107_ 包装了 vanilla jump 段，JumpControl 在此处不可靠。
+        // 直接调用 vanilla protected jumpFromGround，把空格转成真实垂直速度。
+        ((LivingEntityJumpInvoker) (Object) npc).cnpcplus$jumpFromGround();
     }
 }

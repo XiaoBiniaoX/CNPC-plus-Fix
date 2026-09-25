@@ -109,9 +109,10 @@ public abstract class MixinEntityNPCKilledBody {
     /**
      * 与原版 {@code m_6972_:1265} 同一套「是不是尸体」的判据。
      *
-     * <p>{@code currentAnimation} 2 与 7 是死亡/躺倒动画，{@code deathTime}（SRG f_20919_）
-     * 大于 0 表示正在播死亡过程，{@code isKilled()} 覆盖「已死但等待重生」这段。
-     * 四者取并集，确保从倒地到复活前全程无碰撞箱。
+     * <p>活着的匍匐/趴下动画也使用 {@code currentAnimation == 2/7}，所以动画编号
+     * 不能作为尸体判据。真正的死亡状态由 {@code deathTime}（SRG f_20919_）或
+     * {@code isKilled()} 提供；两者取并集，确保死亡过程到复活前全程无碰撞箱，
+     * 同时保留活 NPC 姿势的正常碰撞箱。
      *
      * <h3>为什么整段包 try-catch</h3>
      * {@code isKilled()}（反编译 {@code :1666-1668}）读的是 datawatcher
@@ -123,9 +124,7 @@ public abstract class MixinEntityNPCKilledBody {
      */
     private static boolean cnpcplus$isCorpse(EntityNPCInterface npc) {
         try {
-            return npc.currentAnimation == 2
-                    || npc.currentAnimation == 7
-                    || npc.deathTime > 0
+            return npc.deathTime > 0
                     || npc.isKilled();
         } catch (Throwable t) {
             return false;
