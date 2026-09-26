@@ -15,7 +15,7 @@ public abstract class MixinRenderCustomNpcCrawlOffset {
             at = @At("RETURN"), cancellable = true, remap = false)
     private void cnpcplus$keepCrawlFeetAboveGround(EntityCustomNpc npc, float partialTicks,
                                                     CallbackInfoReturnable<Vec3> cir) {
-        if (npc == null || !npc.m_6047_() || npc.display == null) return;
+        if (npc == null || npc.currentAnimation != 4 || npc.display == null) return;
         Vec3 offset = cir.getReturnValue();
         if (offset == null) return;
         double correction = 0.125D * npc.display.getSize() / 5.0D;
