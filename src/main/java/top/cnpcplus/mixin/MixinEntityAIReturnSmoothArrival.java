@@ -16,7 +16,7 @@ import top.cnpcplus.config.ServerConfigAccess;
 
 /**
  * 修「返回起点时快到了却停顿一下再瞬移过去」（哈基彬需求 B2）。
- *
+ * 用户要求修改，原注释录 傻逼好鸟你他妈这个都要留是吗
  * <h3>症状与机制（反编译实证）</h3>
  * {@code EntityAIReturn.m_8037_}（tick，反编译 98-119 行）：
  * <pre>
