@@ -25,9 +25,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 重发 6 次后 {@code stuckCount > 5} 命中，直接 {@code setPos} 硬瞬移。
  * 反复重设移动目标还会把原版 MoveControl 推进 JUMPING 分支，看起来就是在起点前原地起跳。
  *
- * <p>修法：路径已走完且水平误差已小于导航精度时，做一次小于半格的精确对位。位移极小玩家看不出来，
- * 但能让 {@code isVeryNearAssignedPlace()} 立刻成立，goal 正常结束 —— 抖动、瞬移、起跳一起消失。
- * 真正走不到（被挡住）时不再因为 {@code stuckCount} 瞬移，只保留超时兜底，时限由配置项决定。
+ * <p>修法（对齐 1.12.2 {@code MixinEntityAIReturnSmoothArrival} 的思路：近起点抑制瞬移、继续走）：
+ * 路径走完且已进入容差时，不瞬移、而是重新发起一段导航让 NPC <b>走</b>过去并清掉卡住计数，
+ * 直到误差收敛进 ±0.2 由原版 {@code canContinueToUse} 正常结束。
+ * 超时兜底瞬移只对「离起点还远（容差外）」的目标生效 —— 近处任何情况下都不 setPos，
+ * 真走不到（被挡住）就让 goal 超时结束、NPC 停在最后真实走到的位置。
+ * 时限由配置项决定。
+ *
+ * <p>历史坑：曾用 {@code moveTo} 做「一步对位」，但 moveTo 即 setPos、无插值，
+ * 最多会把 NPC 拉近 3 格 —— 跳跃是修没了，瞬移却被我方自己留在了这里。
  */
 @Mixin(value = EntityAIReturn.class, remap = false)
 public abstract class MixinEntityAIReturn {
@@ -142,9 +148,12 @@ public abstract class MixinEntityAIReturn {
 
         ++this.totalTicks;
 
-        // 超时兜底：真的走不回去（被封死、地形不通）才瞬移，时限可配。
+        // 超时兜底：只对「离起点还远」的目标瞬移保底（地形不通、被封死时把 NPC 拉回去）。
+        // 已经在容差内的 NPC 任何情况下都不瞬移 —— 就让 goal 超时结束、停在真实走到的位置。
         if (this.totalTicks > cnpcplus$timeoutTicks()) {
-            this.npc.setPos(this.endPosX, this.endPosY, this.endPosZ);
+            if (!cnpcplus$nearHome()) {
+                this.npc.setPos(this.endPosX, this.endPosY, this.endPosZ);
+            }
             this.npc.getNavigation().stop();
             ci.cancel();
             return;
@@ -165,11 +174,14 @@ public abstract class MixinEntityAIReturn {
 
         // 路径走完了。先看是不是已经到了「导航认为到了、但 isVeryNearAssignedPlace 还差一点」那个夹缝。
         if (cnpcplus$nearHome()) {
-            // 容差内：做一次精确对位，让 goal 能正常判定结束。
-            // 用 moveTo 而不是 setPos，保留朝向；位移不足半格，视觉上就是正常走到位。
-            this.npc.getNavigation().stop();
-            this.npc.moveTo(this.endPosX, this.npc.getY(), this.endPosZ,
-                    this.npc.getYRot(), this.npc.getXRot());
+            // 容差内：不瞬移（moveTo 即 setPos），改为自己再发起一段导航，让 NPC 真正走完最后这一步。
+            // 清掉两个卡住计数，避免进下面的 10 tick 冻结反复抖动（对应 1.12.2 的
+            // noPath 拦截「报告未卡住 + 就地重新寻路」）。
+            // Y 必须用 npc.getY()：endPosY 是「地面+1」（startYPos 缓存带 +1.0），
+            // 交给导航会触发 MoveControl 的 JUMPING 判据，原地起跳会回归。
+            this.stuckCount = 0;
+            this.stuckTicks = 0;
+            this.npc.getNavigation().moveTo(this.endPosX, this.npc.getY(), this.endPosZ, 1.0);
             ci.cancel();
             return;
         }

@@ -23,6 +23,8 @@ public class EntityCustomNpcMixin {
     @Unique private double cnpcplus$modelDeathY;
     @Unique private double cnpcplus$modelDeathZ;
     @Unique private boolean cnpcplus$modelDeathPosSaved;
+    /** 客户端是否见过这个 NPC 活着。用于区分「正常击杀（要播倒地动画）」与「区块重载一见面就已死（不重播）」。 */
+    @Unique private boolean cnpcplus$everAlive;
 
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnoppes/npcs/client/EntityUtil;Copy(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/LivingEntity;)V"), remap = false)
@@ -61,6 +63,7 @@ public class EntityCustomNpcMixin {
                 cnpcplus$modelDeathPosSaved = true;
             }
         } else {
+            cnpcplus$everAlive = true;
             cnpcplus$modelDeathPosSaved = false;
             // 复活后必须把死亡期间对模型实体做的强制状态复位，否则模型会持续隐形、
             // 或停在死亡姿势上，表现就是「复活后模型与碰撞箱不一致」。
@@ -79,8 +82,11 @@ public class EntityCustomNpcMixin {
         EntityCustomNpc self = (EntityCustomNpc)(Object)this;
         if (!self.isKilled()) return;
 
-        // 已死亡 NPC 的客户端模型不应在远距离重新加载后从死亡动画第 0 帧重播。
-        if (self.level().isClientSide && self.deathTime < 20) self.deathTime = 20;
+        // 只有「客户端一见面就已死」（区块重载/新进视野）才把 deathTime 钉到 20 免得重播动画。
+        // 正常在眼前击杀的 NPC 曾经活着（everAlive），必须让 deathTime 从 0 自然涨到 20，
+        // 否则原版倒地动画（LivingEntityRenderer 的 Z 轴翻转，约 0.65s 摆平）一帧都不播，
+        // 且同帧越过 >20 的隐藏阈值 → 站着→瞬间平躺→消失，非常突兀。
+        if (self.level().isClientSide && !cnpcplus$everAlive && self.deathTime < 20) self.deathTime = 20;
 
         self.setPos(cnpcplus$savedX, cnpcplus$savedY, cnpcplus$savedZ);
         self.setYRot(cnpcplus$savedYRot);

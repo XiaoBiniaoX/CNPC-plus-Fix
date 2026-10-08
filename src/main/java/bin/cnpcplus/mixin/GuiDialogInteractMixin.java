@@ -63,8 +63,11 @@ public class GuiDialogInteractMixin {
 
         int lineHeight = this.cnpcplus$lineHeight();
         int height = count - this.rowStart;
-        // 超出对话框上下边界的行直接不画，原实现会一路画到屏幕外。
-        if (height < 0 || height * lineHeight >= this.dialogHeight) {
+        // 只裁下界（防画进选项区）。上界必须放行：原版正文区的上边界是
+        // guiTop - rowStart*行高，rowStart>0 时 count<rowStart 的较早行会画到面板上沿之上
+        // （GuiDialogInteract:247-248 原本就不裁剪），此前连 height<0 一起过滤，
+        // 表现就是「面板上半截没有文本、滚动条却还能滚到」。
+        if (height * lineHeight >= this.dialogHeight) {
             ci.cancel();
             return;
         }
@@ -73,7 +76,8 @@ public class GuiDialogInteractMixin {
         int y = self.guiTop + height * lineHeight;
         int clipLeft = self.guiLeft - 60;
         int clipRight = self.guiLeft + self.imageWidth + 120;
-        graphics.enableScissor(clipLeft, self.guiTop, clipRight, self.guiTop + this.dialogHeight);
+        int clipTop = Math.max(0, self.guiTop - this.rowStart * lineHeight);
+        graphics.enableScissor(clipLeft, clipTop, clipRight, self.guiTop + this.dialogHeight);
         try {
             graphics.drawString(Minecraft.getInstance().font, drawn, x, y, drawColor, false);
         } finally {
@@ -119,8 +123,10 @@ public class GuiDialogInteractMixin {
         double delta = scrollY != 0.0 ? scrollY : scrollX;
         if (delta == 0.0) return;
         // 下边界同样用 >= 排除：选项区从 guiTop + dialogHeight 开始，不参与正文滚动。
+        // 上边界与渲染裁剪同源（rowStart>0 时正文会画到 guiTop 之上），否则滚轮在上半区失效。
+        int clipTop = Math.max(0, self.guiTop - this.rowStart * this.cnpcplus$lineHeight());
         if (mouseX < self.guiLeft - 60 || mouseX > self.guiLeft + self.imageWidth + 120
-                || mouseY < self.guiTop || mouseY >= self.guiTop + this.dialogHeight) {
+                || mouseY < clipTop || mouseY >= self.guiTop + this.dialogHeight) {
             return;
         }
         int visible = this.cnpcplus$visibleRows();

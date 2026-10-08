@@ -55,6 +55,7 @@
     "stats.MixinDataMeleeFloat",
     "stats.MixinResistancesExtra",
     "stats.MixinEntityNPCInterfaceMeleeFloat",
+    "stats.MixinEntityNPCRealArmor",
     "lines.MixinDataAdvancedMeleeHitLines",
     "lines.MixinEntityNPCInterfaceMeleeHitLine",
     "EntityProjectileEmptyItemFixMixin",

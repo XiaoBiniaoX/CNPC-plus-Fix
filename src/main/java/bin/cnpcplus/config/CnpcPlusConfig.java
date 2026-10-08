@@ -117,5 +117,22 @@ public class CnpcPlusConfig {
             .comment("可视化自定义熔炼配方界面整体Y偏移；1.20.1参考默认20")
             .defineInRange("smeltingGuiOffsetY", 20, -300, 300);
 
+    public static final ModConfigSpec.BooleanValue REAL_ARMOR_ENABLED = BUILDER
+            .comment(
+                "真实护甲（默认 false）",
+                "开启后 NPC 身上的原版盔甲按原版公式真实减伤，并按 伤害/4 每件消耗耐久",
+                "关闭时与原版一致：护甲只存不生效（伙伴 role 6 除外，它自带算法）",
+                "摔落/虚空等 BYPASSES_ARMOR 伤害不受影响；热改热生效"
+            )
+            .define("realArmorEnabled", false);
+
+    public static final ModConfigSpec.BooleanValue REAL_ARMOR_OVERRIDE_COMPANION = BUILDER
+            .comment(
+                "真实护甲是否覆盖「伙伴」(role 6)（默认 false）",
+                "伙伴自带 (25-护甲值)/25 的简化护甲算法，",
+                "false = 伙伴保持自带算法不变；true = 伙伴也走真实护甲公式"
+            )
+            .define("realArmorOverrideCompanion", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }
