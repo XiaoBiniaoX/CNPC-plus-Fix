@@ -18,29 +18,40 @@ public abstract class MixinServerPlayerMountJump {
 
     @Inject(method = {"setPlayerInput", "m_8980_"}, at = @At("RETURN"), remap = false)
     private void cnpcplus$consumeMountJump(float xxa, float zza, boolean jumping,
-                                            boolean shiftKeyDown, CallbackInfo ci) {
+                                           boolean shiftKeyDown, CallbackInfo ci) {
+        ServerPlayer player = (ServerPlayer) (Object) this;
+        EntityNPCInterface npc = player.getVehicle() instanceof EntityNPCInterface n ? n : null;
+        boolean cfg = ServerConfigAccess.bool(CnpcPlusServerConfig.MountJumpEnabled, true);
+        boolean mnt = npc != null && npc.ais != null && npc.ais.mountControl;
+        boolean mvt0 = mnt && npc.ais.movementType == 0;
+        boolean ctrl = mvt0 && npc.getControllingPassenger() == player;
+        boolean call = false;
+
         if (!jumping) {
             cnpcplus$mountJumpHeld = false;
-            return;
+        } else if (cfg) {
+            if (npc != null) {
+                if (ctrl) {
+                    if (!cnpcplus$mountJumpHeld) {
+                        cnpcplus$mountJumpHeld = true;
+                        call = true;
+                    }
+                } else {
+                    cnpcplus$mountJumpHeld = false;
+                }
+            } else {
+                cnpcplus$mountJumpHeld = false;
+            }
         }
-        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.MountJumpEnabled, true)) return;
 
-        ServerPlayer player = (ServerPlayer) (Object) this;
-        if (!(player.getVehicle() instanceof EntityNPCInterface npc)) {
-            cnpcplus$mountJumpHeld = false;
-            return;
+        if (call) {
+            // 与 CNPC 脚本 API EntityLivingWrapper.jump() 完全相同的原生入口：
+            // this.entity.getJumpControl().jump()。JumpControl 会在 NPC 下一次 serverAiStep
+            // 中把 jumping 交给 vanilla 的 jump 段，静止骑乘也不依赖 travel 被调用。
+            try {
+                npc.getJumpControl().jump();
+            } catch (Throwable ignored) {
+            }
         }
-        if (npc.ais == null || !npc.ais.mountControl || npc.ais.movementType != 0
-                || npc.getControllingPassenger() != player) {
-            cnpcplus$mountJumpHeld = false;
-            return;
-        }
-        if (cnpcplus$mountJumpHeld) return;
-        cnpcplus$mountJumpHeld = true;
-
-        // 与 CNPC 脚本 API EntityLivingWrapper.jump() 完全相同的原生入口：
-        // this.entity.getJumpControl().jump()。JumpControl 会在 NPC 下一次 serverAiStep
-        // 中把 jumping 交给 vanilla 的 jump 段，静止骑乘也不依赖 travel 被调用。
-        npc.getJumpControl().jump();
     }
 }
