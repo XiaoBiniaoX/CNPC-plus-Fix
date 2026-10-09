@@ -93,7 +93,18 @@
     "MixinEntityNPCImmediateRotation",
     "MixinLivingEntityRealArmor",
     "MixinWalkNodeEvaluatorNpcStart",
-    "MixinGroundPathNavigationNpcSurface"
+    "MixinGroundPathNavigationNpcSurface",
+    "MassBlockControllerQueueAccess",
+    "MixinDataTimersUpdate",
+    "MixinEntityNPCCollide",
+    "MixinJobFarmerProcessed",
+    "MixinMassBlockController",
+    "MixinRoleTraderMarketCache",
+    "MixinSchematicWrapperBuild",
+    "MixinSchematicWrapperNBTSmall",
+    "MixinTileBuilderPositions",
+    "MixinTileWaypointScan",
+    "MixinDataAINavigationTypeUpdate"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -150,7 +161,22 @@
     "MixinGuiDialogModernScroll",
     "MixinSubGuiMeleePropertiesBuffs",
     "MixinGuiNPCNightSetupTitle",
-    "MixinClientMountJumpFix"
+    "MixinClientMountJumpFix",
+    "MixinClientEventHandlerPreview",
+    "MixinModel2DRendererInit",
+    "MixinTileBuilderPreviewInvalidation",
+    "MixinTextContainerInvalidate",
+    "MixinTextContainerLineData",
+    "MixinGuiTextAreaRender",
+    "MixinOverlayTexturedRect",
+    "MixinRenderCustomNpcLayers",
+    "MixinRenderCustomNpcNameTag",
+    "EntityRendererShadowAccess",
+    "MixinRenderNPCInterfaceShadowClamp",
+    "MixinLayerNpcElytraTexture",
+    "MixinModelPartWrapperRaw",
+    "MixinLayerPartsRotate",
+    "MixinRenderNPCInterfaceLabel"
   ],
   "server": []
 }

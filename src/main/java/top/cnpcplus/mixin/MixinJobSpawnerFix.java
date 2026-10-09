@@ -1,5 +1,6 @@
 package top.cnpcplus.mixin;
 
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import noppes.npcs.api.NpcAPI;
@@ -8,6 +9,7 @@ import noppes.npcs.controllers.data.CloneSpawnData;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.JobSpawner;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -21,6 +23,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(value = JobSpawner.class, remap = false)
 public class MixinJobSpawnerFix {
+
+    /** 随机模式「出过子体」的计数记忆。该字段在原版随机模式下从不自增。 */
+    @Shadow(remap = false)
+    private int number;
 
     /**
      * A1: aiUpdateTask 中三处对 npc 的 discard(m_146870_) 全部改为正常死亡流程。
@@ -55,5 +61,29 @@ public class MixinJobSpawnerFix {
             return;
         }
         cir.setReturnValue((IEntityLiving) NpcAPI.Instance().getIEntity(living));
+    }
+
+    /**
+     * A4: 召唤器随机模式（spawnType==2）「召唤物死亡后本体死亡」不生效的修复。
+     * 原版 aiUpdateTask 随机分支的死亡判定只在配置列表为空时才可达（死代码），
+     * 只要有配置就会无限重出，doesntDie=false 永远轮不到死亡。
+     * 语义对齐顺次模式：已出过子体（number>0）且不允许本体独活时，
+     * 子体全死回到本分支即本体正常死亡；doesntDie=true 则照旧无限重出。
+     * number 原本在随机模式不自增（getCompound 不参与），这里成功召唤后 +1
+     * 作为「出过子体」的记忆；服务端重启后与顺次模式一样由 aiStartExecuting
+     * 按附近子体的 NpcSpawnerNr 重扫归零。
+     */
+    @Redirect(method = "aiUpdateTask", at = @At(value = "INVOKE", target = "Lnoppes/npcs/roles/JobSpawner;spawnEntity(Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/entity/LivingEntity;"))
+    private LivingEntity cnpcplus$randomSpawnOrDie(JobSpawner self, CompoundTag compound) {
+        if (!self.doesntDie && this.number > 0) {
+            // 本分支只在 spawned.isEmpty() 时进入：子体已全死，本体走正常死亡流程（可复活，非 discard）。
+            self.npc.remove(Entity.RemovalReason.KILLED);
+            return null;
+        }
+        LivingEntity living = ((JobSpawnerInvoker) this).cnpcplus$spawnEntity(compound);
+        if (living != null) {
+            this.number = this.number + 1;
+        }
+        return living;
     }
 }

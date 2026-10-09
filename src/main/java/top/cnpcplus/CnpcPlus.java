@@ -21,6 +21,8 @@ public class CnpcPlus {
 
     public CnpcPlus() {
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, CnpcPlusConfigData.getConfig(), "cnpcplus.toml");
+        // 渲染优化配置（蓝图预览/轮廓缓存/阴影上限），独立文件避免与主配置撞车。
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, top.cnpcplus.perf.Config.SPEC, "cnpcplus-perf.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, CnpcPlusServerConfig.getConfig(), "cnpcplus-server.toml");
         ForgeChunkManager.setForcedChunkLoadingCallback(MOD_ID, (level, helper) -> {});
         top.cnpcplus.craftingview.network.PacketHandler.init();

@@ -152,6 +152,21 @@ public class MixinJobBardClient {
     /** 实际起播 + 记录状态。抽出来是因为循环重播与正常选曲两条路径都要用。 */
     @Unique
     private void cnpcplus$play(MusicController c, JobBard self, String song) {
+        // 同曲重合区交接：原版 JobBard.aiStep 60-64 在 isPlaying(song) 且
+        // playingEntity 不是自己时，只把 playingEntity 换成（更近的）自己，
+        // 不 stop 不重播。此前这里无条件 stop+play，表现为此曲在重合区
+        // 「断开重播」。距离准入已在 aiStep 125-141 判过，这里只做交接。
+        if (c.isPlaying(song) && c.playingEntity != self.npc) {
+            c.playingEntity = self.npc;
+            this.cnpcplus$lastPicked = song;
+            this.cnpcplus$lastSong = song;
+            this.cnpcplus$lastPlay = System.currentTimeMillis();
+            try {
+                ((noppes.npcs.mixin.MusicManagerMixin) Minecraft.getInstance().getMusicManager()).nextSongDelay(12000);
+            } catch (Exception ignored) {
+            }
+            return;
+        }
         // playStreaming / playMusic 第一行都是 `if (isPlaying(music)) return;`。
         // 走进另一个诗人范围但两曲同名时，不先清掉 playingResource，起播会被静默吞掉，
         // 表现为「直接断开而不是播放 BGM」（玩家反馈：因距离关闭音乐为开、循环为关）。
