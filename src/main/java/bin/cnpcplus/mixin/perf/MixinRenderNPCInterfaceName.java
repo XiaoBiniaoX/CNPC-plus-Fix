@@ -75,8 +75,8 @@ public abstract class MixinRenderNPCInterfaceName {
     @ModifyConstant(method = "renderName",
             constant = @Constant(doubleValue = 512.0D),
             remap = false)
-    private double cnpcplus$nameDistSq() {
+    private double cnpcplus$nameDistSq(double original) {
         double limit = CnpcPlusConfig.getNameRenderDistance();
-        return limit <= 0.0D ? 512.0D : limit * limit;
+        return limit <= 0.0D ? original : limit * limit;
     }
 }
