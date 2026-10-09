@@ -1,6 +1,7 @@
 {
   "cnpcplus.configuration.title": "CNPCPlus 配置",
   "cnpcplus.configuration.section.dialog.title": "对话显示",
+  "cnpcplus.configuration.section.cnpcplus.common.toml.title": "通用配置",
   "cnpcplus.configuration.dialogTextColor": "对话文本颜色 (十六进制)",
   "cnpcplus.configuration.dialogTextColor.tooltip": "对话文本的基础 RGB 颜色。\n例: E0E0E0 / #FFFFFF / FFAA00\n若对话内写了&颜色码则优先用&颜色。",
   "cnpcplus.configuration.dialogTextFormat": "对话文本格式 (&码)",
@@ -76,7 +77,44 @@
   "cnpcplus.melee.amp": "等级",
   "cnpcplus.melee.duration": "时长(秒)",
   "cnpcplus.configuration.returnToStartTimeoutSeconds": "返回起点超时瞬移时间(秒)",
-  "cnpcplus.configuration.returnToStartTimeoutSeconds.tooltip": "超过该时长仍未回到起点则直接瞬移过去（默认60秒）。\n用于地形被封死等走不回去的情况。",
+  "cnpcplus.configuration.returnToStartTimeoutSeconds.tooltip": "超过该时长仍未回到起点则直接瞬移过去（默认30秒）。\n用于地形被封死等走不回去的情况。",
+  "cnpcplus.configuration.returnToStartSmoothArrival": "返回起点平滑抵达修复",
+  "cnpcplus.configuration.returnToStartSmoothArrival.tooltip": "修复 NPC「返回起点」快到时反复停顿并瞬移/起跳（默认开启）。\n关闭即恢复原版行为，便于出问题时对照。",
+  "cnpcplus.configuration.returnToStartArrivalTolerance": "返回起点到位容差(格)",
+  "cnpcplus.configuration.returnToStartArrivalTolerance.tooltip": "判定 NPC 已回到起点的水平容差（默认3.0，范围0.5-32）。\n原版±0.2 的要求低于寻路到点精度，会被误判为卡住而抖动瞬移；3格覆盖「路径走完但差最后一两步」的情形。",
   "cnpcplus.configuration.corpseNoCollision": "尸体去除碰撞箱",
-  "cnpcplus.configuration.corpseNoCollision.tooltip": "会重生的 NPC 死亡后，尸体不再挡路、不挡准星、不吃箭（默认开启）。\n复活后碰撞箱自动恢复。"
+  "cnpcplus.configuration.corpseNoCollision.tooltip": "会重生的 NPC 死亡后，尸体不再挡路、不挡准星、不吃箭（默认开启）。\n复活后碰撞箱自动恢复。",
+  "cnpcplus.configuration.smeltingGuiOffsetX": "熔炼配方界面X偏移",
+  "cnpcplus.configuration.smeltingGuiOffsetX.tooltip": "可视化自定义熔炼配方界面整体X方向偏移（默认0，范围-300~300）。",
+  "cnpcplus.configuration.smeltingGuiOffsetY": "熔炼配方界面Y偏移",
+  "cnpcplus.configuration.smeltingGuiOffsetY.tooltip": "可视化自定义熔炼配方界面整体Y方向偏移（默认20，与1.20.1一致，范围-300~300）。",
+  "cnpcplus.configuration.realArmorEnabled": "真实护甲",
+  "cnpcplus.configuration.realArmorEnabled.tooltip": "开启后 NPC 身上的原版盔甲按原版公式真实减伤，并按 伤害/4 每件消耗耐久（默认关闭）。\n关闭时与原版一致：护甲只存不生效（伙伴 role 6 除外，它自带算法）。\n摔落/虚空等 BYPASSES_ARMOR 伤害不受影响；修改即时生效。",
+  "cnpcplus.configuration.realArmorOverrideCompanion": "真实护甲覆盖伙伴(role6)",
+
+  "cnpcplus.configuration.realArmorOverrideCompanion.tooltip": "伙伴自带 (25-护甲值)/25 的简化护甲算法（默认关闭）。\nfalse = 伙伴保持自带算法；true = 伙伴也走真实护甲公式。",
+
+  "cnpcplus.configuration.shadowRadiusMax": "NPC阴影半径上限(格)",
+
+  "cnpcplus.configuration.shadowRadiusMax.tooltip": "只影响影子大小，不改模型/碰撞箱/伤害/动画（默认999=原版尺寸）。\n主动调小可避免大体型NPC阴影拖垮帧数；0=完全不画阴影。",
+
+  "cnpcplus.configuration.outlineCacheEnabled": "共享2D轮廓缓存",
+
+  "cnpcplus.configuration.outlineCacheEnabled.tooltip": "共享CNPC原版生成的2D轮廓，减少重复生成（默认开启）。\n关闭后走原版实例缓存；F3+T重载时自动清理显存缓存。",
+
+  "cnpcplus.configuration.outlineCacheEntries": "2D轮廓缓存上限(项)",
+
+  "cnpcplus.configuration.outlineCacheEntries.tooltip": "共享轮廓最多保留多少项，不是NPC数量（默认2048，范围64-16384）。\n达到上限淘汰最久未用项；被淘汰的轮廓下次需要时会重新生成。",
+
+  "cnpcplus.configuration.blueprintCacheEnabled": "蓝图预览缓存",
+
+  "cnpcplus.configuration.blueprintCacheEnabled.tooltip": "缓存建筑方块蓝图预览，减少每帧重建开销（默认开启）。\n只影响预览，不影响实际建筑；关闭可回到CNPC原版预览绘制，便于兼容排查。",
+
+  "cnpcplus.configuration.blueprintBudgetMillis": "蓝图预览每帧预算(毫秒)",
+
+  "cnpcplus.configuration.blueprintBudgetMillis.tooltip": "每帧用于构建预览的软时间预算（默认2，范围0.25-20）。\n调小减轻瞬时卡顿，代价是完整预览出现得更慢，不会减少最终预览方块。",
+
+  "cnpcplus.configuration.blueprintMaxBlocksPerFrame": "蓝图预览每帧方块数上限",
+
+  "cnpcplus.configuration.blueprintMaxBlocksPerFrame.tooltip": "每帧最多处理的预览方块数，与时间预算同时生效；包含空气（默认2048，范围16-8192）。\n未完成的数据留到下一帧，不截断，不调整实际建造速度。"
 }

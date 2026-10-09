@@ -1,6 +1,7 @@
 {
   "cnpcplus.configuration.title": "CNPCPlus Config",
   "cnpcplus.configuration.section.dialog.title": "Dialog Display",
+  "cnpcplus.configuration.section.cnpcplus.common.toml.title": "Common Config",
   "cnpcplus.configuration.dialogTextColor": "Dialog Text Color (Hex)",
   "cnpcplus.configuration.dialogTextColor.tooltip": "Base RGB color for dialog text.",
   "cnpcplus.configuration.dialogTextFormat": "Dialog Text Format (& codes)",
@@ -76,7 +77,44 @@
   "cnpcplus.melee.amp": "Level",
   "cnpcplus.melee.duration": "Time (s)",
   "cnpcplus.configuration.returnToStartTimeoutSeconds": "Return To Start Timeout (s)",
-  "cnpcplus.configuration.returnToStartTimeoutSeconds.tooltip": "Teleport to start if the NPC still hasn't arrived after this many seconds (default 60).",
+  "cnpcplus.configuration.returnToStartTimeoutSeconds.tooltip": "Teleport to start if the NPC still hasn't arrived after this many seconds (default 30).",
+  "cnpcplus.configuration.returnToStartSmoothArrival": "Return-To-Start Smooth Arrival Fix",
+  "cnpcplus.configuration.returnToStartSmoothArrival.tooltip": "Fixes NPCs repeatedly stalling, teleporting or jumping right before reaching their start point (default on).\nTurn off to restore vanilla behavior for comparison.",
+  "cnpcplus.configuration.returnToStartArrivalTolerance": "Return-To-Start Arrival Tolerance (blocks)",
+  "cnpcplus.configuration.returnToStartArrivalTolerance.tooltip": "Horizontal distance considered arrived at the start point (default 3.0, range 0.5-32).\nVanilla's ±0.2 is below pathfinding accuracy, so NPCs were misjudged as stuck and jittered/teleported; 3 blocks covers \"path done but one or two steps short\".",
   "cnpcplus.configuration.corpseNoCollision": "Corpses Have No Hitbox",
-  "cnpcplus.configuration.corpseNoCollision.tooltip": "Respawning NPCs' corpses no longer block movement, crosshair or projectiles (default on). Restored on respawn."
+  "cnpcplus.configuration.corpseNoCollision.tooltip": "Respawning NPCs' corpses no longer block movement, crosshair or projectiles (default on). Restored on respawn.",
+  "cnpcplus.configuration.smeltingGuiOffsetX": "Smelting GUI X Offset",
+  "cnpcplus.configuration.smeltingGuiOffsetX.tooltip": "Overall X offset of the custom smelting recipe GUI (default 0, range -300~300).",
+  "cnpcplus.configuration.smeltingGuiOffsetY": "Smelting GUI Y Offset",
+  "cnpcplus.configuration.smeltingGuiOffsetY.tooltip": "Overall Y offset of the custom smelting recipe GUI (default 20, same as 1.20.1, range -300~300).",
+  "cnpcplus.configuration.realArmorEnabled": "Real Armor",
+  "cnpcplus.configuration.realArmorEnabled.tooltip": "NPCs' vanilla armor reduces damage by the vanilla formula and loses 1 durability per 4 damage (default off).\nOff = vanilla-like: armor is stored but has no effect (companions with role 6 keep their own algorithm).\nFall/void BYPASSES_ARMOR damage is unaffected; changes apply immediately.",
+  "cnpcplus.configuration.realArmorOverrideCompanion": "Real Armor Overrides Companions (role 6)",
+
+  "cnpcplus.configuration.realArmorOverrideCompanion.tooltip": "Companions use their own (25-armor)/25 simplified armor formula (default off).\nfalse = keep companion formula; true = companions also use real armor.",
+
+  "cnpcplus.configuration.shadowRadiusMax": "NPC Shadow Radius Cap (blocks)",
+
+  "cnpcplus.configuration.shadowRadiusMax.tooltip": "Affects shadow size only; models, hitboxes, damage and animations are untouched (default 999 = vanilla size).\nLower it if giant NPCs' shadows tank the framerate; 0 disables shadows entirely.",
+
+  "cnpcplus.configuration.outlineCacheEnabled": "Shared 2D Outline Cache",
+
+  "cnpcplus.configuration.outlineCacheEnabled.tooltip": "Share CNPC's vanilla-generated 2D outlines to avoid regenerating them (default on).\nOff = vanilla instance cache; F3+T reload still clears VRAM caches.",
+
+  "cnpcplus.configuration.outlineCacheEntries": "2D Outline Cache Capacity",
+
+  "cnpcplus.configuration.outlineCacheEntries.tooltip": "Max shared outline entries (not NPC count; default 2048, range 64-16384).\nLeast-recently-used entries are evicted and regenerated on demand.",
+
+  "cnpcplus.configuration.blueprintCacheEnabled": "Blueprint Preview Cache",
+
+  "cnpcplus.configuration.blueprintCacheEnabled.tooltip": "Cache builder-blueprint previews to skip per-frame rebuilds (default on).\nPreview only; actual building is unaffected. Turn off to fall back to CNPC's original preview renderer for compatibility checks.",
+
+  "cnpcplus.configuration.blueprintBudgetMillis": "Blueprint Preview Budget per Frame (ms)",
+
+  "cnpcplus.configuration.blueprintBudgetMillis.tooltip": "Soft per-frame time budget for building previews (default 2, range 0.25-20).\nLower = less hitching but slower full preview; never removes preview blocks.",
+
+  "cnpcplus.configuration.blueprintMaxBlocksPerFrame": "Blueprint Preview Blocks per Frame",
+
+  "cnpcplus.configuration.blueprintMaxBlocksPerFrame.tooltip": "Max preview blocks processed per frame, combined with the time budget; includes air (default 2048, range 16-8192).\nWork continues next frame; nothing is truncated and build speed is unchanged."
 }

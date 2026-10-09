@@ -75,7 +75,19 @@
     "corpse.MixinEntityCustomNpcCorpse",
     "corpse.MixinEntityCorpsePickable",
     "corpse.MixinEntityNPCInterfaceRespawnSize",
-    "corpse.MixinEntityNPCInterfaceRespawnY"
+    "corpse.MixinEntityNPCInterfaceRespawnY",
+    "perf.MixinRoleTraderMarketCache",
+    "perf.MassBlockControllerQueueAccess",
+    "perf.MixinMassBlockController",
+    "perf.MixinJobFarmerProcessed",
+    "perf.MixinEntityNPCCollide",
+    "perf.MixinDataTimersUpdate",
+    "perf.MixinTileWaypointScan",
+    "perf.MixinTileBuilderPositions",
+    "perf.MixinSchematicWrapperBuild",
+    "perf.MixinSchematicWrapperNBTSmall",
+    "leakfix.PlayerDataAdapter",
+    "leakfix.MarkDataAccessor"
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
@@ -129,7 +141,21 @@
     "spawner.MixinGuiNpcSpawnerDelay",
     "skin.MixinRenderNPCInterfaceSkin",
     "transform.MixinGuiNPCNightSetupModeLabel",
-    "melee.MixinSubGuiNpcMeleePropertiesBuffs"
+    "melee.MixinSubGuiNpcMeleePropertiesBuffs",
+    "perf.MixinClientEventHandlerPreview",
+    "perf.MixinModel2DRendererInit",
+    "perf.MixinTileBuilderPreviewInvalidation",
+    "perf.MixinTextContainerInvalidate",
+    "perf.MixinTextContainerLineData",
+    "perf.MixinGuiTextAreaRender",
+    "perf.MixinOverlayTexturedRect",
+    "perf.MixinRenderCustomNpcLayers",
+    "perf.MixinRenderCustomNpcNameTag",
+    "perf.EntityRendererShadowAccess",
+    "perf.MixinRenderNPCInterfaceShadow",
+    "perf.MixinModelPartWrapperRaw",
+    "perf.MixinMpmPartAbstractClientCache",
+    "perf.MixinLayerPartsRotate"
   ],
   "injectors": {
     "defaultRequire": 0
