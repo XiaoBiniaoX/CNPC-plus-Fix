@@ -75,6 +75,20 @@ public class CnpcPlusConfig {
                 "Also fix the discarded color comparison in the pony skin check (option C, changes pegasus/unicorn detection)");
         config.getBoolean("skirtDistanceLod", "performance", true,
                 "Reduce skirt segments for distant npcs");
+        config.getBoolean("dataTimersOptimize", "performance", true,
+                "Skip the per-npc timer list copy every tick when the npc has no active timers");
+        config.getBoolean("waypointScanOptimize", "performance", true,
+                "Use one AABB query for waypoint location checks instead of two queries with list diffing");
+        config.getBoolean("schematicBuildSpread", "performance", true,
+                "Spread schematic building across ticks and skip the idle half of the two-pass scan");
+        config.getBoolean("farmerDedupOptimized", "performance", true,
+                "Dedup farmer tracked blocks with a hash set instead of linear list scans");
+        config.getBoolean("textRenderOptimize", "performance", true,
+                "Memoize script editor line formatting and skip the per-frame line list copy (client)");
+        config.getFloat("nameRenderDistance", "performance", 16.0F, 0.0F, 256.0F,
+                "Max distance (blocks) to render npc name plates (client). 0 = original (~22.6)");
+        config.getFloat("nameTitleDistance", "performance", 12.0F, 0.0F, 256.0F,
+                "Max distance (blocks) to render the <title> line above npc names (client). 0 = hide titles");
         if (config.hasChanged()) {
             config.save();
         }
@@ -287,5 +301,61 @@ public class CnpcPlusConfig {
     public static boolean isSkirtDistanceLod() {
         return config == null || config.getBoolean("skirtDistanceLod", "performance", true,
                 "Reduce skirt segments for distant npcs");
+    }
+
+    /** DataTimers.update 空表短路 + 复用快照缓冲（阶段 33 / 优化 #13）。 */
+    public static boolean isDataTimersOptimizeEnabled() {
+        return config == null || config.getBoolean("dataTimersOptimize", "performance", true,
+                "Skip the per-npc timer list copy every tick when the npc has no active timers");
+    }
+
+    /** 路径点定位扫描单次 AABB 查询（阶段 33 / 优化 #12）。 */
+    public static boolean isWaypointScanOptimizeEnabled() {
+        return config == null || config.getBoolean("waypointScanOptimize", "performance", true,
+                "Use one AABB query for waypoint location checks instead of two queries with list diffing");
+    }
+
+    /** 蓝图建造分摊 + 预筛（阶段 33 / 优化 #1 第三部分）。 */
+    public static boolean isSchematicBuildSpreadEnabled() {
+        return config == null || config.getBoolean("schematicBuildSpread", "performance", true,
+                "Spread schematic building across ticks and skip the idle half of the two-pass scan");
+    }
+
+    /** 农夫 trackedBlocks 哈希去重（阶段 33 / 优化 #2 遗留项）。 */
+    public static boolean isFarmerDedupOptimized() {
+        return config == null || config.getBoolean("farmerDedupOptimized", "performance", true,
+                "Dedup farmer tracked blocks with a hash set instead of linear list scans");
+    }
+
+    /** 脚本编辑器行格式化记忆化 + 每帧行列表拷贝消除（阶段 33 / 优化 #6，客户端）。 */
+    public static boolean isTextRenderOptimizeEnabled() {
+        return config == null || config.getBoolean("textRenderOptimize", "performance", true,
+                "Memoize script editor line formatting and skip the per-frame line list copy (client)");
+    }
+
+    /**
+     * NPC 名字铭牌的最大渲染距离（格，客户端）。
+     *
+     * 原版 CNPC 硬编码 512.0 平方距离 ≈ 22.6 格，每个范围内 NPC 每帧
+     * 2~3 次 FontRenderer.drawString（各自独立贴图绑定 + tessellator flush）。
+     * 0 = 恢复原版硬编码距离。
+     */
+    public static double getNameRenderDistance() {
+        return config == null ? 16.0D : config.getFloat("nameRenderDistance", "performance",
+                16.0F, 0.0F, 256.0F,
+                "Max distance (blocks) to render npc name plates (client). 0 = original (~22.6)");
+    }
+
+    /**
+     * 名字上方 &lt;称号&gt; 行的最大渲染距离（格，客户端）。
+     *
+     * 称号行在原版里没有独立距离限制（只要名字画就画），
+     * 砍掉远处称号 = 每个远处 NPC 少一次 drawString。
+     * 0 = 完全不画称号。
+     */
+    public static double getNameTitleDistance() {
+        return config == null ? 12.0D : config.getFloat("nameTitleDistance", "performance",
+                12.0F, 0.0F, 256.0F,
+                "Max distance (blocks) to render the <title> line above npc names (client). 0 = hide titles");
     }
 }

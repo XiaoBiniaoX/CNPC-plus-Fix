@@ -93,7 +93,11 @@
     "perf.MixinItemStackWrapperLazy",
     "perf.IItemStackWrapperLazyAccess",
     "perf.MixinTileBorderThrottle",
-    "perf.MixinEventHooksCollide"
+    "perf.MixinEventHooksCollide",
+    "perf.MixinSchematicWrapperBuild",
+    "perf.MixinDataTimersUpdate",
+    "perf.MixinTileWaypointScan",
+    "perf.MixinJobFarmerDedup"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",
@@ -142,7 +146,11 @@
     "perf.MixinModelPonySkinCheck",
     "perf.ILoadSkinInvoker",
     "perf.MixinRenderNPCSkinCache",
-    "perf.ILayerNpcAccessor"
+    "perf.ILayerNpcAccessor",
+    "perf.MixinTextContainerInvalidate",
+    "perf.MixinTextContainerLineData",
+    "perf.MixinGuiTextAreaRender",
+    "perf.MixinRenderNPCInterfaceName"
   ],
   "server": [],
   "injectors": {
