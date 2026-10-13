@@ -10,6 +10,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -34,6 +39,25 @@ public final class SmeltingRecipeRegistry {
     private static Map<Integer, SmeltingRecipeData> cache;
     private static int nextId = 1;
     private static boolean ready;
+
+    /**
+     * Disk writes run here, off the server thread.
+     *
+     * A single thread (not a pool) guarantees writes to smelting_recipes.dat are
+     * serialised in submission order: a later snapshot always lands after an
+     * earlier one, so the file can never regress to stale content. Snapshots are
+     * built under LOCK on the caller's thread; the IO itself is pure
+     * consumer work on immutable NBT and needs no lock.
+     */
+    private static final ExecutorService WRITE_THREAD =
+            Executors.newSingleThreadExecutor(new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "cnpcplus-smelting-write");
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
 
     private SmeltingRecipeRegistry() {}
 
@@ -107,10 +131,27 @@ public final class SmeltingRecipeRegistry {
 
     /** Dropped when a world unloads so a different save never inherits this list. */
     public static void clearCache() {
+        // A save that raced the stop must still land on disk before the cache
+        // goes: the write thread is a daemon, so nothing else would flush it.
+        flushWrites();
         synchronized (LOCK) {
             cache = null;
             nextId = 1;
             ready = false;
+        }
+    }
+
+    /** Blocks until every queued disk write has finished (bounded, log on timeout). */
+    private static void flushWrites() {
+        try {
+            Future<?> last = WRITE_THREAD.submit(new Runnable() {
+                @Override
+                public void run() {
+                }
+            });
+            last.get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            CnpcPlus.LOGGER.warn("[Smelting] pending recipe writes did not finish in time", e);
         }
     }
 
@@ -214,18 +255,41 @@ public final class SmeltingRecipeRegistry {
         return map;
     }
 
-    /** Writes to a temp file then renames, so a crash cannot truncate the real one. */
+    /**
+     * Queues a disk write. Called with LOCK held from create/update/remove.
+     *
+     * The NBT snapshot is built here, on the server thread and under the lock
+     * (pure memory work, and it must see the just-updated cache). The actual
+     * file IO runs on WRITE_THREAD: a slow or contended disk previously froze
+     * every server tick for the duration of the write, which is the
+     * save/delete stall reported in the field.
+     */
     private static void writeDisk() {
+        final NBTTagCompound root;
         try {
             NBTTagList list = new NBTTagList();
             for (SmeltingRecipeData data : ensure().values()) {
                 list.appendTag(data.toNBT());
             }
-            NBTTagCompound root = new NBTTagCompound();
+            root = new NBTTagCompound();
             root.setTag("Data", list);
             root.setInteger("Version", 1);
+        } catch (Exception e) {
+            CnpcPlus.LOGGER.error("[Smelting] failed to build " + FILE_NAME + " snapshot", e);
+            return;
+        }
+        final File target = file();
+        WRITE_THREAD.execute(new Runnable() {
+            @Override
+            public void run() {
+                writeNow(root, target);
+            }
+        });
+    }
 
-            File target = file();
+    /** Writes to a temp file then renames, so a crash cannot truncate the real one. */
+    private static void writeNow(NBTTagCompound root, File target) {
+        try {
             File parent = target.getParentFile();
             if (parent != null && !parent.exists()) {
                 parent.mkdirs();

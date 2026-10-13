@@ -2,8 +2,6 @@ package bin.cnpcplus.mixin.recipe;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.RecipeNbtKeys;
-import bin.cnpcplus.recipe.network.CraftingViewNetworkBridge;
-import bin.cnpcplus.recipe.network.PersistClientState;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -13,6 +11,7 @@ import noppes.npcs.client.gui.SubGuiNpcAvailability;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.client.gui.util.GuiCustomScroll;
 import noppes.npcs.client.gui.util.GuiNpcButton;
+import noppes.npcs.client.gui.util.GuiNpcButtonYesNo;
 import noppes.npcs.client.gui.util.GuiNpcTextField;
 import noppes.npcs.constants.EnumPacketServer;
 import noppes.npcs.containers.ContainerManageRecipes;
@@ -47,13 +46,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (self.getButton(2) == null) {
             self.addButton(new GuiNpcButton(2, self.field_147003_i + 306, self.field_147009_r + 104, 84, 20, "gui.save"));
         }
-        // id 7 = persist, id 8 = unpersist (mutually exclusive enable)
-        if (self.getButton(7) == null) {
-            self.addButton(new GuiNpcButton(7, self.field_147003_i + 306, self.field_147009_r + 126, 84, 20, "cnpcplus.recipe.persist"));
-        }
-        if (self.getButton(8) == null) {
-            self.addButton(new GuiNpcButton(8, self.field_147003_i + 306, self.field_147009_r + 148, 84, 20, "cnpcplus.recipe.unpersist"));
-        }
+        // id 7/8（持久化/取消持久化）已彻删：跨世界保存功能移除
         // id 9 = availability (dialog/quest conditions), opens CNPC native editor
         if (self.getButton(9) == null) {
             self.addButton(new GuiNpcButton(9, self.field_147003_i + 306, self.field_147009_r + 170, 84, 20, "cnpcplus.recipe.availability"));
@@ -77,31 +70,34 @@ public class MixinGuiNpcManageRecipesSaveButton {
             return;
         }
 
-        if (id == 7) {
+        // 上方「模糊化处理」(id 5) 与下方「仅名字检查」(id 6) 互斥：
+        // 打开任意一方自动关闭另一方，替代原版两个互不干涉的分支
+        if (id == 5 || id == 6) {
             try {
-                int syncId = cnpcplusCurrentSyncId();
-                if (syncId > 0 && !PersistClientState.isPersisted(syncId)) {
-                    PersistClientState.set(syncId, true);
-                    CraftingViewNetworkBridge.sendPersist(syncId, true);
-                    cnpcplusRefresh(self);
+                if (guibutton instanceof GuiNpcButtonYesNo && this.container != null && this.container.recipe != null) {
+                    boolean on = ((GuiNpcButtonYesNo) guibutton).getBoolean();
+                    if (id == 5) {
+                        this.container.recipe.ignoreDamage = on;
+                        if (on) {
+                            this.container.recipe.ignoreNBT = false;
+                            GuiNpcButton lower = self.getButton(6);
+                            if (lower instanceof GuiNpcButtonYesNo) {
+                                ((GuiNpcButtonYesNo) lower).setDisplay(0);
+                            }
+                        }
+                    } else {
+                        this.container.recipe.ignoreNBT = on;
+                        if (on) {
+                            this.container.recipe.ignoreDamage = false;
+                            GuiNpcButton upper = self.getButton(5);
+                            if (upper instanceof GuiNpcButtonYesNo) {
+                                ((GuiNpcButtonYesNo) upper).setDisplay(0);
+                            }
+                        }
+                    }
                 }
             } catch (Throwable t) {
-                CnpcPlus.LOGGER.error("[GUI] persist button failed", t);
-            }
-            ci.cancel();
-            return;
-        }
-
-        if (id == 8) {
-            try {
-                int syncId = cnpcplusCurrentSyncId();
-                if (syncId > 0 && PersistClientState.isPersisted(syncId)) {
-                    PersistClientState.set(syncId, false);
-                    CraftingViewNetworkBridge.sendPersist(syncId, false);
-                    cnpcplusRefresh(self);
-                }
-            } catch (Throwable t) {
-                CnpcPlus.LOGGER.error("[GUI] unpersist button failed", t);
+                CnpcPlus.LOGGER.error("[GUI] fuzzy/nameOnly toggle failed", t);
             }
             ci.cancel();
             return;
@@ -396,23 +392,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
             GuiNpcButton add = self.getButton(3);
             if (add != null) {
                 add.setEnabled(true);
-            }
-            int syncId = cnpcplusCurrentSyncId();
-            boolean has = syncId > 0;
-            if (has && !PersistClientState.known(syncId)) {
-                CraftingViewNetworkBridge.requestPersistState(syncId);
-            }
-            boolean p = has && PersistClientState.isPersisted(syncId);
-
-            GuiNpcButton persist = self.getButton(7);
-            if (persist != null) {
-                persist.displayString = cnpcplusLabel("cnpcplus.recipe.persist", "Persist");
-                persist.setEnabled(has && !p);
-            }
-            GuiNpcButton unpersist = self.getButton(8);
-            if (unpersist != null) {
-                unpersist.displayString = cnpcplusLabel("cnpcplus.recipe.unpersist", "Unpersist");
-                unpersist.setEnabled(has && p);
             }
             GuiNpcButton availability = self.getButton(9);
             if (availability != null) {

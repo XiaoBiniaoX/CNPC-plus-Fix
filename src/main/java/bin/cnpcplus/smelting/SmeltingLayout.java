@@ -40,6 +40,14 @@ public final class SmeltingLayout {
     public static final int TOGGLE_WIDTH = 20;
     public static final int TOGGLE_HEIGHT = 20;
 
+    /**
+     * 「仅名字检查」toggle, right of the result slot (result slot 110,55; the
+     * 1.20.1 module moved here on 2026-10-13 after user feedback that the old
+     * below-fuel position looked out of place; same 132,54 coordinates).
+     */
+    public static final int NAMEONLY_X = 132;
+    public static final int NAMEONLY_Y = 54;
+
     // Recipe name field (top left).
     public static final int NAME_X = 8;
     public static final int NAME_Y = 8;

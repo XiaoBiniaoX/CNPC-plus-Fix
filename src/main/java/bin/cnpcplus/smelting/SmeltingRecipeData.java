@@ -30,6 +30,8 @@ public class SmeltingRecipeData {
     public boolean blastAllowed = false;
     public boolean smokerAllowed = false;
     public boolean genericFuelAllowed = false;
+    /** 仅名字检查：匹配时只比对物品ID+显示名称，跳过耐久/NBT（与 1.20.1 同语义同 NBT 键）。 */
+    public boolean nameOnly = false;
 
     public NBTTagCompound toNBT() {
         NBTTagCompound tag = new NBTTagCompound();
@@ -43,6 +45,7 @@ public class SmeltingRecipeData {
         tag.setBoolean("Blast", this.blastAllowed);
         tag.setBoolean("Smoker", this.smokerAllowed);
         tag.setBoolean("GenericFuel", this.genericFuelAllowed);
+        tag.setBoolean("NameOnly", this.nameOnly);
         return tag;
     }
 
@@ -61,6 +64,7 @@ public class SmeltingRecipeData {
         data.blastAllowed = tag.getBoolean("Blast");
         data.smokerAllowed = tag.getBoolean("Smoker");
         data.genericFuelAllowed = tag.getBoolean("GenericFuel");
+        data.nameOnly = tag.getBoolean("NameOnly");
         return data;
     }
 

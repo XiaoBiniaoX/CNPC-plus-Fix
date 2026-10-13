@@ -97,7 +97,8 @@
     "perf.MixinSchematicWrapperBuild",
     "perf.MixinDataTimersUpdate",
     "perf.MixinTileWaypointScan",
-    "perf.MixinJobFarmerDedup"
+    "perf.MixinJobFarmerDedup",
+    "playerdata.MixinRoleTransporterUnlockSave"
   ],
   "client": [
     "recipe.MixinGuiNPCGlobalMainMenuRecipes",

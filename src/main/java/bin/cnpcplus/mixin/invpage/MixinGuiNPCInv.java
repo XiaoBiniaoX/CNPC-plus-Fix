@@ -4,12 +4,14 @@ import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
 import bin.cnpcplus.invpage.DropPageStore;
 import bin.cnpcplus.invpage.network.PacketNpcInvPage;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.translation.I18n;
 import noppes.npcs.client.gui.mainmenu.GuiNPCInv;
 import noppes.npcs.client.gui.util.GuiContainerNPCInterface;
 import noppes.npcs.client.gui.util.GuiNpcButton;
 import noppes.npcs.client.gui.util.GuiNpcLabel;
 import noppes.npcs.client.gui.util.GuiNpcSlider;
+import noppes.npcs.client.gui.util.GuiNpcTextField;
 import noppes.npcs.containers.ContainerNPCInv;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,45 +26,23 @@ import java.util.Map;
 
 /**
  * Three-page drop list for GuiNPCInv, matching the 1.20.1 layout:
- * - window enlarged to 224 (npcinv.png is 256 tall, fully covered) so the
- *   prev/next buttons at +195 sit below the hotbar (171..189)
  * - vanilla initGui() unconditionally rewrites chances[0..8] from
  *   dropchance, so session edits are kept in a pending map and applied
  *   unconditionally on every rebuild (prevents first-page loss on flip
  *   and on reopen-after-ESC)
- * ySize is set via reflection: mixins may not extend the target class
- * (InvalidMixinException at runtime) and MC core classes may not be
- * @Mixin targets (pre-loaded by other coremods).
+ * 曾把 ySize 扩到 224 让翻页按钮落进窗口：guiTop = (height - ySize) / 2
+ * 因此整页比其他页面上移 12px（2026-10-13 用户上报，已删除扩窗段恢复 200）。
+ * 翻页按钮 guiTop+195 仍在快捷栏（171..187）下方，npcinv.png 按 256x256
+ * 无条件绘制，窗口下沿之外的区域照样有底图，不重叠、不出屏。
  */
 @Mixin(GuiNPCInv.class)
 public class MixinGuiNPCInv {
-
-    private static final Field CNPCPLUS_YSIZE = cnpcplus$findYSize();
-
-    private static Field cnpcplus$findYSize() {
-        try {
-            Field f = net.minecraft.client.gui.inventory.GuiContainer.class.getDeclaredField("field_147000_g");
-            f.setAccessible(true);
-            return f;
-        } catch (Throwable t) {
-            return null;
-        }
-    }
 
     @Shadow(remap = false)
     private HashMap<Integer, Integer> chances;
 
     @Unique
     private final HashMap<Integer, Integer> cnpcplus$pending = new HashMap<Integer, Integer>();
-
-    @Inject(method = "<init>", at = @At("RETURN"), remap = false)
-    private void cnpcplus$enlarge(CallbackInfo ci) {
-        if (CNPCPLUS_YSIZE == null) return;
-        try {
-            CNPCPLUS_YSIZE.setInt(this, 224);
-        } catch (Exception ignored) {
-        }
-    }
 
     /**
      * Vanilla mode button (id 10) only offers 0/1 (stats.normal / inv.auto).
@@ -120,6 +100,55 @@ public class MixinGuiNPCInv {
             } catch (Exception ignored) {
             }
         }
+    }
+
+    /**
+     * 进入物品栏界面顿挫修复（用户 2026-10-13 反馈）。
+     * Vanilla setGuiData = readEntityFromNBT + func_73866_w_（第二次全量 initGui：
+     * 重建 9 滑条/文本框/按钮/标签）。改为原位刷新已建控件后 cancel，
+     * 避免整页销毁重建的明显卡顿。
+     * Guard: getSlider(0)==null 说明 initGui 尚未跑完，放行原版走全量重建。
+     * 刷新时 pending 优先于 dropchance，与 pageControls 一致（未保存会话值不丢）。
+     */
+    @Inject(method = "setGuiData", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$fastSetGuiData(NBTTagCompound compound, CallbackInfo ci) {
+        GuiNPCInv self = (GuiNPCInv) (Object) this;
+        GuiContainerNPCInterface base = (GuiContainerNPCInterface) (Object) this;
+        if (base.getSlider(0) == null) {
+            return;
+        }
+        self.npc.inventory.readEntityFromNBT(compound);
+        int page = DropPageStore.get(base.npc.inventory);
+        for (int i = 0; i < 9; i++) {
+            GuiNpcSlider slider = base.getSlider(i);
+            if (slider == null) continue;
+            int slot = page * 9 + i;
+            int chance = 100;
+            if (cnpcplus$pending.containsKey(slot)) {
+                chance = cnpcplus$pending.get(slot);
+            } else if (base.npc.inventory.dropchance.containsKey(slot)) {
+                chance = base.npc.inventory.dropchance.get(slot);
+            }
+            chances.put(slot, chance);
+            slider.sliderValue = chance / 100.0f;
+            slider.displayString = I18n.translateToLocal("inv.dropChance") + ": " + chance + "%";
+        }
+        GuiNpcTextField tfMin = base.getTextField(0);
+        if (tfMin != null) {
+            tfMin.setText(self.npc.inventory.getExpMin() + "");
+        }
+        GuiNpcTextField tfMax = base.getTextField(1);
+        if (tfMax != null) {
+            tfMax.setText(self.npc.inventory.getExpMax() + "");
+        }
+        GuiNpcButton lootBtn = base.getButton(10);
+        if (lootBtn != null) {
+            try {
+                lootBtn.setDisplay(self.npc.inventory.lootMode);
+            } catch (Exception ignored) {
+            }
+        }
+        ci.cancel();
     }
 
     @Inject(method = "func_146284_a", at = @At("HEAD"), cancellable = true, remap = false)

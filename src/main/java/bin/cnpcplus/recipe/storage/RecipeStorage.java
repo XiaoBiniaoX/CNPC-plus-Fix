@@ -16,13 +16,10 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Set;
 
 /**
- * Per-world recipes.dat + merge shared_recipes.dat from CustomNpcs.Dir.
- * saveAll only writes the world file (never wipes shared).
+ * Per-world recipes.dat storage.
+ * saveAll only writes the world file.
  */
 public final class RecipeStorage {
     public static final RecipeStorage INSTANCE = new RecipeStorage();
@@ -35,7 +32,6 @@ public final class RecipeStorage {
 
     public void loadAll(RecipeController controller) {
         RecipeIds.INSTANCE.clear();
-        SharedRecipeStore.INSTANCE.load();
 
         HashMap<Integer, RecipeCarpentry> global = new HashMap<Integer, RecipeCarpentry>();
         HashMap<Integer, RecipeCarpentry> anvil = new HashMap<Integer, RecipeCarpentry>();
@@ -57,34 +53,6 @@ public final class RecipeStorage {
             }
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipeStorage] world load failed", e);
-        }
-
-        // Merge shared (skip names already present from world; world wins for this session)
-        Set<String> present = new HashSet<String>();
-        for (RecipeCarpentry r : global.values()) {
-            if (r != null && r.name != null) present.add(r.name.toLowerCase(Locale.ROOT));
-        }
-        for (RecipeCarpentry r : anvil.values()) {
-            if (r != null && r.name != null) present.add(r.name.toLowerCase(Locale.ROOT));
-        }
-        for (RecipeCarpentry shared : SharedRecipeStore.INSTANCE.all()) {
-            if (shared == null || shared.name == null) continue;
-            String key = shared.name.toLowerCase(Locale.ROOT);
-            if (present.contains(key)) continue;
-            NBTTagCompound tag = shared.writeNBT();
-            tag.setString("Name", shared.name);
-            if (shared.id > 0) {
-                tag.setInteger(RecipeNbtKeys.SYNC_ID, shared.id);
-                tag.setInteger("ID", shared.id);
-            }
-            RecipeCarpentry copy = RecipeCarpentry.read(tag);
-            copy.name = shared.name;
-            int preferred = shared.id > 0 ? shared.id : -1;
-            int syncId = RecipeIds.INSTANCE.register(copy, preferred);
-            copy.id = syncId;
-            if (copy.isGlobal) global.put(Integer.valueOf(syncId), copy);
-            else anvil.put(Integer.valueOf(syncId), copy);
-            present.add(key);
         }
 
         controller.globalRecipes = global;
@@ -121,7 +89,7 @@ public final class RecipeStorage {
         }
     }
 
-    /** World-only save. Shared recipes stay in shared_recipes.dat. */
+    /** World-only save. */
     public void saveAll(RecipeController controller) {
         File saveDir = worldDir();
         if (saveDir == null) {

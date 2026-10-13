@@ -6,8 +6,6 @@ RealArmorOverrideCompanion=Заменить расчёт брони компан
 gui.ignoreDamage=Нечёткое сопоставление
 gui.ignoreNBT=Только по имени
 gui.save=Сохранить
-cnpcplus.recipe.persist=Сохранить в общий файл
-cnpcplus.recipe.unpersist=Убрать из общего файла
 cnpcplus.recipe.availability=Условия (диалог/задание)
 cnpcplus.recipe.mode.exact=Точное совпадение
 cnpcplus.recipe.mode.fuzzy=Нечёткое сопоставление
@@ -53,6 +51,7 @@ cnpcplus.smelting.title=Пользовательские рецепты плав
 cnpcplus.smelting.blast=Разрешить доменную печь (не работает в 1.12.2)
 cnpcplus.smelting.smoker=Разрешить коптильню (не работает в 1.12.2)
 cnpcplus.smelting.generic=Разрешить обычное топливо
+cnpcplus.smelting.nameonly=Только по имени (без прочности и NBT)
 cnpcplus.smelting.cooktime=Время плавки
 cnpcplus.smelting.xp=Опыт
 cnpcplus.bard.loop.on=Повтор: ВКЛ
@@ -70,3 +69,28 @@ returnHomeSmoothArrival=Доходить до точки старта пешко
 returnHomeArrivalTolerance=Дистанция подавления телепорта (блоки)
 returnHomeTimeoutSeconds=Таймаут телепорта к точке старта (сек)
 ai=ИИ NPC
+performance=Производительность
+traderMarketCacheMode=Кэш файлов рынка торговца (0=выкл, 1=проверка, 2=память)
+farmerScanRange=Радиус сканирования блоков фермера (ванилла 16)
+farmerScanSlices=Разбиение скана фермера по тикам
+npcHurtScanRange=Радиус скана защиты фракции при уроне (ванилла 32)
+npcHurtScanCooldown=Мин. тики между сканами защиты одного NPC
+npcRetargetCloser=Разрешить NPC в бою переключаться на ближайшего врага
+keepGlobalEntityRadius=Не повышать глобальный радиус коллизий сущностей
+getsAttackedScanRange=Радиус скана фракции при получении урона (ванилла 16)
+borderTickInterval=Интервал сканирования граничных блоков в тиках (ванилла 1)
+lazyItemStackWrapper=Ленивое выделение подобъектов ItemStack
+skipUnusedCollideEvents=Пропуск событий столкновений без скриптов и слушателей
+pruneCombatAggressors=Очистка недействительных записей таблицы агрессоров
+urlSkinDiskCache=Дисковый кэш URL-скинов с откатом при ошибках
+ponySkinFixDeadBranch=Исправить мёртвую ветку сравнения цвета пони (меняет определение пегаса/единорога)
+skirtDistanceLod=Уменьшать сегменты юбки на расстоянии
+dataTimersOptimize=Пропуск копирования пустых списков таймеров каждый тик
+waypointScanOptimize=Один AABB-запрос для проверки waypoint-локаций
+schematicBuildSpread=Распределить постройку схематики по тикам
+farmerDedupOptimized=Дедупликация блоков фермера через HashSet
+textRenderOptimize=Мемоизация форматирования строк редактора скриптов (клиент)
+nameRenderDistance=Дальность отрисовки имён NPC (блоки, 0 = ванилла ~22.6)
+nameTitleDistance=Дальность отрисовки титула над именем NPC (блоки, 0 = скрыть)
+playerdata=Данные игрока
+playerDataAutoSaveSeconds=Интервал автосохранения данных игрока CNPC (секунды, 0 = выкл)

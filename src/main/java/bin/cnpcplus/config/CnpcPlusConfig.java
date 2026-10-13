@@ -89,6 +89,8 @@ public class CnpcPlusConfig {
                 "Max distance (blocks) to render npc name plates (client). 0 = original (~22.6)");
         config.getFloat("nameTitleDistance", "performance", 12.0F, 0.0F, 256.0F,
                 "Max distance (blocks) to render the <title> line above npc names (client). 0 = hide titles");
+        config.getInt("playerDataAutoSaveSeconds", "playerdata", 300, 0, 86400,
+                "Seconds between automatic CNPC player data saves (quests/dialogs/transports). 0 = off");
         if (config.hasChanged()) {
             config.save();
         }
@@ -357,5 +359,12 @@ public class CnpcPlusConfig {
         return config == null ? 12.0D : config.getFloat("nameTitleDistance", "performance",
                 12.0F, 0.0F, 256.0F,
                 "Max distance (blocks) to render the <title> line above npc names (client). 0 = hide titles");
+    }
+
+    /** CNPC 玩家数据（任务/对话/传送点）自动存档间隔（秒）。0 = 关闭。默认 300s = 5 分钟。 */
+    public static int getPlayerDataAutoSaveSeconds() {
+        return config == null ? 300 : config.getInt("playerDataAutoSaveSeconds", "playerdata",
+                300, 0, 86400,
+                "Seconds between automatic CNPC player data saves (quests/dialogs/transports). 0 = off");
     }
 }

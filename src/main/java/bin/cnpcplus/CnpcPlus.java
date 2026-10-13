@@ -1,7 +1,9 @@
 package bin.cnpcplus;
 
+import bin.cnpcplus.command.CommandCnpcPlus;
 import bin.cnpcplus.config.CnpcPlusConfig;
 import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
+import bin.cnpcplus.playerdata.PlayerDataPersistence;
 import bin.cnpcplus.recipe.RecipeGlobalBootstrap;
 import bin.cnpcplus.quest.QuestCompletionEvents;
 import bin.cnpcplus.smelting.SmeltingBurnTimeHandler;
@@ -22,7 +24,7 @@ import org.apache.logging.log4j.Logger;
 public class CnpcPlus {
     public static final String MODID = "cnpcplus";
     public static final String NAME = "CNPCPlus";
-    public static final String VERSION = "4.0.0";
+    public static final String VERSION = "4.0.5";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.EventHandler
@@ -36,6 +38,7 @@ public class CnpcPlus {
         MinecraftForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
         MinecraftForge.EVENT_BUS.register(new QuestCompletionEvents());
         MinecraftForge.EVENT_BUS.register(new SmeltingBurnTimeHandler());
+        MinecraftForge.EVENT_BUS.register(new PlayerDataPersistence());
         SmeltingGuiOpener.register();
     }
 
@@ -50,5 +53,6 @@ public class CnpcPlus {
         RecipeGlobalBootstrap.onServerStarting(event.getServer());
         // Only now is CustomNpcs.Dir usable and vanilla recipe registration done.
         SmeltingRecipeRegistry.markReady();
+        event.registerServerCommand(new CommandCnpcPlus());
     }
 }

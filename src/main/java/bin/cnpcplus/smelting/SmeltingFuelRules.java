@@ -28,6 +28,23 @@ public final class SmeltingFuelRules {
                 && ItemStack.areItemStackTagsEqual(actual, expected);
     }
 
+    /**
+     * 仅名字检查 (nameOnly): same item id + same display name, damage and NBT
+     * ignored. Mirrors the 1.20.1 SmeltingRecipeParser nameOnly path and the
+     * merchant nameMatch semantics.
+     */
+    public static boolean nameMatches(ItemStack actual, ItemStack expected) {
+        if (actual == null || expected == null || actual.isEmpty() || expected.isEmpty()) {
+            return false;
+        }
+        if (actual.getItem() != expected.getItem()) {
+            return false;
+        }
+        String a = actual.getDisplayName();
+        String b = expected.getDisplayName();
+        return a == null ? b == null : a.equals(b);
+    }
+
     /** The custom recipe whose input matches this stack, or null. */
     public static SmeltingRecipeData findByInput(ItemStack input) {
         if (input == null || input.isEmpty()) {
@@ -36,7 +53,16 @@ public final class SmeltingFuelRules {
         List<SmeltingRecipeData> all = SmeltingRecipeRegistry.list();
         for (int i = 0; i < all.size(); ++i) {
             SmeltingRecipeData data = all.get(i);
-            if (data != null && !data.output.isEmpty() && stackMatches(input, data.input)) {
+            if (data == null || data.output.isEmpty()) {
+                continue;
+            }
+            // nameOnly widens the input check only; fuel/output stay exact so a
+            // renamed copy cannot smuggle a different fuel or claim another
+            // recipe's output (same split as the 1.20.1 module).
+            boolean hit = data.nameOnly
+                    ? nameMatches(input, data.input)
+                    : stackMatches(input, data.input);
+            if (hit) {
                 return data;
             }
         }

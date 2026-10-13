@@ -36,6 +36,7 @@ public class PacketSmeltingAction implements IMessage {
     private boolean blast;
     private boolean smoker;
     private boolean generic;
+    private boolean nameOnly;
 
     public PacketSmeltingAction() {}
 
@@ -45,7 +46,8 @@ public class PacketSmeltingAction implements IMessage {
     }
 
     public PacketSmeltingAction(int action, int id, String name, float cookTime, float xp,
-                                boolean blast, boolean smoker, boolean generic) {
+                                boolean blast, boolean smoker, boolean generic,
+                                boolean nameOnly) {
         this.action = action;
         this.id = id;
         this.name = name == null ? "" : name;
@@ -54,6 +56,7 @@ public class PacketSmeltingAction implements IMessage {
         this.blast = blast;
         this.smoker = smoker;
         this.generic = generic;
+        this.nameOnly = nameOnly;
     }
 
     @Override
@@ -66,6 +69,7 @@ public class PacketSmeltingAction implements IMessage {
         this.blast = buf.readBoolean();
         this.smoker = buf.readBoolean();
         this.generic = buf.readBoolean();
+        this.nameOnly = buf.readBoolean();
     }
 
     @Override
@@ -78,6 +82,7 @@ public class PacketSmeltingAction implements IMessage {
         buf.writeBoolean(this.blast);
         buf.writeBoolean(this.smoker);
         buf.writeBoolean(this.generic);
+        buf.writeBoolean(this.nameOnly);
     }
 
     public static class Handler implements IMessageHandler<PacketSmeltingAction, IMessage> {
@@ -135,9 +140,13 @@ public class PacketSmeltingAction implements IMessage {
                 default:
                     return;
             }
-            SmeltingSync.sendTo(player);
             if (msg.action == ACTION_SAVE || msg.action == ACTION_REMOVE) {
+                // sendToAll already covers the operator (their editor is open),
+                // so the old unconditional sendTo here sent a second full-list
+                // packet to them on every save/delete.
                 SmeltingSync.sendToAll(player.getServer());
+            } else {
+                SmeltingSync.sendTo(player);
             }
         }
 
@@ -159,6 +168,7 @@ public class PacketSmeltingAction implements IMessage {
             data.blastAllowed = msg.blast;
             data.smokerAllowed = msg.smoker;
             data.genericFuelAllowed = msg.generic;
+            data.nameOnly = msg.nameOnly;
             if (data.input.isEmpty() || data.output.isEmpty()) {
                 return;
             }

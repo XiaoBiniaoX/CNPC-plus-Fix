@@ -44,6 +44,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
     private static final int BTN_REMOVE = 4;
 
     private static final int BTN_GENERIC = 7;
+    private static final int BTN_NAMEONLY = 8;
 
     private static final int FIELD_NAME = 30;
     private static final int FIELD_TIME = 20;
@@ -60,6 +61,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
     private boolean blast;
     private boolean smoker;
     private boolean generic;
+    private boolean nameOnly;
 
     /**
      * The npc must not be null. Every top menu button routes through
@@ -134,6 +136,14 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
                 this.guiTop + SmeltingLayout.TOGGLE_Y + SmeltingLayout.TOGGLE_SPACING,
                 SmeltingLayout.TOGGLE_WIDTH, SmeltingLayout.TOGGLE_HEIGHT,
                 new ItemStack(Items.COAL), this.generic, "cnpcplus.smelting.generic"));
+
+        // 「仅名字检查」：输入槽按物品ID+显示名匹配，跳过耐久/NBT（与 1.20.1 同语义）。
+        // 位置在结果槽右侧（132,54），与 1.20.1 模块一致（燃料槽下方位置突兀已移）。
+        this.addButton(new GuiIconToggleButton(BTN_NAMEONLY,
+                this.guiLeft + SmeltingLayout.NAMEONLY_X,
+                this.guiTop + SmeltingLayout.NAMEONLY_Y,
+                SmeltingLayout.TOGGLE_WIDTH, SmeltingLayout.TOGGLE_HEIGHT,
+                new ItemStack(Items.NAME_TAG), this.nameOnly, "cnpcplus.smelting.nameonly"));
 
         // Always present, including while defining a brand new recipe: they were
         // previously gated on a recipe being selected, which meant the cook time and
@@ -235,6 +245,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
         this.blast = selected.blastAllowed;
         this.smoker = selected.smokerAllowed;
         this.generic = selected.genericFuelAllowed;
+        this.nameOnly = selected.nameOnly;
     }
 
     /** Same-named recipes get their id appended so the list stays unambiguous. */
@@ -275,6 +286,8 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
             super.actionPerformed(guibutton);
             if (toggle.id == BTN_GENERIC) {
                 this.generic = toggle.isOn();
+            } else if (toggle.id == BTN_NAMEONLY) {
+                this.nameOnly = toggle.isOn();
             }
             return;
         }
@@ -292,6 +305,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
             this.blast = false;
             this.smoker = false;
             this.generic = false;
+            this.nameOnly = false;
             // The server clears its own slots and echoes the result back.
             this.send(PacketSmeltingAction.ACTION_NEW, -1);
             this.initGui();
@@ -304,7 +318,8 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
             this.readFields();
             CraftingViewNetwork.CHANNEL.sendToServer(new PacketSmeltingAction(
                     PacketSmeltingAction.ACTION_SAVE, this.selectedId, this.recipeName,
-                    this.cookTime, this.xp, this.blast, this.smoker, this.generic));
+                    this.cookTime, this.xp, this.blast, this.smoker, this.generic,
+                    this.nameOnly));
         }
     }
 
