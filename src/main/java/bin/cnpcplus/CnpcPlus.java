@@ -28,5 +28,10 @@ public class CnpcPlus {
         NeoForge.EVENT_BUS.register(ScoreboardFixListener.class);
         NeoForge.EVENT_BUS.register(NoppesCommandBlockAccess.class);
         NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerDataLifecycle.class);
+        NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerAutoSave.class);
+        NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerRespawnFix.class);
+        NeoForge.EVENT_BUS.register(bin.cnpcplus.command.CmdPlayerData.class);
+        NeoForge.EVENT_BUS.register(bin.cnpcplus.leakfix.MarkDataCleanup.class);
+        NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerTrackingCleanup.class);
     }
 }

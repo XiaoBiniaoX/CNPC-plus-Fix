@@ -89,7 +89,29 @@
     "leakfix.PlayerDataAdapter",
     "leakfix.MarkDataAccessor",
     "clone.MixinServerCloneControllerSaveClone",
-    "CustomNpcsPermissionsMixin"
+    "CustomNpcsPermissionsMixin",
+    "playerdata.MixinPlayerDataSyncNbt",
+    "playerdata.MixinPlayerDataAtomicSave",
+    "playerdata.MixinPlayerQuestDataKeyGuard",
+    "playerdata.MixinPlayerTransportDataKeyGuard",
+    "playerdata.MixinPlayerDialogDataKeyGuard",
+    "playerdata.MixinPlayerBankDataKeyGuard",
+    "playerdata.MixinPlayerMailDataKeyGuard",
+    "playerdata.MixinPlayerDataClientNoCompanion",
+    "transport.MixinRoleTransporterUnlock",
+    "entity.MixinEntityNPCInterfaceReset",
+    "entity.MixinEntityNPCInterfaceSeenBy",
+    "entity.data.MixinDataDisplayTrackNpc",
+    "entity.data.MixinDataDisplayDirtyFlags",
+    "controllers.data.MixinPlayerFactionDataDirty",
+    "packets.MixinPacketServerBasicTool",
+    "util.MixinCustomNpcsDirCache",
+    "container.MixinContainerNPCCompanionNull",
+    "container.MixinContainerNPCFollowerNull",
+    "container.MixinContainerNPCFollowerHireNull",
+    "container.MixinContainerNPCFollowerSetupNull",
+    "container.MixinContainerNPCInvNull",
+    "containers.MixinContainerNpcInterfaceDistance"
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
@@ -157,7 +179,8 @@
     "perf.MixinRenderNPCInterfaceShadow",
     "perf.MixinModelPartWrapperRaw",
     "perf.MixinMpmPartAbstractClientCache",
-    "perf.MixinLayerPartsRotate"
+    "perf.MixinLayerPartsRotate",
+    "client.MixinPacketQuestCompletion"
   ],
   "injectors": {
     "defaultRequire": 0

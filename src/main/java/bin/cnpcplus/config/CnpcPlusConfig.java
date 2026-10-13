@@ -181,5 +181,13 @@ public class CnpcPlusConfig {
             )
             .defineInRange("blueprintMaxBlocksPerFrame", 2048, 16, 8192);
 
+    public static final ModConfigSpec.IntValue PLAYER_AUTOSAVE_SECONDS = BUILDER
+            .comment(
+                "玩家任务/传送等 CNPC 数据自动保存间隔（秒，默认300=5分钟）",
+                "0 关闭自动保存",
+                "崩溃或异常退出时最多丢失该间隔内的进度"
+            )
+            .defineInRange("playerAutoSaveSeconds", 300, 0, 3600);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }
