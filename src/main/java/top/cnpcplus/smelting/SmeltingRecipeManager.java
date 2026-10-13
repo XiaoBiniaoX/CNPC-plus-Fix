@@ -86,15 +86,16 @@ public final class SmeltingRecipeManager {
     }
 
     /**
-     * 重新下发原版配方表给所有客户端。
+     * 重新下发原版配方表给指定客户端（编辑界面用）。
      * 上面的 syncToPlayers 只更新我们自己的编辑界面列表；客户端的 RecipeManager（配方书、JEI 等）
      * 要靠原版的配方同步包才会更新，否则改完配方后客户端一直是旧数据，直到重连。
+     *
+     * <p>只发给操作者本人，不群发全服：ClientboundUpdateRecipesPacket 包含游戏内全部配方，
+     * 体积可达数百 KB~数 MB，保存/删除时群发会让服务端卡数秒~分钟。
      */
-    public static void resendVanillaRecipes(MinecraftServer server) {
-        if (server == null) return;
-        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-            p.connection.send(new net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket(
-                    server.getRecipeManager().getRecipes()));
-        }
+    public static void resendVanillaRecipes(ServerPlayer target) {
+        if (target == null || target.server == null) return;
+        target.connection.send(new net.minecraft.network.protocol.game.ClientboundUpdateRecipesPacket(
+                target.server.getRecipeManager().getRecipes()));
     }
 }

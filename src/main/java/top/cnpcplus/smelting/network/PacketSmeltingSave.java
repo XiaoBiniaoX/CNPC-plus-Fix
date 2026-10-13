@@ -46,8 +46,8 @@ public class PacketSmeltingSave {
             if (!ok) return;
             SmeltingRecipeManager.injectAll(sender.server.getRecipeManager());
             SmeltingRecipeManager.syncToPlayers(sender.server);
-            // 让客户端的配方书/JEI 也拿到新配方，否则要重连才能看到
-            SmeltingRecipeManager.resendVanillaRecipes(sender.server);
+            // 只发给操作者，不群发全服（全量原版配方包体积大，群发会卡）
+            SmeltingRecipeManager.resendVanillaRecipes(sender);
         });
         ctx.get().setPacketHandled(true);
     }

@@ -3,7 +3,7 @@ package top.cnpcplus.craftingview;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
-import top.cnpcplus.config.CnpcPlusConfigData;
+import noppes.npcs.CustomNpcs;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +17,8 @@ import java.util.Map;
  * - ignoreNBT = true  → 仅名字检查（物品 ID + 显示名称）
  * - ignoreDamage = true → 配置模糊化（物品 ID + 显示名称 + 配置 NBT 字段）
  * - 两者都 false  → 精确比对（物品 ID + 耐久 + 完整 NBT）
+ *
+ * 模糊化配置与商人共用 CustomNpcs.FuzzyMatchRules（非独立配置）。
  */
 public class CraftUtils {
 
@@ -31,7 +33,7 @@ public class CraftUtils {
 
         // 配置模糊化：跳过耐久，只额外检查配置里指定的 NBT 字段。
         if (ignoreDamage) {
-            Map<String, List<String>> rules = getRecipeFuzzyRules();
+            Map<String, List<String>> rules = getFuzzyRules();
             String itemId = BuiltInRegistries.ITEM.getKey(required.getItem()).toString();
             List<String> fields = rules.get(itemId);
 
@@ -63,8 +65,12 @@ public class CraftUtils {
         return playerStack.getHoverName().getString().equals(required.getHoverName().getString());
     }
 
-    private static Map<String, List<String>> getRecipeFuzzyRules() {
-        String raw = CnpcPlusConfigData.RecipeFuzzyMatchRules.get();
+    /**
+     * 解析 CustomNpcs.FuzzyMatchRules（与商人共用的配置）。
+     * 格式：物品ID|字段1,字段2;物品ID2|字段3
+     */
+    private static Map<String, List<String>> getFuzzyRules() {
+        String raw = CustomNpcs.FuzzyMatchRules;
         Map<String, List<String>> rules = new HashMap<>();
         if (raw == null || raw.isBlank()) return rules;
         for (String part : raw.split(";")) {

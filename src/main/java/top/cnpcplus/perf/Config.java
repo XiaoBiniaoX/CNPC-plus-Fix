@@ -41,13 +41,22 @@ public final class Config {
             .defineInRange("blueprintMaxBlocksPerFrame", 2048, 16, 8192);
     public static final ForgeConfigSpec SPEC = B.build();
     private Config() {}
+
+    // 配置界面读写用访问器（界面在同加载器客户端，无跨端问题）
+    public static ForgeConfigSpec.DoubleValue shadowValue() { return SHADOW; }
+    public static ForgeConfigSpec.BooleanValue outlineEnabledValue() { return OUTLINE; }
+    public static ForgeConfigSpec.IntValue outlineCapacityValue() { return CAPACITY; }
+    public static ForgeConfigSpec.BooleanValue previewEnabledValue() { return PREVIEW; }
+    public static ForgeConfigSpec.DoubleValue budgetMillisValue() { return MILLIS; }
+    public static ForgeConfigSpec.IntValue blocksPerFrameValue() { return BLOCKS; }
     @SubscribeEvent public static void onLoad(ModConfigEvent.Loading e) {
         if (e.getConfig().getSpec() == SPEC) apply();
     }
     @SubscribeEvent public static void onReload(ModConfigEvent.Reloading e) {
         if (e.getConfig().getSpec() == SPEC) apply();
     }
-    private static void apply() {
+    /** 配置界面保存后立即重放快照字段；也由 ModConfigEvent 调用。 */
+    public static void apply() {
         ShadowRadiusLimit.setMax(SHADOW.get().floatValue());
         RenderResourceCaches.outlineCacheEnabled = OUTLINE.get();
         RenderResourceCaches.outlineCapacity = CAPACITY.get();

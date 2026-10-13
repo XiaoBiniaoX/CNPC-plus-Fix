@@ -18,6 +18,7 @@ public class SmeltingRecipeData {
     public boolean blastAllowed = false;        // 高炉允许
     public boolean smokerAllowed = false;       // 烟熏炉允许
     public boolean genericFuelAllowed = false;  // 通用燃料允许
+    public boolean nameOnly = false;            // 仅名字检查（匹配时只比对物品ID+显示名称，跳过NBT/耐久）
 
     public CompoundTag toNBT() {
         return this.toNBT(true);
@@ -43,6 +44,7 @@ public class SmeltingRecipeData {
         t.putBoolean("Blast", this.blastAllowed);
         t.putBoolean("Smoker", this.smokerAllowed);
         t.putBoolean("GenericFuel", this.genericFuelAllowed);
+        t.putBoolean("NameOnly", this.nameOnly);
         return t;
     }
 
@@ -58,6 +60,7 @@ public class SmeltingRecipeData {
         d.blastAllowed = t.getBoolean("Blast");
         d.smokerAllowed = t.getBoolean("Smoker");
         d.genericFuelAllowed = t.getBoolean("GenericFuel");
+        d.nameOnly = t.getBoolean("NameOnly");
         return d;
     }
 

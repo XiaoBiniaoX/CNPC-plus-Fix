@@ -30,6 +30,9 @@ public final class SmeltingLayout {
     public static int toggleSpacing() { return 22; }
     public static int toggleWidth() { return 20; }
     public static int toggleHeight() { return 20; }
+    /** 「仅名字检查」开关，移到熔炼结果槽右侧（用户 2026-10-13 反馈原位置突兀） */
+    public static int nameOnlyX() { return 132; }
+    public static int nameOnlyY() { return 54; }
     /** 配方名称输入框 */
     public static int nameX() { return 8; }
     public static int nameY() { return 8; }

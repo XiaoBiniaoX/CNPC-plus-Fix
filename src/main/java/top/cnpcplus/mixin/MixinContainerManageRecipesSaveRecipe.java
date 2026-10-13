@@ -84,7 +84,7 @@ public class MixinContainerManageRecipesSaveRecipe {
 
         if (!seen) {
             ResourceLocation id = this.recipe.getId();
-            if (id == null) id = top.cnpcplus.persist.RecipeIds.fresh();
+            if (id == null) id = top.cnpcplus.craftingview.RecipeIds.fresh();
             RecipeCarpentry empty = new RecipeCarpentry(id, this.recipe.name);
             empty.copy(this.recipe);
             empty.isGlobal = global;

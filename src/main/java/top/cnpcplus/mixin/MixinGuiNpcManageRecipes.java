@@ -72,11 +72,11 @@ public class MixinGuiNpcManageRecipes {
             GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
             self.save();
             this.scroll.clear();
-            String name = top.cnpcplus.persist.RecipeIds.uniqueDisplayName("new");
+            String name = top.cnpcplus.craftingview.RecipeIds.uniqueDisplayName("new");
             while (this.data.containsKey(name)) {
                 name = name + "_";
             }
-            ResourceLocation id = top.cnpcplus.persist.RecipeIds.fresh();
+            ResourceLocation id = top.cnpcplus.craftingview.RecipeIds.fresh();
             RecipeCarpentry recipe = new RecipeCarpentry(id, name);
             recipe.isGlobal = this.container.width == 3;
             this.data.put(name, id);
@@ -128,6 +128,27 @@ public class MixinGuiNpcManageRecipes {
         }
     }
 
+    @Inject(method = "buttonEvent", at = @At("HEAD"), remap = false, cancellable = true)
+    private void cnpcplus$mutualExcludeMatchButtons(GuiButtonNop button, CallbackInfo ci) {
+        // 互斥：开模糊化自动关仅名字，反之亦然
+        GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
+        if (button.id == 5 && button.getValue() == 1) {
+            // 开了模糊化 → 关仅名字
+            this.container.recipe.ignoreNBT = false;
+            GuiButtonNop nameBtn = self.getButton(6);
+            if (nameBtn != null) {
+                nameBtn.setDisplay(0);
+            }
+        } else if (button.id == 6 && button.getValue() == 1) {
+            // 开了仅名字 → 关模糊化
+            this.container.recipe.ignoreDamage = false;
+            GuiButtonNop fuzzyBtn = self.getButton(5);
+            if (fuzzyBtn != null) {
+                fuzzyBtn.setDisplay(0);
+            }
+        }
+    }
+
     @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiLabel;<init>(ILjava/lang/String;II)V", ordinal = 0), index = 1, remap = false)
     private String cnpcplus$replaceIgnoreDamageText(String original) {
         return I18n.get("gui.ignoreDamage");
@@ -136,6 +157,16 @@ public class MixinGuiNpcManageRecipes {
     @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiLabel;<init>(ILjava/lang/String;II)V", ordinal = 1), index = 1, remap = false)
     private String cnpcplus$replaceIgnoreNbtText(String original) {
         return I18n.get("gui.ignoreNBT");
+    }
+
+    @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiButtonYesNo;<init>(Lnoppes/npcs/shared/client/gui/listeners/IGuiInterface;IIIIIZ)V", ordinal = 0), index = 4, remap = false)
+    private int cnpcplus$narrowIgnoreDamageBtn(int width) {
+        return 36;
+    }
+
+    @ModifyArg(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiButtonYesNo;<init>(Lnoppes/npcs/shared/client/gui/listeners/IGuiInterface;IIIIIZ)V", ordinal = 1), index = 4, remap = false)
+    private int cnpcplus$narrowIgnoreNbtBtn(int width) {
+        return 36;
     }
 
     @Inject(method = "unFocused", at = @At("HEAD"), remap = false, cancellable = true)

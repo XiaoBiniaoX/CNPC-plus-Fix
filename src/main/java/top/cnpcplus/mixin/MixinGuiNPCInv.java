@@ -45,6 +45,8 @@ public class MixinGuiNPCInv {
     private void cnpcplus$pageControls(CallbackInfo ci) {
         GuiNPCInv self = (GuiNPCInv) (Object) this;
         EntityNPCInterface npc = cnpcplus$npc();
+        // guiTop 补偿已移至 MixinGuiBasicContainerInvTopFix（在 menu.initGui 之前），
+        // 此处只需加翻页按钮。
         int page = DropPageStore.get(npc.inventory);
         for (int i = 0; i < 9; i++) {
             GuiTextFieldNop tf = self.getTextField(2 + i);

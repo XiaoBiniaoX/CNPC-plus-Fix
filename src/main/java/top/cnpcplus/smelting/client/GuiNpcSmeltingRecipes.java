@@ -55,8 +55,9 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
     private static final int BTN_BLAST = 5;
     private static final int BTN_SMOKER = 6;
     private static final int BTN_GENERIC = 7;
+    private static final int BTN_NAMEONLY = 8;
 
-    private boolean blast = false, smoker = false, generic = false;
+    private boolean blast = false, smoker = false, generic = false, nameOnly = false;
 
     /**
      * 「新建草稿」状态：点过「添加配方」但还没保存。
@@ -135,6 +136,12 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             this.addButton(new GuiIconToggleButton(this, BTN_GENERIC, tx, ty + ts * 2, tw, th,
                     new ItemStack(Items.COAL), this.generic,
                     Component.translatable("cnpcplus.smelting.generic")));
+            // 「仅名字检查」开关：位置在燃料槽下方
+            int nx = this.guiLeft + SmeltingLayout.nameOnlyX();
+            int ny = this.guiTop + SmeltingLayout.nameOnlyY();
+            this.addButton(new GuiIconToggleButton(this, BTN_NAMEONLY, nx, ny, tw, th,
+                    new ItemStack(Items.NAME_TAG), this.nameOnly,
+                    Component.translatable("gui.ignoreNBT")));
 
             // 时间/经验输入框：不放文字标签，鼠标悬停时显示这是「熔炼时间」还是「熔炼经验」
             int fw = SmeltingLayout.fieldWidth();
@@ -237,7 +244,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
     private void loadRecipe(int index) {
         if (index < 0 || index >= this.recipes.size()) {
             this.selectedId = -1;
-            this.blast = this.smoker = this.generic = false;
+            this.blast = this.smoker = this.generic = this.nameOnly = false;
             if (this.getTextField(30) != null) this.getTextField(30).setValue("");
             if (this.getTextField(20) != null) this.getTextField(20).setValue("200.0");
             if (this.getTextField(21) != null) this.getTextField(21).setValue("0.0");
@@ -249,6 +256,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.blast = d.blastAllowed;
         this.smoker = d.smokerAllowed;
         this.generic = d.genericFuelAllowed;
+        this.nameOnly = d.nameOnly;
         if (this.getTextField(30) != null) this.getTextField(30).setValue(d.name == null ? "" : d.name);
         if (this.getTextField(20) != null) this.getTextField(20).setValue("" + d.cookTime);
         if (this.getTextField(21) != null) this.getTextField(21).setValue("" + d.xp);
@@ -265,7 +273,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             this.selectedId = -1;
             this.draft = true;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
-            this.blast = this.smoker = this.generic = false;
+            this.blast = this.smoker = this.generic = this.nameOnly = false;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
             this.m_7856_();
         } else if (button.id == BTN_REMOVE) {
@@ -284,6 +292,8 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             this.smoker = button.getValue() == 1;
         } else if (button.id == BTN_GENERIC) {
             this.generic = button.getValue() == 1;
+        } else if (button.id == BTN_NAMEONLY) {
+            this.nameOnly = button.getValue() == 1;
         }
     }
 
@@ -310,6 +320,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         d.blastAllowed = this.blast;
         d.smokerAllowed = this.smoker;
         d.genericFuelAllowed = this.generic;
+        d.nameOnly = this.nameOnly;
         if (this.getTextField(20) != null) {
             try { d.cookTime = Math.max(0.01f, Float.parseFloat(this.getTextField(20).getValue())); }
             catch (Exception e) { d.cookTime = 200.0f; }

@@ -9,10 +9,16 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface AbstractContainerScreenAccess {
     @Accessor("leftPos")
     int cnpcplus$getLeftPos();
+    @Accessor("leftPos")
+    void cnpcplus$setLeftPos(int left);
     @Accessor("topPos")
     int cnpcplus$getTopPos();
+    @Accessor("topPos")
+    void cnpcplus$setTopPos(int top);
     @Accessor("imageHeight")
     void cnpcplus$setImageHeight(int height);
+    @Accessor("imageHeight")
+    int cnpcplus$getImageHeight();
     @Accessor("menu")
     AbstractContainerMenu cnpcplus$getMenu();
 }

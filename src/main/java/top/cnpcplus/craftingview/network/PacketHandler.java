@@ -5,11 +5,6 @@ import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 import top.cnpcplus.CnpcPlus;
-import top.cnpcplus.persist.network.PacketPersistRecipe;
-import top.cnpcplus.persist.network.PacketPersistStatus;
-import top.cnpcplus.persist.network.PacketRequestPersistIds;
-import top.cnpcplus.persist.network.PacketSyncPersistIds;
-import top.cnpcplus.persist.network.PacketUnpersistRecipe;
 
 import java.util.Optional;
 
@@ -40,30 +35,6 @@ public class PacketHandler {
                 PacketFillCraftingGrid::decode,
                 PacketFillCraftingGrid::handle,
                 Optional.of(toServer));
-        CHANNEL.registerMessage(id++, PacketPersistRecipe.class,
-                PacketPersistRecipe::encode,
-                PacketPersistRecipe::decode,
-                PacketPersistRecipe::handle,
-                Optional.of(toServer));
-        CHANNEL.registerMessage(id++, PacketUnpersistRecipe.class,
-                PacketUnpersistRecipe::encode,
-                PacketUnpersistRecipe::decode,
-                PacketUnpersistRecipe::handle,
-                Optional.of(toServer));
-        CHANNEL.registerMessage(id++, PacketRequestPersistIds.class,
-                PacketRequestPersistIds::encode,
-                PacketRequestPersistIds::decode,
-                PacketRequestPersistIds::handle,
-                Optional.of(toServer));
-        CHANNEL.registerMessage(id++, PacketSyncPersistIds.class,
-                PacketSyncPersistIds::encode,
-                PacketSyncPersistIds::decode,
-                PacketSyncPersistIds::handle,
-                Optional.of(toClient));
-        CHANNEL.registerMessage(id, PacketPersistStatus.class,
-                PacketPersistStatus::encode,
-                PacketPersistStatus::decode,
-                PacketPersistStatus::handle,
-                Optional.of(toClient));
+        // 原 persist 包 1-5 已彻删（跨世界持久化功能移除），id 保留空位避免协议错位
     }
 }

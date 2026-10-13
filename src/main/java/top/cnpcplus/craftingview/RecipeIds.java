@@ -1,4 +1,4 @@
-package top.cnpcplus.persist;
+package top.cnpcplus.craftingview;
 
 import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.controllers.RecipeController;
@@ -31,7 +31,6 @@ public final class RecipeIds {
 
     public static boolean taken(ResourceLocation id) {
         if (id == null) return false;
-        if (PersistedRecipeStore.contains(id)) return true;
         RecipeController ctrl = RecipeController.instance;
         if (ctrl == null) return false;
         return ctrl.getRecipe(id) != null;
@@ -48,9 +47,6 @@ public final class RecipeIds {
             for (RecipeCarpentry r : ctrl.anvilRecipes.values()) {
                 if (r != null && r.name != null && r.name.toLowerCase(Locale.ROOT).equals(lower)) return true;
             }
-        }
-        for (RecipeCarpentry r : PersistedRecipeStore.list()) {
-            if (r != null && r.name != null && r.name.toLowerCase(Locale.ROOT).equals(lower)) return true;
         }
         return false;
     }

@@ -11,8 +11,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import top.cnpcplus.persist.PersistedRecipeStore;
-import top.cnpcplus.persist.RecipeIds;
+import top.cnpcplus.craftingview.RecipeIds;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -39,9 +38,8 @@ public class MixinRecipeControllerSaveId {
         boolean legacy = path == null || !path.startsWith("r_");
         if (legacy) {
             RecipeCarpentry existing = self.getRecipe(id);
-            boolean persistHit = PersistedRecipeStore.contains(id);
             boolean incomingEmpty = !recipe.isValid();
-            if (incomingEmpty && ((existing != null && existing.isValid()) || persistHit)) {
+            if (incomingEmpty && existing != null && existing.isValid()) {
                 recipe = cnpcplus$rekeyEmpty(recipe);
                 id = recipe.getId();
             }

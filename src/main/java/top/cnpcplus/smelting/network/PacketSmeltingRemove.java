@@ -24,8 +24,8 @@ public class PacketSmeltingRemove {
             if (!SmeltingRecipeRegistry.remove(this.id)) return;
             SmeltingRecipeManager.injectAll(sender.server.getRecipeManager());
             SmeltingRecipeManager.syncToPlayers(sender.server);
-            // 让客户端的配方书/JEI 同步移除，否则要重连才生效
-            SmeltingRecipeManager.resendVanillaRecipes(sender.server);
+            // 只发给操作者，不群发全服（全量原版配方包体积大，群发会卡）
+            SmeltingRecipeManager.resendVanillaRecipes(sender);
         });
         ctx.get().setPacketHandled(true);
     }

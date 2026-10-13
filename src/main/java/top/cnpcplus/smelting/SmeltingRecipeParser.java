@@ -30,7 +30,7 @@ public final class SmeltingRecipeParser {
                 RecipeType.SMELTING,
                 new ResourceLocation("cnpcplus", "smelting/" + data.id),
                 RECIPE_GROUP, CookingBookCategory.MISC,
-                ingredient, data.output.copy(), data.xp, cookTime, fuelFor(data, cookTime)));
+                ingredient, data.output.copy(), data.xp, cookTime, fuelFor(data, cookTime), data.nameOnly, data.input.copy()));
         // 高炉/烟熏炉：熔炼时间减半（与原版一致）。燃料时长传该配方的真实 cookingTime 即可——
         // 现在有 MixinBlastFurnaceBurnDuration / MixinSmokerBurnDuration 在子类 HEAD 直接
         // setReturnValue，绕过了子类那个 `super.getBurnDuration(stack) / 2`，不再需要
@@ -41,14 +41,14 @@ public final class SmeltingRecipeParser {
                     RecipeType.BLASTING,
                     new ResourceLocation("cnpcplus", "blasting/" + data.id),
                     RECIPE_GROUP, CookingBookCategory.BLOCKS,
-                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime)));
+                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime), data.nameOnly, data.input.copy()));
         }
         if (data.smokerAllowed) {
             out.add(new SmeltingCookingRecipe(
                     RecipeType.SMOKING,
                     new ResourceLocation("cnpcplus", "smoking/" + data.id),
                     RECIPE_GROUP, CookingBookCategory.FOOD,
-                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime)));
+                    ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime), data.nameOnly, data.input.copy()));
         }
         return out;
     }
@@ -70,15 +70,20 @@ public final class SmeltingRecipeParser {
                 : FuelMatcher.specified(data.fuel, burnTime);
     }
 
-    /** 熔炼配方（自定义子类，携带燃料匹配器）。 */
+    /** 熔炼配方（自定义子类，携带燃料匹配器与仅名字检查标志）。 */
     public static class SmeltingCookingRecipe extends AbstractCookingRecipe {
         private final FuelMatcher fuelMatcher;
+        private final boolean nameOnly;
+        private final ItemStack nameOnlyInput;
 
         public SmeltingCookingRecipe(RecipeType<?> type, ResourceLocation id, String group,
                                      CookingBookCategory category, Ingredient ingredient,
-                                     ItemStack result, float experience, int cookingTime, FuelMatcher fuel) {
+                                     ItemStack result, float experience, int cookingTime, FuelMatcher fuel,
+                                     boolean nameOnly, ItemStack nameOnlyInput) {
             super(type, id, group, category, ingredient, result, experience, cookingTime);
             this.fuelMatcher = fuel;
+            this.nameOnly = nameOnly;
+            this.nameOnlyInput = nameOnlyInput;
         }
 
         /**
@@ -93,6 +98,24 @@ public final class SmeltingRecipeParser {
             if (t == RecipeType.BLASTING) return net.minecraft.world.item.crafting.RecipeSerializer.BLASTING_RECIPE;
             if (t == RecipeType.SMOKING) return net.minecraft.world.item.crafting.RecipeSerializer.SMOKING_RECIPE;
             return net.minecraft.world.item.crafting.RecipeSerializer.SMELTING_RECIPE;
+        }
+
+        /**
+         * 覆盖匹配逻辑：仅名字检查时只比对物品ID+显示名称，跳过NBT/耐久。
+         * 与商人 NoppesUtilPlayer.nameMatch 同语义。
+         */
+        @Override
+        public boolean matches(net.minecraft.world.Container container, net.minecraft.world.level.Level level) {
+            if (!this.nameOnly) {
+                return super.matches(container, level);
+            }
+            // 仅名字检查：熔炉容器只有一个输入槽（slot 0）
+            net.minecraft.world.item.ItemStack stack = container.getItem(0);
+            if (stack.isEmpty()) return false;
+            if (stack.getItem() != this.nameOnlyInput.getItem()) return false;
+            String n1 = stack.getHoverName().getString();
+            String n2 = this.nameOnlyInput.getHoverName().getString();
+            return n1.equals(n2);
         }
 
         public FuelMatcher getFuelMatcher() {

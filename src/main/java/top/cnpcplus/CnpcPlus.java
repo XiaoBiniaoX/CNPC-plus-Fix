@@ -24,6 +24,14 @@ public class CnpcPlus {
         // 渲染优化配置（蓝图预览/轮廓缓存/阴影上限），独立文件避免与主配置撞车。
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, top.cnpcplus.perf.Config.SPEC, "cnpcplus-perf.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, CnpcPlusServerConfig.getConfig(), "cnpcplus-server.toml");
+        // Better_Modlist / Forge 标准配置界面扩展点：只在物理客户端注册；
+        // ConfigScreenHandler 是 net.minecraftforge.client 类，专用服务器不加载。
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            ModLoadingContext.get().registerExtensionPoint(
+                    net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
+                    () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
+                            (mc, parent) -> new top.cnpcplus.config.client.CnpcPlusConfigScreen(parent)));
+        }
         ForgeChunkManager.setForcedChunkLoadingCallback(MOD_ID, (level, helper) -> {});
         top.cnpcplus.craftingview.network.PacketHandler.init();
         ModRegistry.register();
