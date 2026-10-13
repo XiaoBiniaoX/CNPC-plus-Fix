@@ -48,6 +48,21 @@ public class CnpcPlus {
                 (net.minecraftforge.event.server.ServerStartedEvent e) -> {
                     top.cnpcplus.smelting.SmeltingRecipeManager.injectAll(e.getServer().getRecipeManager());
                 });
+        // 玩家数据防回退（问题2）：Clone 拷 NBT + 错峰自动保存
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.playerdata.PlayerDataEvents.class);
+        // /cnpcplus playerdata load <player>（对齐 1.21.1，权限 level 4）
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.RegisterCommandsEvent e) ->
+                        top.cnpcplus.command.CmdPlayerData.register(e.getDispatcher()));
+        // S1：PacketNpcUpdate 实体未注册时缓存补放（客户端 tick；类仅在 Dist.CLIENT 分支内被引用，专用服务器不会加载）
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                    (net.minecraftforge.event.TickEvent.ClientTickEvent ce) -> {
+                        if (ce.phase == net.minecraftforge.event.TickEvent.Phase.END) {
+                            top.cnpcplus.sync.client.PendingNpcUpdateStore.tick();
+                        }
+                    });
+        }
         // 服务端停止时清掉配方缓存：单人切换存档后必须重读，否则会把上个存档的配方带进新世界
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.server.ServerStoppedEvent e) ->

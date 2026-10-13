@@ -103,7 +103,16 @@
     "MixinSchematicWrapperNBTSmall",
     "MixinTileBuilderPositions",
     "MixinTileWaypointScan",
-    "MixinDataAINavigationTypeUpdate"
+    "MixinDataAINavigationTypeUpdate",
+    "MixinPlayerDataSaveAtomic",
+    "MixinPlayerDataGetNoSharedBackup",
+    "MixinPlayerDataSyncExpand",
+    "MixinQuestControllerAtomicLoad",
+    "MixinSPacketMenuSaveTypeUpdate",
+    "MixinSPacketScriptSaveUpdateClient",
+    "MixinEntityNPCSpawnDataExpand",
+    "MixinEntityNPCResetVisibility",
+    "MixinRoleTransporterUnlock"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -175,7 +184,9 @@
     "MixinLayerNpcElytraTexture",
     "MixinModelPartWrapperRaw",
     "MixinLayerPartsRotate",
-    "MixinRenderNPCInterfaceLabel"
+    "MixinRenderNPCInterfaceLabel",
+    "MixinPacketNpcUpdateRetry",
+    "MixinGuiNpcMenuCloseNoClientReset"
   ],
   "server": []
 }
