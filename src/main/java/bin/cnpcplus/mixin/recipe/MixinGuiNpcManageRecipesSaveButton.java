@@ -2,14 +2,11 @@ package bin.cnpcplus.mixin.recipe;
 
 import bin.cnpcplus.CnpcPlus;
 import bin.cnpcplus.recipe.RecipeNbtKeys;
-import bin.cnpcplus.recipe.network.PacketRecipePersist;
-import bin.cnpcplus.recipe.storage.RecipePersistent;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.client.gui.SubGuiNpcAvailability;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.containers.ContainerManageRecipes;
@@ -60,13 +57,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (self.getButton(2) == null) {
             self.addButton(new GuiButtonNop((IGuiInterface) self, 2, self.guiLeft + 306, self.guiTop + 104, 84, 20, "gui.save"));
         }
-        // 7 = 跨世界持久化, 8 = 取消持久化, 9 = 对话/任务条件
-        if (self.getButton(7) == null) {
-            self.addButton(new GuiButtonNop((IGuiInterface) self, 7, self.guiLeft + 306, self.guiTop + 126, 84, 20, I18n.get("cnpcplus.recipes.persist")));
-        }
-        if (self.getButton(8) == null) {
-            self.addButton(new GuiButtonNop((IGuiInterface) self, 8, self.guiLeft + 306, self.guiTop + 148, 84, 20, I18n.get("cnpcplus.recipes.unpersist")));
-        }
+        // 9 = 对话/任务条件
         if (self.getButton(9) == null) {
             self.addButton(new GuiButtonNop((IGuiInterface) self, 9, self.guiLeft + 306, self.guiTop + 170, 84, 20, I18n.get("cnpcplus.recipes.condition")));
         }
@@ -84,23 +75,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
                 cnpcplusSaveCurrent(self, true);
             } catch (Throwable t) {
                 CnpcPlus.LOGGER.error("[GUI] save button failed", t);
-            }
-            ci.cancel();
-            return;
-        }
-
-        // Persist / Unpersist — requires existing server identity (先点保存)
-        if (button.id == 7 || button.id == 8) {
-            try {
-                int syncId = cnpcplusCurrentSyncId();
-                if (syncId > 0) {
-                    boolean persist = button.id == 7;
-                    PacketDistributor.sendToServer(new PacketRecipePersist(syncId, persist));
-                    RecipePersistent.INSTANCE.reloadFromDisk();
-                    cnpcplusRefresh(self);
-                }
-            } catch (Throwable t) {
-                CnpcPlus.LOGGER.error("[GUI] persist button failed", t);
             }
             ci.cancel();
             return;
@@ -437,16 +411,6 @@ public class MixinGuiNpcManageRecipesSaveButton {
                 add.setEnabled(true);
             }
             boolean canPersist = hasSel && syncId > 0;
-            boolean isGlobalTab = this.container != null && this.container.width == 3;
-            boolean already = canPersist && RecipePersistent.INSTANCE.isPersistedName(this.selected, isGlobalTab);
-            GuiButtonNop persist = self.getButton(7);
-            if (persist != null) {
-                persist.setEnabled(canPersist && !already);
-            }
-            GuiButtonNop unpersist = self.getButton(8);
-            if (unpersist != null) {
-                unpersist.setEnabled(canPersist && already);
-            }
             GuiButtonNop condition = self.getButton(9);
             if (condition != null) {
                 condition.setEnabled(canPersist);

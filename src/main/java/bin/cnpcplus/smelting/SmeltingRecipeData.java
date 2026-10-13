@@ -15,6 +15,8 @@ public final class SmeltingRecipeData {
     public boolean blastAllowed;
     public boolean smokerAllowed;
     public boolean genericFuelAllowed;
+    /** true = 输入按「仅名字检查」匹配（物品类型 + 显示名）；false = 原版行为（仅物品类型）。 */
+    public boolean nameOnly;
 
     public CompoundTag save(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
@@ -28,6 +30,7 @@ public final class SmeltingRecipeData {
         tag.putBoolean("Blast", blastAllowed);
         tag.putBoolean("Smoker", smokerAllowed);
         tag.putBoolean("GenericFuel", genericFuelAllowed);
+        tag.putBoolean("NameOnly", nameOnly);
         return tag;
     }
 
@@ -44,6 +47,7 @@ public final class SmeltingRecipeData {
         data.blastAllowed = tag.getBoolean("Blast");
         data.smokerAllowed = tag.getBoolean("Smoker");
         data.genericFuelAllowed = tag.getBoolean("GenericFuel");
+        data.nameOnly = tag.getBoolean("NameOnly");
         return data;
     }
 

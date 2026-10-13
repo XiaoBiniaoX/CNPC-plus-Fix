@@ -42,8 +42,6 @@
   "cnpcplus.bard.add": "Добавить",
   "cnpcplus.bard.remove": "Удалить",
   "cnpcplus.bard.newWeight": "Вес новой песни",
-  "cnpcplus.recipes.persist": "Сохранить",
-  "cnpcplus.recipes.unpersist": "Отменить сохранение",
   "cnpcplus.recipes.condition": "Условие диалога/задания",
   "cnpcplus.trader.pageTitle": "Заголовок страницы",
   "cnpcplus.trader.prevPage": "Назад",

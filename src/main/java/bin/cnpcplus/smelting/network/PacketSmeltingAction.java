@@ -1,8 +1,8 @@
 package bin.cnpcplus.smelting.network;
 
 import bin.cnpcplus.CnpcPlus;
-import bin.cnpcplus.recipe.services.RecipeServices;
 import bin.cnpcplus.smelting.ContainerSmeltingRecipes;
+import bin.cnpcplus.smelting.SmeltingRecipeBootstrap;
 import bin.cnpcplus.smelting.SmeltingRecipeData;
 import bin.cnpcplus.smelting.SmeltingRecipeRegistry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -17,14 +17,15 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public record PacketSmeltingAction(int action, int id, String name, float cookTime, float xp,
-                                   boolean blast, boolean smoker, boolean generic) implements CustomPacketPayload {
+                                   boolean blast, boolean smoker, boolean generic,
+                                   boolean nameOnly) implements CustomPacketPayload {
     public static final Type<PacketSmeltingAction> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "smelting_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, PacketSmeltingAction> STREAM_CODEC = StreamCodec.of(
             (buf, packet) -> { buf.writeVarInt(packet.action); buf.writeVarInt(packet.id); buf.writeUtf(packet.name, 256);
                 buf.writeFloat(packet.cookTime); buf.writeFloat(packet.xp); buf.writeBoolean(packet.blast);
-                buf.writeBoolean(packet.smoker); buf.writeBoolean(packet.generic); },
+                buf.writeBoolean(packet.smoker); buf.writeBoolean(packet.generic); buf.writeBoolean(packet.nameOnly); },
             buf -> new PacketSmeltingAction(buf.readVarInt(), buf.readVarInt(), buf.readUtf(256), buf.readFloat(),
-                    buf.readFloat(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean()));
+                    buf.readFloat(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean()));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void handle(PacketSmeltingAction packet, IPayloadContext context) {
@@ -50,13 +51,14 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
             }
             if (packet.action == 2) {
                 if (packet.id >= 0 && SmeltingRecipeRegistry.remove(registries, packet.id)) {
-                    RecipeServices.reloadSmeltingRecipes(player.server);
+                    SmeltingRecipeBootstrap.markReloadPending();
                 }
             }
             if (packet.action == 1 && player.containerMenu instanceof ContainerSmeltingRecipes menu) {
                 SmeltingRecipeData data = new SmeltingRecipeData();
                 data.id = packet.id; data.name = packet.name; data.cookTime = packet.cookTime; data.xp = packet.xp;
                 data.blastAllowed = packet.blast; data.smokerAllowed = packet.smoker; data.genericFuelAllowed = packet.generic;
+                data.nameOnly = packet.nameOnly;
                 data.input = menu.input().copy(); data.fuel = menu.fuel().copy(); data.output = menu.output().copy();
                 if (!data.input.isEmpty() && !data.output.isEmpty()) {
                     if (data.id < 0) {
@@ -67,7 +69,7 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
                     } else {
                         return;
                     }
-                    RecipeServices.reloadSmeltingRecipes(player.server);
+                    SmeltingRecipeBootstrap.markReloadPending();
                 }
             }
             sendList(player, player.containerMenu instanceof ContainerSmeltingRecipes menu ? menu.selectedId : -1);

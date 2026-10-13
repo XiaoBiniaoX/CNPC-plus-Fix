@@ -1,9 +1,11 @@
 package bin.cnpcplus.smelting;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.CookingBookCategory;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.RecipeType;
 
@@ -25,8 +27,18 @@ public final class SmeltingRecipeParser {
 
     private static void add(List<AbstractCookingRecipe> result, RecipeType<?> type, RecipeSerializer<?> serializer,
                             SmeltingRecipeData data, int time, CookingBookCategory category) {
+        final boolean nameOnly = data.nameOnly;
+        final String requiredName = data.input.getHoverName().getString();
         result.add(new AbstractCookingRecipe(type, "cnpcplus_smelting", category, Ingredient.of(data.input), data.output.copy(), data.xp, time) {
             @Override public RecipeSerializer<?> getSerializer() { return serializer; }
+
+            /** 仅名字检查：物品类型（super 的 Ingredient 匹配）之外再比显示名；关闭时保持原版行为。 */
+            @Override public boolean matches(SingleRecipeInput input, net.minecraft.world.level.Level level) {
+                if (!super.matches(input, level)) return false;
+                if (!nameOnly) return true;
+                ItemStack stack = input.getItem(0);
+                return requiredName.equals(stack.getHoverName().getString());
+            }
         });
     }
 }

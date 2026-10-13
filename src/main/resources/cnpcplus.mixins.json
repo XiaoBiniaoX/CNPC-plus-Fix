@@ -87,7 +87,9 @@
     "perf.MixinSchematicWrapperBuild",
     "perf.MixinSchematicWrapperNBTSmall",
     "leakfix.PlayerDataAdapter",
-    "leakfix.MarkDataAccessor"
+    "leakfix.MarkDataAccessor",
+    "clone.MixinServerCloneControllerSaveClone",
+    "CustomNpcsPermissionsMixin"
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",

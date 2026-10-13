@@ -35,6 +35,7 @@ public record PacketSmeltingSync(List<SmeltingRecipeData> recipes, int selectedI
                     buf.writeVarInt(d.id); buf.writeUtf(d.name == null ? "" : d.name, 256);
                     buf.writeFloat(d.cookTime); buf.writeFloat(d.xp);
                     buf.writeBoolean(d.blastAllowed); buf.writeBoolean(d.smokerAllowed); buf.writeBoolean(d.genericFuelAllowed);
+                    buf.writeBoolean(d.nameOnly);
                     STACK.encode(buf, d.input);
                     STACK.encode(buf, d.fuel);
                     STACK.encode(buf, d.output);
@@ -51,6 +52,7 @@ public record PacketSmeltingSync(List<SmeltingRecipeData> recipes, int selectedI
                     SmeltingRecipeData d = new SmeltingRecipeData();
                     d.id = buf.readVarInt(); d.name = buf.readUtf(256); d.cookTime = buf.readFloat(); d.xp = buf.readFloat();
                     d.blastAllowed = buf.readBoolean(); d.smokerAllowed = buf.readBoolean(); d.genericFuelAllowed = buf.readBoolean();
+                    d.nameOnly = buf.readBoolean();
                     d.input = STACK.decode(buf);
                     d.fuel = STACK.decode(buf);
                     d.output = STACK.decode(buf);

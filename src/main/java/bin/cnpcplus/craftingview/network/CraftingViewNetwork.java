@@ -5,7 +5,6 @@ import bin.cnpcplus.invpage.network.PacketNpcInvPage;
 import bin.cnpcplus.linked.network.PacketLinkedScriptSync;
 import bin.cnpcplus.linked.network.PacketLinkedScriptSyncQuery;
 import bin.cnpcplus.linked.network.PacketLinkedScriptSyncState;
-import bin.cnpcplus.recipe.network.PacketRecipePersist;
 import bin.cnpcplus.trader.network.PacketTraderPage;
 import bin.cnpcplus.trader.network.PacketTraderPageSync;
 import bin.cnpcplus.follower.network.PacketFollowerDismiss;
@@ -35,11 +34,6 @@ public final class CraftingViewNetwork {
                 PacketFillCraftingGrid.TYPE,
                 PacketFillCraftingGrid.STREAM_CODEC,
                 PacketFillCraftingGrid::handle
-        );
-        registrar.playToServer(
-                PacketRecipePersist.TYPE,
-                PacketRecipePersist.STREAM_CODEC,
-                PacketRecipePersist::handle
         );
         registrar.playToServer(
                 PacketTraderPage.TYPE,

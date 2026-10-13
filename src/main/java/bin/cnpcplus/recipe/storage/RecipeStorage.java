@@ -21,7 +21,7 @@ import java.io.OutputStream;
 import java.util.HashMap;
 
 /**
- * Per-world recipes.dat only. Cross-world recipes go through RecipePersistent.
+ * Per-world recipes.dat only.
  */
 public final class RecipeStorage {
     public static final RecipeStorage INSTANCE = new RecipeStorage();
@@ -64,8 +64,6 @@ public final class RecipeStorage {
             controller.globalRecipes = new HashMap<>();
             controller.anvilRecipes = new HashMap<>();
         }
-        // merge cross-world persistent recipes after world load
-        RecipePersistent.INSTANCE.mergeInto(provider, controller);
     }
 
     private void loadFile(HolderLookup.Provider provider, RecipeController controller, File file) throws Exception {

@@ -32,11 +32,11 @@ import java.lang.reflect.Method;
 public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSmeltingRecipes> implements ICustomScrollListener {
     private static final ResourceLocation FURNACE = ResourceLocation.withDefaultNamespace("textures/gui/container/furnace.png");
     private static final ResourceLocation SLOT = ResourceLocation.fromNamespaceAndPath("customnpcs", "textures/gui/slot.png");
-    private static final int BTN_NEW = 3, BTN_REMOVE = 4, BTN_SAVE = 2, BTN_BLAST = 5, BTN_SMOKER = 6, BTN_GENERIC = 7;
+    private static final int BTN_NEW = 3, BTN_REMOVE = 4, BTN_SAVE = 2, BTN_BLAST = 5, BTN_SMOKER = 6, BTN_GENERIC = 7, BTN_NAMEONLY = 8;
     private final ContainerSmeltingRecipes container;
     private GuiCustomScrollNop scroll;
     private int selectedId = -1;
-    private boolean blast, smoker, generic;
+    private boolean blast, smoker, generic, nameOnly;
     private String lastRecipeSnapshot = "";
 
     public SmeltingScreen(ContainerSmeltingRecipes container, Inventory inv, Component title) {
@@ -72,6 +72,8 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_BLAST, guiLeft + SmeltingLayout.toggleX(), guiTop + SmeltingLayout.toggleY(), SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Blocks.BLAST_FURNACE), blast, Component.translatable("cnpcplus.smelting.blast")));
         addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_SMOKER, guiLeft + SmeltingLayout.toggleX(), guiTop + SmeltingLayout.toggleY() + SmeltingLayout.toggleSpacing(), SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Blocks.SMOKER), smoker, Component.translatable("cnpcplus.smelting.smoker")));
         addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_GENERIC, guiLeft + SmeltingLayout.toggleX(), guiTop + SmeltingLayout.toggleY() + SmeltingLayout.toggleSpacing() * 2, SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Items.COAL), generic, Component.translatable("cnpcplus.smelting.generic")));
+        // 结果槽右侧：仅名字检查开关
+        addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_NAMEONLY, guiLeft + SmeltingLayout.slotOutputX() + 20, guiTop + SmeltingLayout.slotOutputY(), SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Items.NAME_TAG), nameOnly, Component.translatable("gui.ignoreNBT")));
         refreshScroll();
     }
 
@@ -111,8 +113,8 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         if (button.id == BTN_NEW) {
             selectedId = -1;
             container.selectedId = -1;
-            blast = smoker = generic = false;
-            PacketDistributor.sendToServer(new PacketSmeltingAction(5, -1, "", 0, 0, false, false, false));
+            blast = smoker = generic = nameOnly = false;
+            PacketDistributor.sendToServer(new PacketSmeltingAction(5, -1, "", 0, 0, false, false, false, false));
             init();
             if (getTextField(30) != null) getTextField(30).setValue("new_recipe");
             return;
@@ -122,13 +124,14 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         if (button.id == BTN_BLAST) blast = button.getValue() == 1;
         if (button.id == BTN_SMOKER) smoker = button.getValue() == 1;
         if (button.id == BTN_GENERIC) generic = button.getValue() == 1;
+        if (button.id == BTN_NAMEONLY) nameOnly = button.getValue() == 1;
     }
 
     private void send(int action) {
         GuiTextFieldNop name = getTextField(30), time = getTextField(20), xp = getTextField(21);
         float cook = time == null || !time.isFloat() ? 200 : Math.max(0.01f, time.getFloat());
         float experience = xp == null || !xp.isFloat() ? 0 : xp.getFloat();
-        PacketDistributor.sendToServer(new PacketSmeltingAction(action, selectedId, name == null ? "" : name.getValue(), cook, experience, blast, smoker, generic));
+        PacketDistributor.sendToServer(new PacketSmeltingAction(action, selectedId, name == null ? "" : name.getValue(), cook, experience, blast, smoker, generic, nameOnly));
     }
 
     @Override public void scrollClicked(double x, double y, int button, GuiCustomScrollNop source) {
@@ -136,8 +139,8 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         List<SmeltingRecipeData> list = recipes();
         if (index < 0 || index >= list.size()) return;
         SmeltingRecipeData d = list.get(index); selectedId = d.id; container.selectedId = d.id;
-        blast = d.blastAllowed; smoker = d.smokerAllowed; generic = d.genericFuelAllowed;
-        PacketDistributor.sendToServer(new PacketSmeltingAction(4, d.id, "", 0, 0, false, false, false));
+        blast = d.blastAllowed; smoker = d.smokerAllowed; generic = d.genericFuelAllowed; nameOnly = d.nameOnly;
+        PacketDistributor.sendToServer(new PacketSmeltingAction(4, d.id, "", 0, 0, false, false, false, false));
         init();
     }
     @Override public void scrollDoubleClicked(String selection, GuiCustomScrollNop source) {}

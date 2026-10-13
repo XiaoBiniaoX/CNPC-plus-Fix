@@ -25,7 +25,7 @@ public final class MixinGuiNPCGlobalMainMenuSmelting {
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$open(GuiButtonNop button, CallbackInfo ci) {
         if (button.id != BUTTON) return;
-        PacketDistributor.sendToServer(new PacketSmeltingAction(0, -1, "", 200.0F, 0.0F, false, false, false));
+        PacketDistributor.sendToServer(new PacketSmeltingAction(0, -1, "", 200.0F, 0.0F, false, false, false, false));
         ci.cancel();
     }
 }

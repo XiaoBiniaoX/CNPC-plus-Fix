@@ -2,7 +2,6 @@ package bin.cnpcplus.mixin.invpage;
 
 import bin.cnpcplus.invpage.DropPageStore;
 import bin.cnpcplus.invpage.network.PacketNpcInvPage;
-import bin.cnpcplus.mixin.AbstractContainerScreenAccess;
 import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.client.gui.mainmenu.GuiNPCInv;
 import noppes.npcs.client.gui.util.GuiContainerNPCInterface;
@@ -39,11 +38,6 @@ public class MixinGuiNPCInv {
         return ((GuiContainerNPCInterface) (Object) this).npc;
     }
 
-    @Inject(method = "<init>", at = @At("RETURN"))
-    private void cnpcplus$enlarge(CallbackInfo ci) {
-        ((AbstractContainerScreenAccess) this).cnpcplus$setImageHeight(224);
-    }
-
     @Inject(method = "init", at = @At("TAIL"))
     private void cnpcplus$pageControls(CallbackInfo ci) {
         GuiNPCInv self = (GuiNPCInv) (Object) this;
@@ -63,9 +57,10 @@ public class MixinGuiNPCInv {
             this.chances.put(slot, chance);
             tf.setValue(String.valueOf(chance));
         }
-        self.addButton(new GuiButtonNop((IGuiInterface) self, BTN_PREV, self.guiLeft + 50, self.guiTop + 195, 20, 20, "<"));
-        self.addButton(new GuiButtonNop((IGuiInterface) self, BTN_NEXT, self.guiLeft + 100, self.guiTop + 195, 20, 20, ">"));
-        self.addLabel(new GuiLabel(200, (page + 1) + "/3", self.guiLeft + 75, self.guiTop + 200));
+        // 玩家快捷栏槽位 y=171..189（ContainerNPCInv: hotbar y=171）；按钮贴快捷栏底边放置，不遮挡
+        self.addButton(new GuiButtonNop((IGuiInterface) self, BTN_PREV, self.guiLeft + 50, self.guiTop + 189, 20, 20, "<"));
+        self.addButton(new GuiButtonNop((IGuiInterface) self, BTN_NEXT, self.guiLeft + 100, self.guiTop + 189, 20, 20, ">"));
+        self.addLabel(new GuiLabel(200, (page + 1) + "/3", self.guiLeft + 75, self.guiTop + 195));
     }
 
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true)
