@@ -43,6 +43,7 @@
     "command.MixinCommandNoppesPerm",
     "command.MixinCommandNoppesBasePerm",
     "invpage.MixinDataInventoryDropPage",
+    "invpage.MixinNoppesUtilServerInvFastOpen",
     "drop.MixinDataInventoryDrop",
     "trader.MixinRoleTraderPages",
     "trader.MixinContainerNPCTraderSync",
