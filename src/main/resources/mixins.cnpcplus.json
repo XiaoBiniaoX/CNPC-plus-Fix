@@ -112,7 +112,11 @@
     "MixinSPacketScriptSaveUpdateClient",
     "MixinEntityNPCSpawnDataExpand",
     "MixinEntityNPCResetVisibility",
-    "MixinRoleTransporterUnlock"
+    "MixinRoleTransporterUnlock",
+    "MixinDataAdvancedCustomRoleJob",
+    "MixinMerchantOfferNameOnly",
+    "MixinMerchantMenuTradeSound",
+    "MerchantMenuAccessor"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -186,7 +190,12 @@
     "MixinLayerPartsRotate",
     "MixinRenderNPCInterfaceLabel",
     "MixinPacketNpcUpdateRetry",
-    "MixinGuiNpcMenuCloseNoClientReset"
+    "MixinGuiNpcMenuCloseNoClientReset",
+    "MixinGuiNpcAdvancedCustomRoleJob",
+    "MerchantScreenAccessor",
+    "MerchantContainerAccessor",
+    "MixinMerchantResultSlotEditable",
+    "MixinMerchantContainerEditable"
   ],
   "server": []
 }

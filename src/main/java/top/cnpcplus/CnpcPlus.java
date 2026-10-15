@@ -42,11 +42,15 @@ public class CnpcPlus {
         SmeltingMenus.register();
         SmeltingPacketHandler.init();
         LinkedPacketHandler.init();
+        top.cnpcplus.villagertrade.network.VillagerEditPacketHandler.init();
         // 熔炼配方注入时机：世界加载时 RecipeManager 的首次 apply 发生在 MinecraftServer 实例创建之前，
         // 那时读不到服务端、也就注入不了。所以在服务端启动完成后再补注入一次（/reload 由 mixin 覆盖）。
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.server.ServerStartedEvent e) -> {
                     top.cnpcplus.smelting.SmeltingRecipeManager.injectAll(e.getServer().getRecipeManager());
+                    java.io.File dataDir = new java.io.File(e.getServer().getServerDirectory(), "data/cnpcplus");
+                    top.cnpcplus.villagertrade.TradeDataStore.setStoragePath(
+                        new java.io.File(dataDir, "villager_trades.dat"));
                 });
         // 玩家数据防回退（问题2）：Clone 拷 NBT + 错峰自动保存
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.playerdata.PlayerDataEvents.class);

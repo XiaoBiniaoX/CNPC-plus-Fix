@@ -27,6 +27,8 @@
   "cnpcplus.trader.prev": "Предыдущая",
   "cnpcplus.trader.next": "Следующая",
   "cnpcplus.trader.deletepage": "Удалить страницу(%d/%d)",
+  "cnpcplus.trader.nameonly.on": "Только по имени: Вкл",
+  "cnpcplus.trader.nameonly.off": "Только по имени: Выкл",
   "cnpcplus.questtrigger.title": "Триггер заданий",
   "cnpcplus.questtrigger.mode": "Способ активации",
   "cnpcplus.questtrigger.redstone": "Редстоун",
@@ -48,5 +50,7 @@
   "cnpcplus.melee.buffcount": "Эффектов: %s",
   "cnpcplus.melee.buffs": "Эффекты ближнего боя",
   "cnpcplus.transform.editingday": "Текущий: дневной режим",
-  "cnpcplus.transform.editingnight": "Текущий: ночной режим"
+  "cnpcplus.transform.editingnight": "Текущий: ночной режим",
+  "role.villagertrader": "Деревенский торговец",
+  "job.testprofession": "Тестовая профессия"
 }

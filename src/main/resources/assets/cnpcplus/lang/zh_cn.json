@@ -27,6 +27,8 @@
   "cnpcplus.trader.prev": "上一页",
   "cnpcplus.trader.next": "下一页",
   "cnpcplus.trader.deletepage": "删除本页(%d/%d)",
+  "cnpcplus.trader.nameonly.on": "仅名字检查: 开",
+  "cnpcplus.trader.nameonly.off": "仅名字检查: 关",
   "cnpcplus.questtrigger.title": "区域任务触发器",
   "cnpcplus.questtrigger.mode": "激活方式",
   "cnpcplus.questtrigger.redstone": "红石激活",
@@ -64,5 +66,7 @@
   "cnpcplus.melee.buffcount": "已选 %s 个BUFF",
   "cnpcplus.melee.buffs": "近战附加BUFF",
   "cnpcplus.transform.editingday": "当前：日间模式",
-  "cnpcplus.transform.editingnight": "当前：夜间模式"
+  "cnpcplus.transform.editingnight": "当前：夜间模式",
+  "job.testprofession": "测试职业",
+  "role.villagertrader": "村民交易商"
 }

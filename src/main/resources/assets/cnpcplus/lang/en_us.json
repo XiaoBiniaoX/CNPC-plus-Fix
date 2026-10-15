@@ -27,6 +27,8 @@
   "cnpcplus.trader.prev": "Previous Page",
   "cnpcplus.trader.next": "Next Page",
   "cnpcplus.trader.deletepage": "Delete Page(%d/%d)",
+  "cnpcplus.trader.nameonly.on": "Name Check Only: On",
+  "cnpcplus.trader.nameonly.off": "Name Check Only: Off",
   "cnpcplus.questtrigger.title": "Quest Trigger",
   "cnpcplus.questtrigger.mode": "Activation Mode",
   "cnpcplus.questtrigger.redstone": "Redstone",
@@ -64,5 +66,7 @@
   "cnpcplus.melee.buffcount": "%s Buff(s)",
   "cnpcplus.melee.buffs": "Melee Buffs",
   "cnpcplus.transform.editingday": "Current: Day Mode",
-  "cnpcplus.transform.editingnight": "Current: Night Mode"
+  "cnpcplus.transform.editingnight": "Current: Night Mode",
+  "job.testprofession": "Test Profession",
+  "role.villagertrader": "Villager Trader"
 }
