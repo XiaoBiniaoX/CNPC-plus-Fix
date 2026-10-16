@@ -27,5 +27,7 @@ public class MixinRecipeManagerDynamic {
         // 导致开服后自定义配方完全不注册（必须 /reload 才生效）。
         // 客户端不读盘的问题改由 SmeltingRecipeRegistry 自己把关（无服务端实例时返回空表）。
         SmeltingRecipeManager.injectAll((RecipeManager) (Object) this);
+        // 227：锻造配方同点注入（前缀互不干扰：cnpcplus:smelting/ vs cnpcplus:smithing/）
+        top.cnpcplus.smithing.SmithingRecipeManager.injectAll((RecipeManager) (Object) this);
     }
 }

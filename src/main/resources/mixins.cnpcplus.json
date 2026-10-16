@@ -116,6 +116,7 @@
     "MixinDataAdvancedCustomRoleJob",
     "MixinMerchantOfferNameOnly",
     "MixinMerchantMenuTradeSound",
+    "MixinAnvilMenu",
     "MerchantMenuAccessor"
   ],
   "client": [
@@ -157,6 +158,10 @@
     "MixinSubGuiNpcMovementSpeed",
     "MixinSubGuiNpcProjectilesTrails",
     "MixinGuiNPCGlobalMainMenuSmelting",
+    "MixinGuiNPCGlobalMainMenuSmithing",
+    "MixinGuiNPCGlobalMainMenuAnvil",
+    "MixinGuiNPCGlobalMainMenuDrop",
+    "MixinAnvilScreen",
     "MixinRenderCustomNpcTranslucent",
     "MixinLivingEntityRendererNpcAlpha",
     "MixinRenderCustomNpcCrawlOffset",

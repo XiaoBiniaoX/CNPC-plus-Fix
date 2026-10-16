@@ -1,0 +1,33 @@
+package top.cnpcplus.drop.network;
+
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraftforge.network.NetworkEvent;
+import top.cnpcplus.drop.DropRecipeRegistry;
+
+import java.util.function.Supplier;
+
+/** 客户端→服务端：请求同步配方列表（阶段232 从 PacketAnvilRequestList 复制）。 */
+public class PacketDropRequestList {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
+
+    public PacketDropRequestList() {}
+
+    public void encode(FriendlyByteBuf buf) {}
+
+    public static PacketDropRequestList decode(FriendlyByteBuf buf) { return new PacketDropRequestList(); }
+
+    public void handle(Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> {
+            var sender = ctx.get().getSender();
+            // 需要权限：配方列表只给编辑者看。否则任意客户端都能反复索取全部配方 NBT，
+            // 既泄露配方内容，也能靠服务端序列化做流量放大。
+            if (sender == null || !sender.hasPermissions(2)) {
+                LOGGER.warn("[drop] RequestList拒绝: 无发送者或权限不足 player={}",
+                        sender == null ? "?" : sender.getGameProfile().getName());
+                return;
+            }
+            DropRecipeRegistry.syncToPlayers(sender.server, sender);
+        });
+        ctx.get().setPacketHandled(true);
+    }
+}

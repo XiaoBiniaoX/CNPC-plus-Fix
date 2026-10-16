@@ -141,7 +141,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             int ny = this.guiTop + SmeltingLayout.nameOnlyY();
             this.addButton(new GuiIconToggleButton(this, BTN_NAMEONLY, nx, ny, tw, th,
                     new ItemStack(Items.NAME_TAG), this.nameOnly,
-                    Component.translatable("gui.ignoreNBT")));
+                    Component.translatable("cnpcplus.nameonly")));
 
             // 时间/经验输入框：不放文字标签，鼠标悬停时显示这是「熔炼时间」还是「熔炼经验」
             int fw = SmeltingLayout.fieldWidth();
