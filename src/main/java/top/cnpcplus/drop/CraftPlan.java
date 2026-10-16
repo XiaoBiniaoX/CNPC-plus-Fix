@@ -65,8 +65,9 @@ public final class CraftPlan {
 
     private static boolean matches(ItemStack have, ItemStack need, boolean nameOnly) {
         if (nameOnly) {
+            // 233a：仅名字检查=物品 id + 显示名（字符串），附魔/耐久/其余 NBT 全部忽略（用户「不精确匹配」）
             return have.getItem() == need.getItem()
-                    && have.getHoverName().equals(need.getHoverName());
+                    && have.getHoverName().getString().equals(need.getHoverName().getString());
         }
         return ItemStack.isSameItemSameTags(have, need);
     }

@@ -5,6 +5,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import top.cnpcplus.drop.DropLayout;
 import top.cnpcplus.drop.DropRecipeData;
 import top.cnpcplus.drop.ContainerDropRecipes;
@@ -15,12 +16,14 @@ import top.cnpcplus.drop.network.PacketDropSave;
 import top.cnpcplus.drop.network.PacketDropSelect;
 
 import noppes.npcs.client.NoppesUtil;
+import noppes.npcs.client.gui.select.GuiSoundSelection;
 import noppes.npcs.client.gui.util.GuiContainerNPCInterface2;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiCustomScrollNop;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ICustomScrollListener;
 import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
+import top.cnpcplus.smelting.client.GuiIconToggleButton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,12 +57,39 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
     private static final int BTN_NEW = 3;
     private static final int BTN_REMOVE = 4;
     private static final int BTN_SAVE = 2;
+    /** 233a 仅名字检查开关（合成槽左边）。 */
+    private static final int BTN_NAMEONLY = 5;
+    /** 233c 音效选择按钮（复用 CNPC GuiSoundSelection 子界面）。 */
+    private static final int BTN_SOUND = 6;
+    /** 233b 绑定当前维度+坐标 / 清除绑定。 */
+    private static final int BTN_BIND = 8;
+    private static final int BTN_UNBIND = 9;
 
     /** 「新建草稿」状态：点过「新建」但还没保存（沿用熔炼/锻造机制，防表单死锁）。 */
     private boolean draft = false;
 
     /** 232 本轮 GUI 不放开关，固定 false 落盘；data 字段已留位（用户后续要改再加控件）。 */
     private boolean nameOnly = false;
+
+    /** 233c 音效 id（空=不播；保存随主 NBT 落盘）。 */
+    private String soundId = "";
+
+    /** 233b 生效绑定（内存编辑态：loadRecipe 载入、绑定按钮改、保存写回）。 */
+    private String bindDim = "";
+    private boolean hasBindPos = false;
+    private int bindX, bindY, bindZ;
+
+    /** 233d 粒子特效编辑态（深拷贝；SubGuiDropFx 确定写回、保存按钮落盘）。 */
+    private final java.util.List<top.cnpcplus.drop.fx.DropFxConfig> fxFinal = new java.util.ArrayList<>();
+
+    /** 233d 粒子编辑器按钮。 */
+    private static final int BTN_FX = 7;
+
+    /** SubGuiDropFx 确定回调：写回编辑态（关闭链随后 initGui 刷新）。 */
+    public void applyFxCopy(java.util.List<top.cnpcplus.drop.fx.DropFxConfig> result) {
+        this.fxFinal.clear();
+        for (top.cnpcplus.drop.fx.DropFxConfig c : result) this.fxFinal.add(c.copy());
+    }
 
     public GuiDropRecipes(ContainerDropRecipes container, Inventory inv, Component titleIn) {
         super(NoppesUtil.getLastNpc(), container, inv, titleIn);
@@ -102,13 +132,28 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
                 this.guiLeft + DropLayout.nameX(), this.guiTop + DropLayout.nameY(),
                 DropLayout.nameWidth(), 20, this.nameText()));
 
-        // 右侧按钮列（新建/移除/保存，始终显示）
+        // 233a 仅名字检查开关：合成槽左边（2×2 starts x36 前的空隙），外观照抄铁砧/熔炼。
+        this.addButton(new GuiIconToggleButton(this, BTN_NAMEONLY,
+                this.guiLeft + DropLayout.switchX(), this.guiTop + DropLayout.switchY(),
+                DropLayout.switchW(), DropLayout.switchH(),
+                new ItemStack(Items.NAME_TAG), this.nameOnly,
+                Component.translatable("cnpcplus.nameonly")));
+
+        // 右侧按钮列（新建/移除/保存/音效/绑定/清除绑定，始终显示）
         int bx = this.guiLeft + DropLayout.btnX();
         int by = this.guiTop + DropLayout.btnY();
         int bs = DropLayout.btnSpacing();
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SOUND, bx, by + bs * 3, 84, 20,
+                Component.translatable("cnpcplus.drop.sound").getString()));
+        this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_BIND, bx, by + bs * 4, 84, 20,
+                Component.translatable("cnpcplus.drop.bind").getString()));
+        this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_UNBIND, bx, by + bs * 5, 84, 20,
+                Component.translatable("cnpcplus.drop.unbind").getString()));
+        this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_FX, bx, by + bs * 6, 84, 20,
+                Component.translatable("cnpcplus.dropfx.open").getString()));
 
         this.refreshScroll();
     }
@@ -126,6 +171,15 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
                     this.guiTop + DropLayout.btnY() + DropLayout.btnSpacing() * 3 + 6,
                     0xFFFF5555, false);
         }
+        // 233b 绑定信息小字（按钮列下方）：显示当前配方绑定的维度+坐标，空=不限
+        String bindText = this.bindDim.isEmpty()
+                ? Component.translatable("cnpcplus.drop.unbound").getString()
+                : this.bindDim + (this.hasBindPos
+                    ? " " + this.bindX + "," + this.bindY + "," + this.bindZ : "");
+        graphics.drawString(this.font, bindText,
+                this.guiLeft + DropLayout.btnX(),
+                this.guiTop + DropLayout.btnY() + DropLayout.btnSpacing() * 7 + 6,
+                0xFFAAAAAA, false);
     }
 
     /**
@@ -184,6 +238,14 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         this.selectedId = d.id;
         this.selectedName = d.name;
         this.nameOnly = d.nameOnly;
+        this.soundId = d.soundId == null ? "" : d.soundId;
+        this.bindDim = d.dim == null ? "" : d.dim;
+        this.hasBindPos = d.hasBindPos;
+        this.bindX = d.bindX;
+        this.bindY = d.bindY;
+        this.bindZ = d.bindZ;
+        this.fxFinal.clear();
+        for (top.cnpcplus.drop.fx.DropFxConfig c : d.fxs) this.fxFinal.add(c.copy());
         // 选中列表里的正式配方 = 草稿结束（否则保存后 refreshFromServer 仍按草稿名匹配）
         this.draft = false;
         if (this.getTextField(30) != null) this.getTextField(30).setValue(d.name == null ? "" : d.name);
@@ -199,6 +261,10 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             this.selectedId = -1;
             this.draft = true;
             this.nameOnly = false;
+            this.soundId = "";
+            this.bindDim = "";
+            this.hasBindPos = false;
+            this.fxFinal.clear();
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
             this.m_7856_();
@@ -213,6 +279,32 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             }
         } else if (button.id == BTN_SAVE) {
             this.saveRecipe();
+        } else if (button.id == BTN_NAMEONLY) {
+            // 233a 开关翻转：GuiIconToggleButton 的显示态在 m_7856_ 里按字段重建
+            this.nameOnly = !this.nameOnly;
+            this.m_7856_();
+        } else if (button.id == BTN_SOUND) {
+            // 233c：复用 CNPC 音效选择子界面；结果在 subGuiClosed 里读 selectedResource
+            this.setSubGui(new GuiSoundSelection(this.soundId == null ? "" : this.soundId));
+        } else if (button.id == BTN_BIND) {
+            // 233b：绑定玩家当前所在维度+脚下方块坐标（记入内存，保存才落盘）
+            if (this.minecraft != null && this.minecraft.player != null) {
+                this.bindDim = this.minecraft.player.level().dimension().location().toString();
+                var pos = this.minecraft.player.blockPosition();
+                this.bindX = pos.getX();
+                this.bindY = pos.getY();
+                this.bindZ = pos.getZ();
+                this.hasBindPos = true;
+                this.m_7856_();
+            }
+        } else if (button.id == BTN_UNBIND) {
+            // 233b：清除绑定=恢复不限维度不限坐标（兼容 232 存量语义）
+            this.bindDim = "";
+            this.hasBindPos = false;
+            this.m_7856_();
+        } else if (button.id == BTN_FX) {
+            // 233d：打开粒子特效编辑器（编辑副本；确定写内存、保存按钮落盘）
+            this.setSubGui(new top.cnpcplus.drop.fx.client.SubGuiDropFx(this, this.fxFinal));
         }
     }
 
@@ -233,6 +325,14 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         DropRecipeData d = new DropRecipeData();
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
+        d.soundId = this.soundId == null ? "" : this.soundId;
+        d.dim = this.bindDim == null ? "" : this.bindDim;
+        d.hasBindPos = this.hasBindPos;
+        d.bindX = this.bindX;
+        d.bindY = this.bindY;
+        d.bindZ = this.bindZ;
+        d.fxs.clear();
+        for (top.cnpcplus.drop.fx.DropFxConfig c : this.fxFinal) d.fxs.add(c.copy());
         String name = this.getTextField(30) != null ? this.getTextField(30).getValue() : "";
         d.name = (name == null || name.trim().isEmpty()) ? "new" : name.trim();
         if (d.name.equals("new") && d.id < 0) {
@@ -258,6 +358,19 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             DropPacketHandler.CHANNEL.sendToServer(new PacketDropSelect(this.selectedId));
         }
         this.m_7856_();
+    }
+
+    /**
+     * 233c：音效选择子界面关闭回调（MixinGuiNpcBard:126-147 同款模式）。
+     * GuiSoundSelection.selectedResource=null 表示未选关闭，保持原值。
+     */
+    @Override
+    public void subGuiClosed(net.minecraft.client.gui.screens.Screen subgui) {
+        super.subGuiClosed(subgui);
+        if (subgui instanceof GuiSoundSelection gss && gss.selectedResource != null) {
+            this.soundId = gss.selectedResource.toString();
+            this.m_7856_();
+        }
     }
 
     /**

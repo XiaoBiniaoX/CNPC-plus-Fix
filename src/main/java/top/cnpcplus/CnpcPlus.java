@@ -71,6 +71,8 @@ public class CnpcPlus {
         // 阶段232 掉落物配方生效层：仅服务端逻辑（ItemToss/EntityLeave + LevelTick pending驱动，
         // 玩家丢出物品落地触发合成；LevelTick 入口 pending 空集 O(1) 短路，无每实体扫描）
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.drop.DropCraftHandler.class);
+        // 233d 掉落物粒子特效运行时（LevelTick END 队列驱动；空队列 O(1) 短路）
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.drop.fx.runtime.DropFxEngine.class);
         // /cnpcplus playerdata load <player>（对齐 1.21.1，权限 level 4）
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->

@@ -115,6 +115,7 @@ public final class DropCraftHandler {
 
             CraftPlan plan = null;
             for (DropRecipeData r : recipes) { // id 升序遍历，第一条命中即用（稳定优先级）
+                if (!boundOk(r, level, pos)) continue; // 233b：维度/坐标绑定过滤（空=不限）
                 plan = CraftPlan.plan(inputs, r);
                 if (plan != null) break;
             }
@@ -134,6 +135,17 @@ public final class DropCraftHandler {
                 pos.getX(), pos.getY(), pos.getZ());
     }
 
+    /**
+     * 233b 生效绑定校验（安全保证：只收集指定维度、指定方块坐标内的物品实体）。
+     * dim 空=不限（兼容 232 存量）；dim 非空须与触发维度一致；hasBindPos 再校验触发方块坐标。
+     * 不通过=该配方静默跳过（不是错误）。
+     */
+    private static boolean boundOk(DropRecipeData r, ServerLevel level, BlockPos pos) {
+        if (r.dim == null || r.dim.isEmpty()) return true;
+        if (!level.dimension().location().toString().equals(r.dim)) return false;
+        return !r.hasBindPos || (r.bindX == pos.getX() && r.bindY == pos.getY() && r.bindZ == pos.getZ());
+    }
+
     private static void execute(ServerLevel level, BlockPos pos, CraftPlan plan) {
         for (Map.Entry<ItemEntity, Integer> en : plan.deduct.entrySet()) {
             ItemEntity e = en.getKey();
@@ -145,6 +157,20 @@ public final class DropCraftHandler {
                 pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5, plan.output);
         out.setDefaultPickUpDelay();
         level.addFreshEntity(out);
+        // 233d 粒子特效：实例快照入队（引擎 LevelTick 驱动发送；fx 空=零开销）
+        top.cnpcplus.drop.fx.runtime.DropFxEngine.spawn(level,
+                pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5, plan.recipe.fxs);
+        // 233c 合成音效：全房间可闻；音量/音高固定 1.0（用户确认）；坏 id 仅 WARN 不崩
+        String snd = plan.recipe.soundId;
+        if (snd != null && !snd.isEmpty()) {
+            net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT
+                    .getOptional(new net.minecraft.resources.ResourceLocation(snd))
+                    .ifPresentOrElse(
+                            ev -> level.playSound(null,
+                                    pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                                    ev, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F),
+                            () -> LOGGER.warn("[drop] 音效 id 无效 {}", snd));
+        }
     }
 
     /** 实体扣减：shrink 后 setItem（服务端 DATA 同步），空则 discard。 */

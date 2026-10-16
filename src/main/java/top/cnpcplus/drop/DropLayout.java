@@ -41,10 +41,16 @@ public final class DropLayout {
     public static int arrowX() { return 82; }
     public static int arrowY() { return 60; }
 
-    /** 右侧按钮列（新建/移除/保存），与铁砧/熔炼同一列位。 */
+    /** 右侧按钮列（新建/移除/保存/音效/绑定/清除绑定），与铁砧/熔炼同一列位。 */
     public static int btnX() { return 306; }
     public static int btnY() { return 12; }
     public static int btnSpacing() { return 22; }
+
+    /** 233a「仅名字检查」开关（合成槽左边，2×2 槽 starts x36 前的空隙）。 */
+    public static int switchX() { return 8; }
+    public static int switchY() { return 59; }
+    public static int switchW() { return 18; }
+    public static int switchH() { return 18; }
 
     /** 整个界面的整体偏移（与熔炼/锻造/铁砧同一既定值：用户确认过的全局面板位置）。 */
     public static int guiOffsetX() { return 0; }
