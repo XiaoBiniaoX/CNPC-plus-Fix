@@ -143,7 +143,7 @@ public abstract class MixinSubGuiMeleePropertiesBuffs {
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$openBuffGui(GuiButtonNop button, CallbackInfo ci) {
         if (button == null || button.id != BTN_BUFFS) return;
-        ((SubGuiNpcMeleeProperties) (Object) this).setSubGui(new SubGuiMeleeBuffs(this.stats));
+        ((SubGuiNpcMeleeProperties) (Object) this).setSubGui(new SubGuiMeleeBuffs(MeleeBuffStore.tableFor(this.stats)));
         ci.cancel();
     }
 }

@@ -205,4 +205,32 @@ public final class MeleeBuffStore {
         }
         return out;
     }
+
+    /**
+     * 给 {@link SubGuiMeleeBuffs} 用的实例级视图（哈基彬需求 234「注意对象」）。
+     * 近战传本方法，弹射物侧由 {@code RangedBuffStore.tableFor} 提供平行实现。
+     */
+    public static BuffTable tableFor(DataMelee melee) {
+        return new BuffTable() {
+            @Override
+            public Map<String, int[]> get() {
+                return MeleeBuffStore.get(melee);
+            }
+
+            @Override
+            public void put(String registryName, int amplifier, int seconds) {
+                MeleeBuffStore.put(melee, registryName, amplifier, seconds);
+            }
+
+            @Override
+            public void remove(String registryName) {
+                MeleeBuffStore.remove(melee, registryName);
+            }
+
+            @Override
+            public void clear() {
+                MeleeBuffStore.clear(melee);
+            }
+        };
+    }
 }

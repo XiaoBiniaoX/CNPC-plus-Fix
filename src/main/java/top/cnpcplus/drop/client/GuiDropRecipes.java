@@ -296,7 +296,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             this.setSubGui(new GuiSoundSelection(this.soundId == null ? "" : this.soundId));
         } else if (button.id == BTN_FX) {
             // 233d：打开粒子特效编辑器（编辑副本；确定写内存、保存按钮落盘）
-            this.setSubGui(new top.cnpcplus.drop.fx.client.SubGuiDropFx(this, this.fxFinal));
+            this.setSubGui(new top.cnpcplus.drop.fx.client.SubGuiDropFx(this::applyFxCopy, this.fxFinal));
         }
     }
 

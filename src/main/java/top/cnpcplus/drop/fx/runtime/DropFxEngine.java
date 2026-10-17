@@ -104,16 +104,33 @@ public final class DropFxEngine {
                 if (budget <= 0) return consumed;
                 if (age >= shape.durationTicks) continue;
                 double[] pts = DropFxSampler.points(shape);
-                // 运行时旋转：toRadians(rotation) + rotSpeed*age（负值自然反转）
-                double angle = Math.toRadians(shape.rotation) + shape.rotSpeed * age;
-                double cos = Math.cos(angle), sin = Math.sin(angle);
+                // 235 三轴旋转（360°，哈基彬拍板进框架核心）：
+                // 相位 = rad(初始角) + rotSpeed*age（负速度自然反转），三轴串联顺序定为 X→Y→Z（欧拉定序）。
+                // 绕 X 转 (y,z)、绕 Y 转 (x,z)、绕 Z 转 (x,y) 各为二维公式嵌入；采样点 y 恒 0，
+                // 立起/翻滚的 y 位移由绕 X/Z 的旋转产生。三轴角全 0 时 cos=1/sin=0，
+                // 逐点退化为旧 XZ 单轴公式（y'=0）= 老档行为恒等。
+                double ax = Math.toRadians(shape.rotationX) + shape.rotSpeedX * age;
+                double ay = Math.toRadians(shape.rotation) + shape.rotSpeed * age;
+                double az = Math.toRadians(shape.rotationZ) + shape.rotSpeedZ * age;
+                double cx = Math.cos(ax), sx = Math.sin(ax);
+                double cy = Math.cos(ay), sy = Math.sin(ay);
+                double cz = Math.cos(az), sz = Math.sin(az);
                 int n = pts.length / 3;
                 for (int i = 0; i < n; i++) {
                     if (budget <= 0) return consumed;
-                    double px = pts[i * 3], pz = pts[i * 3 + 2];
-                    double x = inst.cx + shape.offsetX + px * cos - pz * sin;
-                    double z = inst.cz + shape.offsetZ + px * sin + pz * cos;
-                    double y = inst.cy + shape.offsetY;
+                    double px = pts[i * 3], py = pts[i * 3 + 1], pz = pts[i * 3 + 2];
+                    // 绕 X：转 (y,z)
+                    double y1 = py * cx - pz * sx;
+                    double z1 = py * sx + pz * cx;
+                    // 绕 Y：转 (x,z)
+                    double x2 = px * cy - z1 * sy;
+                    double z2 = px * sy + z1 * cy;
+                    // 绕 Z：转 (x,y)
+                    double x3 = x2 * cz - y1 * sz;
+                    double y3 = x2 * sz + y1 * cz;
+                    double x = inst.cx + shape.offsetX + x3;
+                    double z = inst.cz + shape.offsetZ + z2;
+                    double y = inst.cy + shape.offsetY + y3;
                     level.sendParticles(po, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
                     budget--;
                     consumed++;

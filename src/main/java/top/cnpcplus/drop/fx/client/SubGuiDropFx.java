@@ -14,7 +14,6 @@ import net.minecraftforge.registries.ForgeRegistries;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
-import top.cnpcplus.drop.client.GuiDropRecipes;
 import top.cnpcplus.drop.fx.DropFxConfig;
 import top.cnpcplus.drop.fx.DropFxCaps;
 import top.cnpcplus.drop.fx.ShapePreset;
@@ -26,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 /**
  * 掉落物配方粒子特效编辑器（233d d2，「允许自写面板」的落地）。
@@ -79,7 +79,7 @@ import java.util.Locale;
  * 因此删除，替换为自定义 {@link ShapeGallery}：
  * <ul>
  *   <li>单击格子=添加该形状新预设并选中编辑（重复点击=多个同类实例）；</li>
- *   <li>参数区行9 前后按钮 &lt;/&gt; 循环切换已添加 shapes（编辑旧预设入口）；</li>
+ *   <li>参数区行13 前后按钮 &lt;/&gt; 循环切换已添加 shapes（编辑旧预设入口）；</li>
  *   <li>边框态：选中=青 / 该类型已添加=橙 / hover=白 / 默认=灰；</li>
  *   <li>图案：固定种子 {@code RandomSource.create(0)} 每类型采样 24 点
  *       预计算（轮廓类折线+闭合，填充类只画点），映射到格子 16px 区域。</li>
@@ -87,6 +87,12 @@ import java.util.Locale;
  *
  * <h3>保存链</h3>
  * save() 写回父内存字段；落盘靠父「保存」按钮；取消/ESC=cancelled 不写。
+ *
+ * <h3>234 复用解耦</h3>
+ * 唯一与掉落物配方的耦合是「确定后把结果交给谁」——原来是
+ * {@code GuiDropRecipes.applyFxCopy}，现改为 {@link Consumer} 回写
+ * （{@code this::applyFxCopy} 或弹射物侧 {@code RangedFxStore} 的回写方法），
+ * 编辑器本体（粒子候选=全注册表、形状画廊、参数夹值、Caps 裁剪）零感知调用方。
  */
 public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
@@ -99,6 +105,11 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     private static final int FIELD_OX = 106;
     private static final int FIELD_OY = 107;
     private static final int FIELD_OZ = 108;
+    /** 235 三轴旋转四新参数（行 3..6，见 TIP_ROW_KEYS 注释的行序总表）。 */
+    private static final int FIELD_ROTSPDX = 109;
+    private static final int FIELD_ROTX = 110;
+    private static final int FIELD_ROTSPDZ = 111;
+    private static final int FIELD_ROTZ = 112;
 
     private static final int BG_FILL = 0xFFC6C6C6;
     private static final int BG_LIGHT = 0xFFFFFFFF;
@@ -108,17 +119,23 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
     /** 参数行高（列表 itemHeight 与 EditBox 跟随同步用）。 */
     private static final int PARAM_ROW = 18;
-    /** 参数总行数（233d-UI4：每参数独立一行=10 行，列表滚动显示）。 */
-    private static final int PARAM_ROWS = 10;
+    /** 参数总行数（235 三轴：每参数独立一行=14 行，列表滚动显示）。 */
+    private static final int PARAM_ROWS = 14;
 
     /**
      * 233d-UI8：参数行悬停说明 lang 键（行序必须与 ParamList.Entry.render
-     * 的 case 序一致：0..8=九参数、9=形状行）。
+     * 的 case 序一致）。235 三轴行序总表：
+     * 0=radius、1=Y轴转速、2=Y轴转角、3=X轴转速、4=X轴转角、5=Z轴转速、6=Z轴转角、
+     * 7=insetamt、8=duration、9=density、10=ox、11=oy、12=oz、13=形状行。
      */
     private static final String[] TIP_ROW_KEYS = {
             "cnpcplus.dropfx.tip.radius",
             "cnpcplus.dropfx.tip.rotspeed",
             "cnpcplus.dropfx.tip.rotation",
+            "cnpcplus.dropfx.tip.rotspeedx",
+            "cnpcplus.dropfx.tip.rotationx",
+            "cnpcplus.dropfx.tip.rotspeedz",
+            "cnpcplus.dropfx.tip.rotationz",
             "cnpcplus.dropfx.tip.insetamt",
             "cnpcplus.dropfx.tip.duration",
             "cnpcplus.dropfx.tip.density",
@@ -149,7 +166,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     /** 233d-UI9：子界面关闭路径打点（完成写回 vs 取消/ESC 丢弃——「落盘无星」操作链排查）。 */
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
-    private final GuiDropRecipes parent;
+    private final Consumer<List<DropFxConfig>> sink;
     private final List<DropFxConfig> editCopy = new ArrayList<>();
     private final List<String> particleIds = new ArrayList<>();
 
@@ -161,13 +178,16 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     private ShapeGallery shapeGallery;
     private ParamList paramList;
     private Button insetButton;
-    /** 行9 前后切换已添加 shapes（233d-UI6 画廊替代 ShapeList 后的「编辑旧预设」入口）。 */
+    /** 行13 前后切换已添加 shapes（233d-UI6 画廊替代 ShapeList 后的「编辑旧预设」入口）。 */
     private Button prevShapeBtn;
     private Button nextShapeBtn;
 
-    public SubGuiDropFx(GuiDropRecipes parent, List<DropFxConfig> currentFxs) {
-        this.parent = parent;
+    public SubGuiDropFx(Consumer<List<DropFxConfig>> sink, List<DropFxConfig> currentFxs) {
+        this.sink = sink;
         for (DropFxConfig c : currentFxs) this.editCopy.add(c.copy());
+        // 236 拍板「重复的同一个预设不该执行」：打开即卫生（载入链已 sanitize，这里兜
+        // 写回直传等路径）——同 id 合并 + 同 type 去重，用户看到的计数即执行的现实。
+        DropFxCaps.sanitize(this.editCopy, "特效编辑器打开");
         // 233d-UI7 包围盒 400×256（原 420 在窄窗口/GUI scale=2 时右侧删除按钮被裁=「超出」根因）
         this.imageWidth = 400;
         this.imageHeight = 256;
@@ -206,7 +226,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         this.shapeGallery.place(gl + 206, gt + 16);
         this.addRenderableWidget(this.shapeGallery);
 
-        // 右下块：参数（10 行每参数一行滚动；EditBox 叠加跟随滚动）
+        // 右下块：参数（14 行每参数一行滚动；EditBox 叠加跟随滚动）
         if (this.paramList == null) {
             this.paramList = new ParamList();
             killVanillaDirt(this.paramList);
@@ -224,6 +244,11 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         this.addTextField(field(FIELD_RADIUS, 0, 0, 70));
         this.addTextField(field(FIELD_ROTSPD, 0, 0, 70));
         this.addTextField(field(FIELD_ROT, 0, 0, 70));
+        // 235 三轴四框（漏创建=XZ 无输入框根因：placeXY getTextField=null 静默 return）
+        this.addTextField(field(FIELD_ROTSPDX, 0, 0, 70));
+        this.addTextField(field(FIELD_ROTX, 0, 0, 70));
+        this.addTextField(field(FIELD_ROTSPDZ, 0, 0, 70));
+        this.addTextField(field(FIELD_ROTZ, 0, 0, 70));
         this.addTextField(field(FIELD_INSET_AMT, 0, 0, 70));
         this.addTextField(field(FIELD_DURATION, 0, 0, 70));
         this.addTextField(field(FIELD_DENSITY, 0, 0, 70));
@@ -231,7 +256,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         this.addTextField(field(FIELD_OY, 0, 0, 70));
         this.addTextField(field(FIELD_OZ, 0, 0, 70));
 
-        // 内陷/外扩切换钮（参数行9 右侧，跟随滚动）
+        // 内陷/外扩切换钮（参数行13 右侧，跟随滚动）
         this.insetButton = Button.builder(
                         Component.translatable(this.currentInsetLabelKey()), b -> {
                             ShapePreset s = this.currentShape();
@@ -242,7 +267,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
                         })
                 .bounds(0, 0, 54, 18).build();
         this.addRenderableWidget(this.insetButton);
-        // 行9 前后切换（画廊替代 ShapeList 后编辑旧预设的入口；< 循环上一个/> 循环下一个）
+        // 行13 前后切换（画廊替代 ShapeList 后编辑旧预设的入口；< 循环上一个/> 循环下一个）
         this.prevShapeBtn = Button.builder(Component.literal("<"), b -> this.cycleShape(-1))
                 .bounds(0, 0, 12, 18).build();
         this.nextShapeBtn = Button.builder(Component.literal(">"), b -> this.cycleShape(1))
@@ -299,6 +324,9 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         } else if (id == FIELD_DENSITY) {
             // 密度不允许 0（除数），233d-UI9 夹 0.01..100（点数上限见 DropFxCaps.MAX_POINTS_PER_SHAPE=256）
             box.setMinMaxDefault(0.01f, 100f, 1f);
+        } else if (id == FIELD_ROT || id == FIELD_ROTX || id == FIELD_ROTZ) {
+            // 235 三轴初始角 -360~360（哈基彬 360° 拍板，覆盖 UI9 的 ±100 仅角度）；转速三轴仍 -100~100
+            box.setMinMaxDefault(-360f, 360f, 0f);
         }
         return box;
     }
@@ -317,18 +345,22 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         int top = this.paramList.top();
         int bot = this.paramList.bottom();
         int lx = this.paramList.left();
-        // 行0..8：每行一个输入框（标签在列表 Entry 自绘于左，框叠在右）
+        // 行0..12：每行一个输入框（标签在列表 Entry 自绘于左，框叠在右）
         placeXY(FIELD_RADIUS, lx + 100, base + 0 * PARAM_ROW + 1, sc, top, bot);
         placeXY(FIELD_ROTSPD, lx + 100, base + 1 * PARAM_ROW + 1, sc, top, bot);
         placeXY(FIELD_ROT, lx + 100, base + 2 * PARAM_ROW + 1, sc, top, bot);
-        placeXY(FIELD_INSET_AMT, lx + 100, base + 3 * PARAM_ROW + 1, sc, top, bot);
-        placeXY(FIELD_DURATION, lx + 100, base + 4 * PARAM_ROW + 1, sc, top, bot);
-        placeXY(FIELD_DENSITY, lx + 100, base + 5 * PARAM_ROW + 1, sc, top, bot);
-        placeXY(FIELD_OX, lx + 100, base + 6 * PARAM_ROW + 1, sc, top, bot);
-        placeXY(FIELD_OY, lx + 100, base + 7 * PARAM_ROW + 1, sc, top, bot);
-        placeXY(FIELD_OZ, lx + 100, base + 8 * PARAM_ROW + 1, sc, top, bot);
-        // 行9：类型行右侧 < > 切换钮 + inset 钮（233d-UI6 画廊后编辑旧预设入口）
-        int y9 = base + 9 * PARAM_ROW + 1 - (int) sc;
+        placeXY(FIELD_ROTSPDX, lx + 100, base + 3 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_ROTX, lx + 100, base + 4 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_ROTSPDZ, lx + 100, base + 5 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_ROTZ, lx + 100, base + 6 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_INSET_AMT, lx + 100, base + 7 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_DURATION, lx + 100, base + 8 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_DENSITY, lx + 100, base + 9 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_OX, lx + 100, base + 10 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_OY, lx + 100, base + 11 * PARAM_ROW + 1, sc, top, bot);
+        placeXY(FIELD_OZ, lx + 100, base + 12 * PARAM_ROW + 1, sc, top, bot);
+        // 行13：类型行右侧 < > 切换钮 + inset 钮（233d-UI6 画廊后编辑旧预设入口）
+        int y9 = base + 13 * PARAM_ROW + 1 - (int) sc;
         boolean vis9 = y9 >= top && y9 + 18 <= bot;
         if (this.prevShapeBtn != null) {
             this.prevShapeBtn.setX(lx + 118);
@@ -418,7 +450,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         this.selectShape(c.shapes.size() - 1);
     }
 
-    /** 行9 前后切换（循环切换已添加 shapes 的选中索引；dir=±1）。 */
+    /** 行13 前后切换（循环切换已添加 shapes 的选中索引；dir=±1）。 */
     private void cycleShape(int dir) {
         DropFxConfig c = this.currentConfig();
         if (c == null || c.shapes.isEmpty()) return;
@@ -459,10 +491,15 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
             return;
         }
         switch (id) {
-            // 233d-UI9：常规参数 -100~100、density 0.01~100（与 field() 的 min/max 双保险）
+            // 233d-UI9：常规参数 -100~100、density 0.01~100（与 field() 的 min/max 双保险）；
+            // 235 三轴初始角放宽 -360~360（360° 拍板），转速三轴仍 -100~100
             case FIELD_RADIUS -> s.radius = clamp(v, -100, 100);
             case FIELD_ROTSPD -> s.rotSpeed = clamp(v, -100, 100);
-            case FIELD_ROT -> s.rotation = clamp(v, -100, 100);
+            case FIELD_ROT -> s.rotation = clamp(v, -360, 360);
+            case FIELD_ROTSPDX -> s.rotSpeedX = clamp(v, -100, 100);
+            case FIELD_ROTX -> s.rotationX = clamp(v, -360, 360);
+            case FIELD_ROTSPDZ -> s.rotSpeedZ = clamp(v, -100, 100);
+            case FIELD_ROTZ -> s.rotationZ = clamp(v, -360, 360);
             case FIELD_INSET_AMT -> s.insetAmount = clamp(v, -100, 100);
             case FIELD_DURATION -> s.durationTicks =
                     (int) clamp(Math.round(v), 1, DropFxCaps.MAX_DURATION_TICKS);
@@ -488,6 +525,10 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         set(FIELD_RADIUS, s == null ? "" : fmt(s.radius));
         set(FIELD_ROTSPD, s == null ? "" : fmt(s.rotSpeed));
         set(FIELD_ROT, s == null ? "" : fmt(s.rotation));
+        set(FIELD_ROTSPDX, s == null ? "" : fmt(s.rotSpeedX));
+        set(FIELD_ROTX, s == null ? "" : fmt(s.rotationX));
+        set(FIELD_ROTSPDZ, s == null ? "" : fmt(s.rotSpeedZ));
+        set(FIELD_ROTZ, s == null ? "" : fmt(s.rotationZ));
         set(FIELD_INSET_AMT, s == null ? "" : fmt(s.insetAmount));
         set(FIELD_DURATION, s == null ? "" : String.valueOf(s.durationTicks));
         set(FIELD_DENSITY, s == null ? "" : fmt(s.density));
@@ -505,6 +546,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         // 无选中形状时全部 disabled（placeXY 每帧还会再校验 enabled）
         boolean on = this.currentShape() != null;
         for (int id : new int[]{FIELD_RADIUS, FIELD_ROTSPD, FIELD_ROT,
+                FIELD_ROTSPDX, FIELD_ROTX, FIELD_ROTSPDZ, FIELD_ROTZ,
                 FIELD_INSET_AMT, FIELD_DURATION, FIELD_DENSITY, FIELD_OX, FIELD_OY, FIELD_OZ}) {
             GuiTextFieldNop b = this.getTextField(id);
             if (b != null) b.enabled = on;
@@ -540,7 +582,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
     @Override
     public void save() {
-        if (this.cancelled || this.parent == null) {
+        if (this.cancelled || this.sink == null) {
             // 233d-UI9 打点（「点了保存/预览是星」但落盘无星排查）：取消/ESC=改动整体丢弃，
             // 与父界面「特效写回内存/配方保存」日志三段对读=用户操作链一目了然
             if (this.cancelled) {
@@ -553,7 +595,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
             if (c.shapes.isEmpty()) continue;
             result.add(c.copy());
         }
-        this.parent.applyFxCopy(result);
+        this.sink.accept(result);
     }
 
     // ===== 渲染：三块独立灰板 + 局部变黑列表区 + 组件 + 联动 =====
@@ -966,7 +1008,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     private final class ParamList extends ObjectSelectionList<ParamList.Entry> {
 
         ParamList() {
-            // 内容 10 行×18=180 > 可视 92 → 溢出 88px，滚动条明显（233d-UI4 每参数一行）
+            // 内容 14 行×18=252 > 可视 92 → 溢出 160px，滚动条明显（233d-UI4 每参数一行）
             // 233d-UI7 宽 206→192（右面板内缘）
             super(Minecraft.getInstance(), 192, 92, 0, 92, PARAM_ROW);
         }
@@ -1024,14 +1066,18 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
                     case 0 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.radius"), left + 2, ly, c, false);
                     case 1 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.rotspeed"), left + 2, ly, c, false);
                     case 2 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.rotation"), left + 2, ly, c, false);
-                    case 3 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.insetamt"), left + 2, ly, c, false);
-                    case 4 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.duration"), left + 2, ly, c, false);
-                    case 5 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.density"), left + 2, ly, c, false);
-                    case 6 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.ox"), left + 2, ly, c, false);
-                    case 7 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.oy"), left + 2, ly, c, false);
-                    case 8 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.oz"), left + 2, ly, c, false);
+                    case 3 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.rotspeedx"), left + 2, ly, c, false);
+                    case 4 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.rotationx"), left + 2, ly, c, false);
+                    case 5 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.rotspeedz"), left + 2, ly, c, false);
+                    case 6 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.rotationz"), left + 2, ly, c, false);
+                    case 7 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.insetamt"), left + 2, ly, c, false);
+                    case 8 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.duration"), left + 2, ly, c, false);
+                    case 9 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.density"), left + 2, ly, c, false);
+                    case 10 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.ox"), left + 2, ly, c, false);
+                    case 11 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.oy"), left + 2, ly, c, false);
+                    case 12 -> g.drawString(font, Component.translatable("cnpcplus.dropfx.oz"), left + 2, ly, c, false);
                     default -> {
-                        // 行9：类型名 + 当前索引/总数（233d-UI6 画廊后 < > 切换编辑）
+                        // 行13：类型名 + 当前索引/总数（233d-UI6 画廊后 < > 切换编辑）
                         ShapePreset s = SubGuiDropFx.this.currentShape();
                         DropFxConfig cfg = SubGuiDropFx.this.currentConfig();
                         int n = cfg == null ? 0 : cfg.shapes.size();

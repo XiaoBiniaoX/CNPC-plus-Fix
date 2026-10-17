@@ -73,6 +73,7 @@ public class CnpcPlus {
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.drop.DropCraftHandler.class);
         // 233d 掉落物粒子特效运行时（LevelTick END 队列驱动；空队列 O(1) 短路）
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.drop.fx.runtime.DropFxEngine.class);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.drop.fx.runtime.ProjectileFxTracker.class);
         // /cnpcplus playerdata load <player>（对齐 1.21.1，权限 level 4）
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->

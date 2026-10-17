@@ -117,7 +117,9 @@
     "MixinMerchantOfferNameOnly",
     "MixinMerchantMenuTradeSound",
     "MixinAnvilMenu",
-    "MerchantMenuAccessor"
+    "MerchantMenuAccessor",
+    "MixinDataRangedExtras",
+    "MixinEntityProjectileBuffs"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -157,6 +159,7 @@
     "MixinGuiNpcFollowerDismiss",
     "MixinSubGuiNpcMovementSpeed",
     "MixinSubGuiNpcProjectilesTrails",
+    "MixinSubGuiNpcProjectilesExtras",
     "MixinGuiNPCGlobalMainMenuSmelting",
     "MixinGuiNPCGlobalMainMenuSmithing",
     "MixinGuiNPCGlobalMainMenuAnvil",

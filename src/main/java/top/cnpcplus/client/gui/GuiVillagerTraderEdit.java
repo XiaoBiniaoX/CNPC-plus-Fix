@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -119,15 +120,15 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
         int ly = this.topPos + 10;
 
         this.btnAdd = this.addRenderableWidget(Button.builder(
-            Component.literal("+ 添加交易"), b -> onAddTrade())
+            Component.translatable("cnpcplus.villagertrader.add"), b -> onAddTrade())
             .bounds(lx, ly, 95, 20).build());
 
         this.btnDelete = this.addRenderableWidget(Button.builder(
-            Component.literal("删除选中"), b -> onDeleteTrade())
+            Component.translatable("cnpcplus.villagertrader.delete"), b -> onDeleteTrade())
             .bounds(lx, ly + 25, 95, 20).build());
 
         this.btnLimit = this.addRenderableWidget(Button.builder(
-            Component.literal("限购: 关"), b -> onToggleLimit())
+            Component.translatable("cnpcplus.villagertrader.limit.off"), b -> onToggleLimit())
             .bounds(lx, ly + 50, 95, 20).build());
 
         // 仅名字检查：mod 物品 NBT 每次变化时，匹配只校验物品 id + 展示名（忽略 NBT）
@@ -135,10 +136,10 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
             Component.translatable("cnpcplus.trader.nameonly.off"), b -> onToggleNameOnly())
             .bounds(lx, ly + 95, 95, 20).build());
 
-        this.limitCountBox = new EditBox(this.font, lx, ly + 75, 40, 16, Component.literal("限购次数"));
+        this.limitCountBox = new EditBox(this.font, lx, ly + 75, 40, 16, Component.translatable("cnpcplus.villagertrader.limitcount"));
         this.limitCountBox.setMaxLength(4);
         this.limitCountBox.setFilter(s -> s.matches("\\d*"));
-        this.limitCountBox.setTooltip(Tooltip.create(Component.literal("这是限购多少次？")));
+        this.limitCountBox.setTooltip(Tooltip.create(Component.translatable("cnpcplus.villagertrader.limitcount.tooltip")));
         this.limitCountBox.setResponder(s -> {
             int idx = lastShopItem;
             if (idx >= 0 && idx < trades.size()) {
@@ -151,10 +152,10 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
         });
         this.addRenderableWidget(this.limitCountBox);
 
-        this.refreshTimeBox = new EditBox(this.font, lx + 50, ly + 75, 45, 16, Component.literal("刷新秒"));
+        this.refreshTimeBox = new EditBox(this.font, lx + 50, ly + 75, 45, 16, Component.translatable("cnpcplus.villagertrader.refreshsecs"));
         this.refreshTimeBox.setMaxLength(5);
         this.refreshTimeBox.setFilter(s -> s.matches("\\d*"));
-        this.refreshTimeBox.setTooltip(Tooltip.create(Component.literal("耗尽后恢复购买的等待时间，单位：秒（不是tick）")));
+        this.refreshTimeBox.setTooltip(Tooltip.create(Component.translatable("cnpcplus.villagertrader.refreshsecs.tooltip")));
         this.refreshTimeBox.setResponder(s -> {
             int idx = lastShopItem;
             if (idx >= 0 && idx < trades.size()) {
@@ -335,7 +336,8 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
         if (this.btnLimit != null) {
             this.btnLimit.active = has;
             if (has) {
-                this.btnLimit.setMessage(Component.literal(trades.get(idx).limitEnabled ? "限购: 开" : "限购: 关"));
+                this.btnLimit.setMessage(Component.translatable(trades.get(idx).limitEnabled
+                    ? "cnpcplus.villagertrader.limit.on" : "cnpcplus.villagertrader.limit.off"));
             }
         }
         if (this.btnDelete != null) {
@@ -435,17 +437,17 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
         // 按钮列最低到 topPos+125（仅名字 105~125），223b 移到其下方，不再与按钮重叠
         int ly = this.topPos + 127;
         if ((lastShopItem < 0 || lastShopItem >= trades.size()) && !trades.isEmpty()) {
-            graphics.drawString(this.font, "点击左侧条目选中", lx, ly, 0x808080, false);
+            graphics.drawString(this.font, I18n.get("cnpcplus.villagertrader.selecthint"), lx, ly, 0x808080, false);
         } else if (lastShopItem >= 0 && lastShopItem < trades.size()) {
             TradeData t = trades.get(lastShopItem);
             if (t.limitEnabled && t.uses >= Math.max(1, t.limitCount) && t.limitResetAt > 0) {
                 // 223a：耗尽倒计时（refreshInterval 单位=秒，onTradeConsumed 按 *1000 落时刻）
                 long remainMs = t.limitResetAt - System.currentTimeMillis();
                 if (remainMs > 0) {
-                    graphics.drawString(this.font, "还有 " + ((remainMs + 999) / 1000) + " 秒刷新",
+                    graphics.drawString(this.font, I18n.get("cnpcplus.villagertrader.refreshin", (remainMs + 999) / 1000),
                         lx, ly, 0xFF5555, false);
                 } else {
-                    graphics.drawString(this.font, "刷新已就绪", lx, ly, 0x55FF55, false);
+                    graphics.drawString(this.font, I18n.get("cnpcplus.villagertrader.refreshready"), lx, ly, 0x55FF55, false);
                 }
             }
         }

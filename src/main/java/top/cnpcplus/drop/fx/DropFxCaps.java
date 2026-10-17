@@ -58,47 +58,75 @@ public final class DropFxCaps {
      * （上限是物理保护而非使用限制——用户拍板「上限表无」，界面不展示这些数字。）
      */
     public static void sanitize(DropRecipeData recipe) {
-        List<DropFxConfig> fxs = recipe.fxs;
+        sanitize(recipe.fxs, "配方 id=" + recipe.id);
+    }
+
+    /**
+     * 列表版（234）：掉落物配方与弹射物特效（{@code RangedFxStore}）共用的裁剪主体，
+     * {@code source} 只进日志（配方 id / NPC 来源标识）。
+     *
+     * <p>236 哈基彬拍板「每个粒子可设多个形状预设，但不应该重复设置同一个预设
+     * 并且执行」→ 卫生顺序：①同 particleId 双 config 合并（防影子执行：GUI 只编辑
+     * 首份而引擎全跑）→ ②每 config 内同 <b>type</b> 只留首个（与画廊查重同尺；
+     * 233d-UI8 的 equals 全等去重被其包含，参数微差的同类型双份也清）→ ③上限
+     * 截断 → ④空 config 清除。
+     */
+    public static void sanitize(List<DropFxConfig> fxs, String source) {
+        // ① 同 particleId 合并（后见并入首见；防「看不见的第二份照样执行」）
+        for (int i = fxs.size() - 1; i > 0; i--) {
+            DropFxConfig c = fxs.get(i);
+            if (c == null) { fxs.remove(i); continue; }
+            for (int j = 0; j < i; j++) {
+                DropFxConfig first = fxs.get(j);
+                if (first != null && first.particleId.equals(c.particleId)) {
+                    LOGGER.debug("[drop-fx] {} 合并重复粒子配置 {}（{} 个形状并入首份，236 拍板防影子执行）",
+                            source, c.particleId, c.shapes.size());
+                    first.shapes.addAll(c.shapes);
+                    fxs.remove(i);
+                    break;
+                }
+            }
+        }
         if (fxs.size() > MAX_CONFIGS_PER_RECIPE) {
-            LOGGER.debug("[drop-fx] 配方 id={} 粒子配置数 {} 超上限，截断至 {}",
-                    recipe.id, fxs.size(), MAX_CONFIGS_PER_RECIPE);
+            LOGGER.debug("[drop-fx] {} 粒子配置数 {} 超上限，截断至 {}",
+                    source, fxs.size(), MAX_CONFIGS_PER_RECIPE);
             while (fxs.size() > MAX_CONFIGS_PER_RECIPE) {
                 fxs.remove(fxs.size() - 1);
             }
         }
         for (DropFxConfig c : fxs) {
-            if (c.shapes.size() > MAX_SHAPES_PER_CONFIG) {
-                LOGGER.debug("[drop-fx] 配方 id={} 粒子 {} 形状数 {} 超上限，截断至 {}",
-                        recipe.id, c.particleId, c.shapes.size(), MAX_SHAPES_PER_CONFIG);
-                while (c.shapes.size() > MAX_SHAPES_PER_CONFIG) {
-                    c.shapes.remove(c.shapes.size() - 1);
-                }
-            }
             for (ShapePreset p : c.shapes) {
                 p.withDefaults();
                 if (p.durationTicks > MAX_DURATION_TICKS) {
-                    LOGGER.debug("[drop-fx] 配方 id={} 形状时长 {} 超上限，截断至 {}",
-                            recipe.id, p.durationTicks, MAX_DURATION_TICKS);
+                    LOGGER.debug("[drop-fx] {} 形状时长 {} 超上限，截断至 {}",
+                            source, p.durationTicks, MAX_DURATION_TICKS);
                     p.durationTicks = MAX_DURATION_TICKS;
                 }
             }
-            // 233d-UI8（用户拍板A）：同配置内全等形状去重——UI6 always-add 时代
-            // 堆出的重复圆与用户新设的星形叠加播放=「设六芒星出来是圆形」头号嫌疑。
-            // ShapePreset.equals=全字段值相等（与点集缓存同语义）；首见保留、后见丢弃。
-            // O(n²) 但 n≤MAX_SHAPES_PER_CONFIG=32，仅在载入时跑一次。
+            // 同 type 去重：画廊本就「同类型只选中不添加」（233d-UI6/第七轮 15/15 根因修复），
+            // 读入侧与之同尺——首见保留、后见丢弃，杜绝「重复设置同一个预设并且执行」。
+            // 原 233d-UI8 equals 全等去重是本规则的子集（type 同必含参数同的重复）。
+            // O(n²) n≤32，仅载入/回写时跑。
             for (int i = c.shapes.size() - 1; i > 0; i--) {
-                ShapePreset p = c.shapes.get(i);
+                ShapeType t = c.shapes.get(i).type;
                 boolean dup = false;
                 for (int j = 0; j < i; j++) {
-                    if (c.shapes.get(j).equals(p)) {
+                    if (c.shapes.get(j).type == t) {
                         dup = true;
                         break;
                     }
                 }
                 if (dup) {
-                    LOGGER.debug("[drop-fx] 配方 id={} 粒子 {} 去除全等重复形状 {} (233d-UI8)",
-                            recipe.id, c.particleId, p.type.name());
+                    LOGGER.debug("[drop-fx] {} 粒子 {} 去除同类型重复形状 {} (236 拍板，type 级)",
+                            source, c.particleId, t.name());
                     c.shapes.remove(i);
+                }
+            }
+            if (c.shapes.size() > MAX_SHAPES_PER_CONFIG) {
+                LOGGER.debug("[drop-fx] {} 粒子 {} 形状数 {} 超上限，截断至 {}",
+                        source, c.particleId, c.shapes.size(), MAX_SHAPES_PER_CONFIG);
+                while (c.shapes.size() > MAX_SHAPES_PER_CONFIG) {
+                    c.shapes.remove(c.shapes.size() - 1);
                 }
             }
         }

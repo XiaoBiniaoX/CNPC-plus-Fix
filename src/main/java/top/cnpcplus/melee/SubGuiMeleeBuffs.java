@@ -4,7 +4,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.effect.MobEffect;
-import noppes.npcs.entity.data.DataMelee;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiCustomScrollNop;
@@ -43,9 +42,11 @@ import java.util.Map;
  * 于是父界面按钮上的「已选 N 个」文字自动刷新，不需要自己管返回逻辑。
  *
  * <h3>数据落盘路径</h3>
- * 本界面只改内存里的 {@link MeleeBuffStore}。真正落盘发生在玩家关闭 NPC 属性主界面时的
+ * 本界面只改内存里的 {@link MeleeBuffStore}（近战）或 {@code RangedBuffStore}（弹射物，
+ * 234 轮通过 {@link BuffTable} 共用本界面）。真正落盘发生在玩家关闭 NPC 属性主界面时的
  * {@code SPacketMenuSave(STATS, stats.save(...))}（{@code GuiNpcStats.java:175}），
- * 而 BUFF 表已由 {@code MixinDataMeleeBuffNBT} 挂进 {@code DataMelee} 的标签里，
+ * 而 BUFF 表已由 {@code MixinDataMeleeBuffNBT} / {@code MixinDataRangedExtras}
+ * 挂进对应 data 对象的标签里，
  * 所以随之一起过河、一起进存档，无需新增任何网络包。
  */
 public class SubGuiMeleeBuffs extends GuiBasic
@@ -62,7 +63,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
     private static final int BTN_CLEAR = 14;
     private static final int BTN_DONE = 66;
 
-    private final DataMelee melee;
+    private final BuffTable table;
 
     private GuiCustomScrollNop available;
     private GuiCustomScrollNop selected;
@@ -75,8 +76,8 @@ public class SubGuiMeleeBuffs extends GuiBasic
     private int amplifier = 0;
     private int seconds = 5;
 
-    public SubGuiMeleeBuffs(DataMelee melee) {
-        this.melee = melee;
+    public SubGuiMeleeBuffs(BuffTable table) {
+        this.table = table;
         this.setBackground("menubg.png");
         this.imageWidth = 420;
         this.imageHeight = 240;
@@ -148,7 +149,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         this.availableNames.clear();
         this.selectedNames.clear();
 
-        Map<String, int[]> chosen = MeleeBuffStore.get(this.melee);
+        Map<String, int[]> chosen = this.table.get();
 
         List<String> availableList = new ArrayList<>();
         for (MobEffect effect : BuiltInRegistries.MOB_EFFECT) {
@@ -213,7 +214,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
             if (this.available.hasSelected()) {
                 String registry = this.availableNames.get(this.available.getSelected());
                 if (registry != null) {
-                    MeleeBuffStore.put(this.melee, registry, this.amplifier, this.seconds);
+                    this.table.put(registry, this.amplifier, this.seconds);
                 }
             }
             cnpcplus$clearSelections();
@@ -222,13 +223,13 @@ public class SubGuiMeleeBuffs extends GuiBasic
             if (this.selected.hasSelected()) {
                 String registry = this.selectedNames.get(this.selected.getSelected());
                 if (registry != null) {
-                    MeleeBuffStore.remove(this.melee, registry);
+                    this.table.remove(registry);
                 }
             }
             cnpcplus$clearSelections();
             this.m_7856_();
         } else if (button.id == BTN_CLEAR) {
-            MeleeBuffStore.clear(this.melee);
+            this.table.clear();
             cnpcplus$clearSelections();
             this.m_7856_();
         } else if (button.id == BTN_DONE) {
@@ -262,7 +263,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         if (scroll != this.selected || !this.selected.hasSelected()) return;
         String registry = this.selectedNames.get(this.selected.getSelected());
         if (registry == null) return;
-        int[] value = MeleeBuffStore.get(this.melee).get(registry);
+        int[] value = this.table.get().get(registry);
         if (value == null) return;
         this.amplifier = value[0];
         this.seconds = value[1];
@@ -284,7 +285,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         if (scroll == this.available) {
             String registry = this.availableNames.get(selection);
             if (registry == null) return;
-            MeleeBuffStore.put(this.melee, registry, this.amplifier, this.seconds);
+            this.table.put(registry, this.amplifier, this.seconds);
             cnpcplus$clearSelections();
             this.m_7856_();
             return;
@@ -292,7 +293,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         if (scroll != this.selected) return;
         String registry = this.selectedNames.get(selection);
         if (registry == null) return;
-        MeleeBuffStore.put(this.melee, registry, this.amplifier, this.seconds);
+        this.table.put(registry, this.amplifier, this.seconds);
         this.m_7856_();
     }
 

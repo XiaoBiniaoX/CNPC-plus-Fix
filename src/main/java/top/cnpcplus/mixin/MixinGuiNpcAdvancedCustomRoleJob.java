@@ -69,7 +69,7 @@ public class MixinGuiNpcAdvancedCustomRoleJob {
                     );
                     var screen = new top.cnpcplus.client.gui.GuiVillagerTraderEdit(
                         self.npc, menu, player.getInventory(),
-                        net.minecraft.network.chat.Component.literal("村民交易商 - 编辑"),
+                        net.minecraft.network.chat.Component.translatable("cnpcplus.villagertrader.edit"),
                         merchant
                     );
                     Minecraft.getInstance().setScreen(screen);

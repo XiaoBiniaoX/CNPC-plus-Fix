@@ -14,8 +14,8 @@ import java.util.Map;
  * 形状→点集采样器（233d，纯数学、零世界依赖——因此可安全在 {@link FxComputePool} 后台跑）。
  *
  * <p>输出格式：{@code double[3n]} 交错 [x0,y0,z0, x1,y1,z1, …]，
- * 中心在原点、已应用 radius 与 inset/外扩、<b>不含 rotation/rotSpeed</b>——
- * 运行时旋转角 = toRadians(rotation) + rotSpeed*age（引擎每 tick 应用，负 rotSpeed 自然反转），
+ * 中心在原点、已应用 radius 与 inset/外扩、<b>不含 rotation/rotSpeed（三轴）</b>——
+ * 运行时各轴相位 = toRadians(初始角) + rotSpeed*age（引擎每 tick 按 X→Y→Z 串联应用，负速度自然反转），
  * 这样点集缓存与旋转解耦，调 rotSpeed 不触发重采样。
  *
  * <p>缓存：{@link ShapePreset} 值相等（全字段 equals）即命中；LRU 上限
