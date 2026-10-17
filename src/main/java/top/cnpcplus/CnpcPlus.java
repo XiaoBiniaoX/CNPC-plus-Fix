@@ -97,6 +97,9 @@ public class CnpcPlus {
                     top.cnpcplus.smithing.SmithingRecipeRegistry.clearCache();
                     top.cnpcplus.anvil.AnvilRecipeRegistry.clearCache();
                     top.cnpcplus.drop.DropRecipeRegistry.clearCache();
+                    // 233d-UI9：清掉落物「玩家丢出」身份集合（用户拍板「只加关服清理」）——
+                    // 防单人换存档时残留实体 id 被新档复用误认成玩家丢出（id 每档从头计数）
+                    top.cnpcplus.drop.DropCraftHandler.clearStatics();
                 });
     }
 }

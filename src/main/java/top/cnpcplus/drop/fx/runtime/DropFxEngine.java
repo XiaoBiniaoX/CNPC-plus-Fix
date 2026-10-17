@@ -55,14 +55,18 @@ public final class DropFxEngine {
         if (fxs == null || fxs.isEmpty()) return;
         List<DropFxInstance> queue = queueOf(level);
         if (queue.size() >= DropFxCaps.MAX_INSTANCES_PER_LEVEL) {
-            LOGGER.warn("[drop-fx] 维度实例数达上限 {}，丢弃新特效 pos=({},{},{})",
+            LOGGER.debug("[drop-fx] 维度实例数达上限 {}，丢弃新特效 pos=({},{},{})",
                     DropFxCaps.MAX_INSTANCES_PER_LEVEL, cx, cy, cz);
             return;
         }
         DropFxInstance inst = new DropFxInstance(cx, cy, cz, fxs, level.getGameTime());
         queue.add(inst);
-        LOGGER.info("[drop-fx] 合成特效启动 configs={} pos=({},{},{}) dur={}t",
-                inst.fxs.size(), cx, cy, cz, inst.maxDuration);
+        // 233d-UI8：明细 particleId:[TYPE,…]——「出来是圆形」决定性日志：
+        // 合成那一刻实际播放的形状类型一目可见（与保存日志对读；UI9 降为 debug 默认不输出）
+        String fxsDetail = String.join(", ",
+                inst.fxs.stream().map(fx -> fx.summary()).toList());
+        LOGGER.debug("[drop-fx] 合成特效启动 configs={} pos=({},{},{}) dur={}t fxs=[{}]",
+                inst.fxs.size(), cx, cy, cz, inst.maxDuration, fxsDetail);
     }
 
     @SubscribeEvent

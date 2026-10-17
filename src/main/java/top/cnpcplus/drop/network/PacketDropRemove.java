@@ -22,16 +22,16 @@ public class PacketDropRemove {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[drop] Remove拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[drop] Remove拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }
             if (!DropRecipeRegistry.remove(this.id)) {
-                LOGGER.warn("[drop] Remove拒绝: Registry删除失败 id={} player={}", this.id,
+                LOGGER.debug("[drop] Remove拒绝: Registry删除失败 id={} player={}", this.id,
                         sender.getGameProfile().getName());
                 return;
             }
-            LOGGER.info("[drop] 配方删除 id={}", this.id);
+            LOGGER.debug("[drop] 配方删除 id={}", this.id);
             DropRecipeRegistry.syncToPlayers(sender.server);
         });
         ctx.get().setPacketHandled(true);

@@ -17,18 +17,22 @@ package top.cnpcplus.anvil;
  * - 经验输入框挪结果槽下方 (134,75) 宽 36（用户嫌 40 太长）；
  * - 「仅名字检查」开关随结果槽右移 (152,51)：结果框 ends151 → 开关 152..172，
  *   滚动列表 x172 起，正好零间隙不重叠。
+ *
+ * <p>233d-UI9 哈基彬要求重排：三槽+plus+arrow 整体左移 19（27/76/134/53/102
+ * → 8/57/115/34/83）；nameOnly 左移一点、居中放在敲打经验输入框
+ * (134,75)w36 正上方 → (142,53)——结果槽已让到 ends133，与滚动列表 x172 零重叠。
  */
 public final class AnvilLayout {
 
     private AnvilLayout() {}
 
-    // ===== 槽位（原版铁砧相对布局：A + plus + B + arrow + 结果）=====
-    /** A(27)、B(76)、结果(134) = vanilla AnvilMenu INPUT/ADDITIONAL/RESULT X；y=47+8=55（面板行下移8） */
-    public static int slotAX() { return 27; }
+    // ===== 槽位（原版铁砧相对布局：A + plus + B + arrow + 结果；UI9 整体左移19）=====
+    /** A(8)、B(57)、结果(115) = 231b 值 27/76/134 左移19（233d-UI9）；y=47+8=55（面板行下移8） */
+    public static int slotAX() { return 8; }
     public static int slotAY() { return 55; }
-    public static int slotBX() { return 76; }
+    public static int slotBX() { return 57; }
     public static int slotBY() { return 55; }
-    public static int slotResultX() { return 134; }
+    public static int slotResultX() { return 115; }
     public static int slotResultY() { return 55; }
 
     /** 配方名称输入框：锤子 (8..38) 右侧让位 → 42..168（宽126） */
@@ -53,20 +57,21 @@ public final class AnvilLayout {
     public static int expFieldHeight() { return 20; }
 
     /**
-     * 「仅名字检查」开关：结果槽右边（用户230指定，231b 随结果槽挪位）——
-     * 结果框 ends x151 → 开关 (152,51) ends172，滚动列表 x172 起，1px 间隙零重叠。
+     * 「仅名字检查」开关（233d-UI9 哈基彬指定：左移一点、居中放在敲打经验输入框上方）——
+     * 经验框 (134,75) 宽36 中心 x152 → 开关宽20 → x=142；y=75-20-2=53（距经验框 2px），
+     * ends (162,73)：与结果槽(ends x133)/滚动列表 x172/经验框 y75 零重叠。
      */
-    public static int nameOnlyX() { return 152; }
-    public static int nameOnlyY() { return 51; }
+    public static int nameOnlyX() { return 142; }
+    public static int nameOnlyY() { return 53; }
     public static int nameOnlyWidth() { return 20; }
     public static int nameOnlyHeight() { return 20; }
 
-    // ===== 槽间贴图（vanilla anvil.png 实测 uv，行偏移+8；资源=透明裁片）=====
-    /** plus：uv(53,49)13x13 → (53,57)，A框(ends44)..B框(starts75) 正中 */
-    public static int plusX() { return 53; }
+    // ===== 槽间贴图（vanilla anvil.png 实测 uv，行偏移+8；资源=透明裁片；UI9 随槽组左移19）=====
+    /** plus：uv(53,49)13x13 → (34,57)，A框(ends25)..B框(starts56) 正中 */
+    public static int plusX() { return 34; }
     public static int plusY() { return 57; }
-    /** arrow：uv(102,48)22x15 → (102,56)，B框(ends93)..结果框(starts133) 正中 */
-    public static int arrowX() { return 102; }
+    /** arrow：uv(102,48)22x15 → (83,56)，B框(ends74)..结果框(starts114) 正中 */
+    public static int arrowX() { return 83; }
     public static int arrowY() { return 56; }
 
     /** 右侧按钮列（新建/移除/保存） */

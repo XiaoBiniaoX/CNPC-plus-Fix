@@ -86,6 +86,11 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
     public void applyFxCopy(java.util.List<top.cnpcplus.drop.fx.DropFxConfig> result) {
         this.fxFinal.clear();
         for (top.cnpcplus.drop.fx.DropFxConfig c : result) this.fxFinal.add(c.copy());
+        // 233d-UI9 打点（用户「点了保存/预览是星」但落盘无星排查）：
+        // 「确定」只写内存；与下方「配方保存」日志对读可一眼看出是否缺了保存那步
+        String detail = String.join(", ",
+                this.fxFinal.stream().map(fx -> fx.summary()).toList());
+        LOGGER.debug("[drop] 特效写回内存 fxs={} (未落盘——需点「保存」生效)", detail);
     }
 
     public GuiDropRecipes(ContainerDropRecipes container, Inventory inv, Component titleIn) {
@@ -129,14 +134,14 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
                 this.guiLeft + DropLayout.nameX(), this.guiTop + DropLayout.nameY(),
                 DropLayout.nameWidth(), 20, this.nameText()));
 
-        // 233a 仅名字检查开关：合成槽左边（2×2 starts x36 前的空隙），外观照抄铁砧/熔炼。
+        // 233d-UI9 仅名字检查开关：结果槽右边竖列中位（DropLayout.switchX/Y=112,59），外观照抄铁砧/熔炼。
         this.addButton(new GuiIconToggleButton(this, BTN_NAMEONLY,
                 this.guiLeft + DropLayout.switchX(), this.guiTop + DropLayout.switchY(),
                 DropLayout.switchW(), DropLayout.switchH(),
                 new ItemStack(Items.NAME_TAG), this.nameOnly,
                 Component.translatable("cnpcplus.nameonly")));
 
-        // 233d-UI6 音效图标钮：结果槽右边（slotResultX+20），与结果槽同 y；
+        // 233d-UI9 音效图标钮：结果槽右边竖列首位 (112,39)（原 UI6 同行 140,59）；
         // 蓝框=已绑定音效（仅此钮用蓝，绿=开/红=关语义保留给 nameonly）
         boolean soundOn = this.soundId != null && !this.soundId.isEmpty();
         this.addButton(new GuiIconToggleButton(this, BTN_SOUND,
@@ -146,7 +151,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
                 soundOn ? Component.translatable("cnpcplus.drop.sound.set", this.soundId)
                         : Component.translatable("cnpcplus.drop.sound.none"),
                 GuiIconToggleButton.COLOR_SOUND));
-        // 233d-UI6 粒子图标钮：仅名字检查正下方；绿=已有粒子配置（≥1 个有效 fx）
+        // 233d-UI9 粒子图标钮：结果槽右边竖列末位 (112,79)（原仅名字正下方）；绿=已有粒子配置（≥1 个有效 fx）
         this.addButton(new GuiIconToggleButton(this, BTN_FX,
                 this.guiLeft + DropLayout.fxX(), this.guiTop + DropLayout.fxY(),
                 DropLayout.switchW(), DropLayout.switchH(),
@@ -304,7 +309,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         }
         if (filled < 2 || this.container.getOutput().isEmpty()) {
             this.notice = Component.translatable("cnpcplus.drop.need").getString();
-            LOGGER.warn("[drop] 保存被客户端预检拦截: filled={} r={} (规则=输入≥2槽+结果必放)",
+            LOGGER.debug("[drop] 保存被客户端预检拦截: filled={} r={} (规则=输入≥2槽+结果必放)",
                     filled, !this.container.getOutput().isEmpty());
             return;
         }
@@ -329,8 +334,11 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         // 客户端发过去的会被直接丢弃（C→S 32767 上限，潜影盒大 NBT 会撞线）。
         this.selectedName = d.name;
         // 233d-UI6 打点：音效绑定是否随本次保存落盘（用户「绑定音效完全没有」排查）
-        LOGGER.info("[drop] 配方保存 id={} name={} soundId={} fxs={} (音效未选=空串则合成不播)",
-                d.id, d.name, d.soundId, d.fxs.size());
+        // 233d-UI8：fxs 由「数量」改「明细 particleId:[TYPE,…]」（客户端侧「出来是圆形」决定性日志）
+        String fxsDetail = String.join(", ",
+                d.fxs.stream().map(fx -> fx.summary()).toList());
+        LOGGER.debug("[drop] 配方保存 id={} name={} soundId={} fxs={} (音效未选=空串则合成不播)",
+                d.id, d.name, d.soundId, fxsDetail);
         DropPacketHandler.CHANNEL.sendToServer(new PacketDropSave(d.toNBT(false)));
     }
 
@@ -361,7 +369,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             // 233d-UI6：日志打点（用户「绑定音效完全没有」排查——选完未保存=只改内存）
             if (gss.selectedResource != null) {
                 this.soundId = gss.selectedResource.toString();
-                LOGGER.info("[drop] 音效选择回传 soundId={} (未落盘——需点「保存」生效)", this.soundId);
+                LOGGER.debug("[drop] 音效选择回传 soundId={} (未落盘——需点「保存」生效)", this.soundId);
             }
             // 一律重建：GuiIconToggleButton 点击时 displayValue 已翻转，
             // 取消选择（selectedResource=null）不重建会残留错误边框色

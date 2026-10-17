@@ -23,12 +23,12 @@ public class PacketSmithingRemove {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[smithing] Remove拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[smithing] Remove拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }
             if (!SmithingRecipeRegistry.remove(this.id)) {
-                LOGGER.warn("[smithing] Remove终止: Registry无此id={}", this.id);
+                LOGGER.debug("[smithing] Remove终止: Registry无此id={}", this.id);
                 return;
             }
             SmithingRecipeManager.injectAll(sender.server.getRecipeManager());

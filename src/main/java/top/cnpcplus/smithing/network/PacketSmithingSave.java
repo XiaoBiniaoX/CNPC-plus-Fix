@@ -30,12 +30,12 @@ public class PacketSmithingSave {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[smithing] Save拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[smithing] Save拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }
             if (this.data == null) {
-                LOGGER.warn("[smithing] Save拒绝: NBT为空");
+                LOGGER.debug("[smithing] Save拒绝: NBT为空");
                 return;
             }
             SmithingRecipeData d = SmithingRecipeData.fromNBT(this.data);
@@ -45,7 +45,7 @@ public class PacketSmithingSave {
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             // 没有打开编辑容器就直接拒绝——否则会退化成信任客户端发来的 ItemStack（可伪造任意 NBT）。
             if (!(sender.containerMenu instanceof ContainerSmithingRecipes c)) {
-                LOGGER.warn("[smithing] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
+                LOGGER.debug("[smithing] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
                 return;
             }
             d.template = c.getTemplate().copy();
@@ -55,13 +55,13 @@ public class PacketSmithingSave {
             // 228 注册条件（用户规则）：结果槽必须放置 + 三输入槽至少一个非空。
             boolean anyInput = !d.template.isEmpty() || !d.base.isEmpty() || !d.addition.isEmpty();
             if (!anyInput || d.result.isEmpty()) {
-                LOGGER.warn("[smithing] Save拒绝: 槽位条件不满足 t={} b={} a={} r={} (规则=输入至少一且结果必放)",
+                LOGGER.debug("[smithing] Save拒绝: 槽位条件不满足 t={} b={} a={} r={} (规则=输入至少一且结果必放)",
                         !d.template.isEmpty(), !d.base.isEmpty(), !d.addition.isEmpty(), !d.result.isEmpty());
                 return;
             }
             boolean ok = d.id >= 0 ? SmithingRecipeRegistry.update(d) : (SmithingRecipeRegistry.create(d) != null);
             if (!ok) {
-                LOGGER.warn("[smithing] Save拒绝: Registry写入失败 id={}", d.id);
+                LOGGER.debug("[smithing] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
             SmithingRecipeManager.injectAll(sender.server.getRecipeManager());

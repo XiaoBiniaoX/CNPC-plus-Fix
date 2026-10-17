@@ -112,6 +112,23 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     private static final int PARAM_ROWS = 10;
 
     /**
+     * 233d-UI8：参数行悬停说明 lang 键（行序必须与 ParamList.Entry.render
+     * 的 case 序一致：0..8=九参数、9=形状行）。
+     */
+    private static final String[] TIP_ROW_KEYS = {
+            "cnpcplus.dropfx.tip.radius",
+            "cnpcplus.dropfx.tip.rotspeed",
+            "cnpcplus.dropfx.tip.rotation",
+            "cnpcplus.dropfx.tip.insetamt",
+            "cnpcplus.dropfx.tip.duration",
+            "cnpcplus.dropfx.tip.density",
+            "cnpcplus.dropfx.tip.ox",
+            "cnpcplus.dropfx.tip.oy",
+            "cnpcplus.dropfx.tip.oz",
+            "cnpcplus.dropfx.tip.shape",
+    };
+
+    /**
      * 画廊图案预计算点集（233d-UI6）：每 ShapeType 固定种子采样 24 点
      * 单位坐标（x,y ∈ [-1,1]），类加载时一次算好，渲染每帧直接读。
      * 填充类（DISC/RANDOM/SQUARE_FILL/GRID）只画点不连线。
@@ -128,6 +145,9 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
             SHAPE_PREVIEW[i] = out.toArray(new double[0][]);
         }
     }
+
+    /** 233d-UI9：子界面关闭路径打点（完成写回 vs 取消/ESC 丢弃——「落盘无星」操作链排查）。 */
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
     private final GuiDropRecipes parent;
     private final List<DropFxConfig> editCopy = new ArrayList<>();
@@ -265,18 +285,20 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
      * 创建参数输入框（233d-UI7 换 CNPC GuiTextFieldNop）：
      * floatsOnly=true 允许输入负号/小数点（radius 等参数支持负值）；
      * setMinMaxDefault 在 unFocused 时夹值并重置非法输入；
+     * 233d-UI9 哈基彬指定参数上限 -100~100（radius/旋转/陷扩/三轴偏移），
+     * density 特例 0.01~100、duration 特例 1~1200 tick（语义为时长，不随 ±100）；
      * listener 由构造器自动绑定（parent=本类 implements ITextfieldListener）。
      */
     private GuiTextFieldNop field(int id, int x, int y, int width) {
         GuiTextFieldNop box = new GuiTextFieldNop(id, this, x, y, width, 16, "");
         box.floatsOnly = true;
-        box.setMinMaxDefault(-10f, 10f, 0f);
+        box.setMinMaxDefault(-100f, 100f, 0f);
         if (id == FIELD_DURATION) {
             // 时长 1..1200 ticks（DropFxCaps.MAX_DURATION_TICKS）
             box.setMinMaxDefault(1f, DropFxCaps.MAX_DURATION_TICKS, 20f);
         } else if (id == FIELD_DENSITY) {
-            // 密度不允许 0（除数），夹 0.01..10
-            box.setMinMaxDefault(0.01f, 10f, 1f);
+            // 密度不允许 0（除数），233d-UI9 夹 0.01..100（点数上限见 DropFxCaps.MAX_POINTS_PER_SHAPE=256）
+            box.setMinMaxDefault(0.01f, 100f, 1f);
         }
         return box;
     }
@@ -437,16 +459,17 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
             return;
         }
         switch (id) {
-            case FIELD_RADIUS -> s.radius = clamp(v, -10, 10);
-            case FIELD_ROTSPD -> s.rotSpeed = clamp(v, -10, 10);
-            case FIELD_ROT -> s.rotation = clamp(v, -10, 10);
-            case FIELD_INSET_AMT -> s.insetAmount = clamp(v, -10, 10);
+            // 233d-UI9：常规参数 -100~100、density 0.01~100（与 field() 的 min/max 双保险）
+            case FIELD_RADIUS -> s.radius = clamp(v, -100, 100);
+            case FIELD_ROTSPD -> s.rotSpeed = clamp(v, -100, 100);
+            case FIELD_ROT -> s.rotation = clamp(v, -100, 100);
+            case FIELD_INSET_AMT -> s.insetAmount = clamp(v, -100, 100);
             case FIELD_DURATION -> s.durationTicks =
                     (int) clamp(Math.round(v), 1, DropFxCaps.MAX_DURATION_TICKS);
-            case FIELD_DENSITY -> s.density = clamp(v, 0.01, 10);
-            case FIELD_OX -> s.offsetX = clamp(v, -10, 10);
-            case FIELD_OY -> s.offsetY = clamp(v, -10, 10);
-            case FIELD_OZ -> s.offsetZ = clamp(v, -10, 10);
+            case FIELD_DENSITY -> s.density = clamp(v, 0.01, 100);
+            case FIELD_OX -> s.offsetX = clamp(v, -100, 100);
+            case FIELD_OY -> s.offsetY = clamp(v, -100, 100);
+            case FIELD_OZ -> s.offsetZ = clamp(v, -100, 100);
             default -> { }
         }
         this.prefetchCurrent();
@@ -517,7 +540,14 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
     @Override
     public void save() {
-        if (this.cancelled || this.parent == null) return;
+        if (this.cancelled || this.parent == null) {
+            // 233d-UI9 打点（「点了保存/预览是星」但落盘无星排查）：取消/ESC=改动整体丢弃，
+            // 与父界面「特效写回内存/配方保存」日志三段对读=用户操作链一目了然
+            if (this.cancelled) {
+                LOGGER.debug("[drop-fx] 子界面关闭 cancelled=true——本次编辑丢弃（未写回父内存）");
+            }
+            return;
+        }
         List<DropFxConfig> result = new ArrayList<>();
         for (DropFxConfig c : this.editCopy) {
             if (c.shapes.isEmpty()) continue;
@@ -562,6 +592,27 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         String who = cfg != null ? cfg.particleId
                 : this.selectedParticleId != null ? this.selectedParticleId : "-";
         g.drawString(f, who, gl + 6, gt + 194, 0x404040, false);
+
+        // 233d-UI8：参数行悬停说明（画在 render 末尾=浮于所有 widget 之上）
+        this.renderParamTooltip(g, mx, my);
+    }
+
+    /**
+     * 233d-UI8：参数行悬停说明（用户「参数悬停要有说明，如旋转速度单位」）。
+     * 行位=vanilla 列表行位：rowTop = listTop+4+row*PARAM_ROW-scroll →
+     * 由鼠标 y 反算 row（与 EditBox 跟随同步 placeXY 同一式）。
+     * API 用铁砧经验框同款 GuiTooltipUtils.renderTooltip（1.20.1 已实证存在）。
+     */
+    private void renderParamTooltip(GuiGraphics g, int mx, int my) {
+        if (this.paramList == null) return;
+        int left = this.paramList.left(), right = this.paramList.right();
+        int top = this.paramList.top(), bot = this.paramList.bottom();
+        if (mx < left || mx >= right || my < top || my >= bot) return; // 不在参数列表可视区
+        int row = (int) ((my - (top + 4) + this.paramList.getScrollAmount()) / PARAM_ROW);
+        if (row < 0 || row >= PARAM_ROWS) return;
+        noppes.npcs.client.gui.util.GuiTooltipUtils.renderTooltip(
+                g, Minecraft.getInstance().font,
+                Component.translatable(TIP_ROW_KEYS[row]), mx, my);
     }
 
     /** 原版容器灰板：黑描边+灰底+左上白亮边+右下暗边。 */
@@ -826,6 +877,10 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
             ShapeType selType = SubGuiDropFx.this.currentShape() == null
                     ? null : SubGuiDropFx.this.currentShape().type;
             int sx = this.getX(), sy = this.getY();
+            // 233d-UI8 根因修复（用户「预设格子仍超出，右→左滑最严重」）：
+            // 下方剔除条件只跳完全不可见的格子，半截格子照画→左右各溢出面板
+            // （边缘列被裁掉的可见部分≤31px）。scissor 把格子绘制段裁在可视区内。
+            g.enableScissor(sx, sy, sx + viewW, sy + viewH);
             for (int i = 0; i < SHAPE_PREVIEW.length; i++) {
                 int col = i / ROWS, row = i % ROWS;
                 int cx = sx + col * COL_W - (int) this.scrollX;
@@ -851,6 +906,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
                 int w = font.width(name);
                 g.drawString(font, name, cx + Math.max(1, (CELL - w) / 2), cy + CELL - 9, 0xE0E0E0, false);
             }
+            g.disableScissor(); // 233d-UI8：恢复裁剪（滚动条在裁剪区下方外画，自身不越界）
             // 底部横向滚动条（内容超视口才显示）
             if (maxScroll() > 0) {
                 int barY = sy + viewH + 1;

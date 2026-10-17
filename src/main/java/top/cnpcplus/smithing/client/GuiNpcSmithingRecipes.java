@@ -245,7 +245,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
                 || !this.container.getAddition().isEmpty();
         if (!anyInput || this.container.getOutput().isEmpty()) {
             this.notice = Component.translatable("cnpcplus.smithing.need4").getString();
-            LOGGER.warn("[smithing] 保存被客户端预检拦截: t={} b={} a={} r={} (规则=输入至少一且结果必放)",
+            LOGGER.debug("[smithing] 保存被客户端预检拦截: t={} b={} a={} r={} (规则=输入至少一且结果必放)",
                     !this.container.getTemplate().isEmpty(), !this.container.getBase().isEmpty(),
                     !this.container.getAddition().isEmpty(), !this.container.getOutput().isEmpty());
             return;

@@ -409,7 +409,8 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
         if (so < 0 || so > max) {
             int fixed = Math.max(0, Math.min(so, max));
             acc.setScrollOff(fixed);
-            System.out.println("[vt] clamp scrollOff -> " + fixed);
+            // 233d-UI9 日志清理：println→debug（默认不输出，只留 error 级）
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").debug("[vt] clamp scrollOff -> {}", fixed);
         }
     }
 

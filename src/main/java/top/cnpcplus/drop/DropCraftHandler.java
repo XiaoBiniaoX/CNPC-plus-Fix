@@ -10,6 +10,7 @@ import net.minecraftforge.event.entity.item.ItemTossEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -57,6 +58,12 @@ public final class DropCraftHandler {
     /** 单次触发的链式合成防御上限（正常必在原料耗尽前退出）。 */
     private static final int CHAIN_LIMIT = 64;
 
+    /**
+     * 233d-UI8 重试窗口（tick）：自丢出起 200t（=10 秒）内落地检查失败每 tick 重试。
+     * 也兜底「永远不落地」的飞行实体（被水冲走/卡墙/虚空掉落前清理，防 PENDING 泄漏）。
+     */
+    private static final int RETRY_WINDOW_TICKS = 200;
+
     private DropCraftHandler() {}
 
     @SubscribeEvent
@@ -72,6 +79,17 @@ public final class DropCraftHandler {
         if (!(event.getEntity() instanceof ItemEntity)) return;
         PENDING.remove(event.getEntity().getId());
         PLAYER_DROPPED.remove(event.getEntity().getId());
+    }
+
+    /**
+     * 233d-UI9：关服清静态身份集合（CnpcPlus ServerStopped 调用，用户拍板「只加关服清理」）。
+     * 单人退出存档若实体未 fire EntityLeaveLevelEvent，残留实体 id 会被下个存档复用
+     * （实体 id 计数每档从头开始），误认成「玩家丢出」参与合成——必须随服务器停止清空。
+     * 与 DropRecipeRegistry.clearCache 同批：先 awaitDiskPending 再清配方，再调本方法。
+     */
+    public static void clearStatics() {
+        PENDING.clear();
+        PLAYER_DROPPED.clear();
     }
 
     @SubscribeEvent
@@ -93,33 +111,59 @@ public final class DropCraftHandler {
                 PENDING.remove(id);
                 continue;
             }
-            if (!item.onGround()) continue; // 飞行中不查，下个 tick 再看
-            PENDING.remove(id);
-            tryCraft(level, item);
+            if (!item.onGround()) {
+                // 233d-UI8：飞行超 200t=永不落地（水冲/卡墙/虚空），兜底移除防泄漏
+                if (item.tickCount > RETRY_WINDOW_TICKS) PENDING.remove(id);
+                continue; // 飞行中不查，下个 tick 再看
+            }
+            // 233d-UI8 根因修复（用户「经常不触发要反复重丢好几次」）：
+            // 原实现落地只查一次、失败即永久移除——另一物品还在空中/晚几 tick
+            // 落地、或被合并进同组时该组永不重查=「条件正常却不触发」。
+            // 改为：落地后每 tick 重试 tryCraft，合成成功或超 200t 窗口才移除
+            // （实体被捡走/消亡由 EntityLeaveLevelEvent 双清；≥2 实体规则不动）。
+            boolean crafted = tryCraft(level, item);
+            if (crafted || item.tickCount > RETRY_WINDOW_TICKS) {
+                PENDING.remove(id);
+            }
         }
     }
 
-    /** 以触发实体所在方块为合成场：同格过滤玩家丢出的实体 → 链式合成。 */
-    private static void tryCraft(ServerLevel level, ItemEntity trigger) {
+    /**
+     * 以触发实体所在方块为合成场：同格过滤玩家丢出的实体 → 链式合成。
+     *
+     * @return 233d-UI8 本 tick 是否发生至少一次合成（PENDING 重试窗判定：false=
+     *         继续每 tick 重查，true=已合成可移除）。
+     */
+    private static boolean tryCraft(ServerLevel level, ItemEntity trigger) {
         BlockPos pos = trigger.blockPosition();
         AABB box = new AABB(pos);
         List<DropRecipeData> recipes = DropRecipeRegistry.listSortedById(); // id 升序=稳定优先级
-        if (recipes.isEmpty()) return;
+        if (recipes.isEmpty()) return false;
 
+        boolean any = false;
         for (int chain = 0; chain < CHAIN_LIMIT; chain++) {
             // 每轮重新收集：上一轮的消耗/新产出会改变格内状态
             List<ItemEntity> inputs = level.getEntitiesOfClass(ItemEntity.class, box).stream()
                     .filter(e -> PLAYER_DROPPED.contains(e.getId()) && !e.getItem().isEmpty())
                     .toList();
-            if (inputs.size() < 2) return; //「重合」=同格 ≥2 个玩家丢出实体（用户要求2）
+            if (inputs.size() < 2) return any; //「重合」=同格 ≥2 个玩家丢出实体（用户要求2）
 
             CraftPlan plan = null;
+            List<Integer> matched = new ArrayList<>(); // 233d-UI8 诊断：本格全部命中配方 id
             for (DropRecipeData r : recipes) { // id 升序遍历，第一条命中即用（稳定优先级）
                 if (!boundOk(r, level, pos)) continue; // 233b：维度/坐标绑定过滤（空=不限）
-                plan = CraftPlan.plan(inputs, r);
-                if (plan != null) break;
+                CraftPlan p = CraftPlan.plan(inputs, r);
+                if (p == null) continue;
+                matched.add(r.id);
+                if (plan == null) plan = p; // 选用仍=第一条命中（id 升序，规则不变）
             }
-            if (plan == null) return;
+            if (plan == null) return any;
+            // 233d-UI8 诊断（用户拍板授权日志）：同格命中多配方=「音效没绑/旧形状」
+            // 头号嫌疑（id 升序选中了更早的旧配方）。仅链首打印防刷屏。
+            if (matched.size() > 1 && chain == 0) {
+                LOGGER.debug("[drop] 同格命中多配方 ids={} 按id升序选用 id={} pos=({},{},{})",
+                        matched, plan.recipe.id, pos.getX(), pos.getY(), pos.getZ());
+            }
 
             // 233d-UI6 粒子锚点：消耗前先快照触发掉落物实体的当前位置
             // （链式循环中 trigger 实体可能已被 shrink/discard，必须先取
@@ -128,16 +172,18 @@ public final class DropCraftHandler {
             net.minecraft.world.phys.Vec3 anchor = trigger.position();
             // 先判定后消耗：plan 已验证全部充足，这里只按计划扣减
             execute(level, pos, anchor, plan);
+            any = true;
             // 允许日志（用户授权）：链式只打第一条防刷屏
             if (chain == 0) {
-                LOGGER.info("[drop] 合成触发 pos=({},{},{}) id={} name={} result={}",
+                LOGGER.debug("[drop] 合成触发 pos=({},{},{}) id={} name={} result={}",
                         pos.getX(), pos.getY(), pos.getZ(),
                         plan.recipe.id, plan.recipe.name,
                         plan.output.getCount() + "x" + plan.output.getItem());
             }
         }
-        LOGGER.warn("[drop] 链式合成达到防御上限 pos=({},{},{})（配方疑似零消耗，已截断）",
+        LOGGER.debug("[drop] 链式合成达到防御上限 pos=({},{},{})（配方疑似零消耗，已截断）",
                 pos.getX(), pos.getY(), pos.getZ());
+        return true;
     }
 
     /**
@@ -171,21 +217,32 @@ public final class DropCraftHandler {
         // 233d-UI6：锚点=掉落物实体位置 anchor（用户「以被合成掉落物实体世界坐标为锚点」）
         top.cnpcplus.drop.fx.runtime.DropFxEngine.spawn(level,
                 anchor.x, anchor.y, anchor.z, plan.recipe.fxs);
-        // 233c 合成音效：全房间可闻；音量/音高固定 1.0（用户确认）；坏 id 仅 WARN 不崩
+        // 233d 合成音效：全房间可闻；音量/音高固定 1.0（用户确认）。
+        // 233d-UI9 修（用户拍板「照样修」）：旧实现查 BuiltInRegistries.SOUND_EVENT——
+        // 但音效选择器的候选=客户端 SoundManager.getAvailableSounds()（sounds.json 汇总），
+        // CNPC 自有声（如 customnpcs:gun.pistol.shot）与资源包声从不进该 registry=必被拒。
+        // 照搬 vanilla /playsound（PlaySoundCommand:56 同款）：Holder.direct 任意 rl 直发包
+        // （ServerLevel.playSeededSound 无查表；FriendlyByteBuf writeId DIRECT 分支安全传输；
+        // 客户端 handleSoundEvent 按自己 sounds.json 播）——专服可用，只发字符串 id。
+        // 格式非法仅记 debug 不崩；客户端真没有该声=静默（与 /playsound 行为一致）。
         String snd = plan.recipe.soundId;
         if (snd != null && !snd.isEmpty()) {
-            net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT
-                    .getOptional(new net.minecraft.resources.ResourceLocation(snd))
-                    .ifPresentOrElse(
-                            ev -> {
-                                level.playSound(null,
-                                        pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
-                                        ev, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F);
-                                // 233d-UI6 打点：音效确实播了（用户「绑定音效完全没有」排查）
-                                LOGGER.info("[drop] 播放合成音效 id={} pos=({},{},{})", snd,
-                                        pos.getX(), pos.getY(), pos.getZ());
-                            },
-                            () -> LOGGER.warn("[drop] 音效 id 无效 {}", snd));
+            try {
+                net.minecraft.resources.ResourceLocation rl =
+                        new net.minecraft.resources.ResourceLocation(snd);
+                net.minecraft.core.Holder<net.minecraft.sounds.SoundEvent> holder =
+                        net.minecraft.core.Holder.direct(
+                                net.minecraft.sounds.SoundEvent.createVariableRangeEvent(rl));
+                level.playSeededSound(null,
+                        pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                        holder, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F,
+                        level.getRandom().nextLong());
+                // 233d-UI6 打点：音效确实发出（用户「绑定音效完全没有」排查）
+                LOGGER.debug("[drop] 播放合成音效 id={} pos=({},{},{})", snd,
+                        pos.getX(), pos.getY(), pos.getZ());
+            } catch (RuntimeException e) {
+                LOGGER.debug("[drop] 音效 id 格式非法 {}", snd);
+            }
         }
     }
 

@@ -26,12 +26,12 @@ public class PacketDropSelect {
             // 权限校验（纵深防御）：编辑容器只能由同样校验权限的 PacketOpenDropGui 打开，
             // 但不能依赖那一处 —— 本包会往容器里写物品，必须自己也把住权限。
             if (player == null || !player.hasPermissions(2)) {
-                LOGGER.warn("[drop] Select拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[drop] Select拒绝: 无发送者或权限不足 player={}",
                         player == null ? "?" : player.getGameProfile().getName());
                 return;
             }
             if (!(player.containerMenu instanceof ContainerDropRecipes c)) {
-                LOGGER.warn("[drop] Select拒绝: 未打开编辑容器 id={} player={}", this.id,
+                LOGGER.debug("[drop] Select拒绝: 未打开编辑容器 id={} player={}", this.id,
                         player.getGameProfile().getName());
                 return;
             }

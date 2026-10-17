@@ -278,7 +278,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         if (this.container.getInputA().isEmpty() || this.container.getInputB().isEmpty()
                 || this.container.getOutput().isEmpty()) {
             this.notice = Component.translatable("cnpcplus.anvil.need").getString();
-            LOGGER.warn("[anvil] 保存被客户端预检拦截: a={} b={} r={} (规则=A/B/结果全必放)",
+            LOGGER.debug("[anvil] 保存被客户端预检拦截: a={} b={} r={} (规则=A/B/结果全必放)",
                     !this.container.getInputA().isEmpty(), !this.container.getInputB().isEmpty(),
                     !this.container.getOutput().isEmpty());
             return;

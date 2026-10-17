@@ -13,23 +13,27 @@ package top.cnpcplus.drop;
  * - 2×2 槽按原版合成台 18px 间距紧贴排布，整体放面板左半中部；
  * - 箭头复用 anvil_arrow.png 透明裁片（231b 已裁好，22×15）；
  * - 名称框回到最左 (8,8) 宽 158（没有锤子让位）。
+ *
+ * <p>233d-UI9 哈基彬要求重排：合成槽位/箭头/结果槽整体左移 28
+ * （x36/54→8/26、结果 120→92、箭头 82→54）；音效/仅名字检查/粒子效果编辑
+ * 三钮改放结果槽右边 x112 竖列 (112,39|59|79)。
  */
 public final class DropLayout {
 
     private DropLayout() {}
 
-    // ===== 2×2 输入槽（18px 紧贴间距，上排 0/1 下排 2/3）=====
-    public static int slot0X() { return 36; }
+    // ===== 2×2 输入槽（18px 紧贴间距，上排 0/1 下排 2/3；UI9 整体左移28）=====
+    public static int slot0X() { return 8; }
     public static int slot0Y() { return 51; }
-    public static int slot1X() { return 54; }
+    public static int slot1X() { return 26; }
     public static int slot1Y() { return 51; }
-    public static int slot2X() { return 36; }
+    public static int slot2X() { return 8; }
     public static int slot2Y() { return 69; }
-    public static int slot3X() { return 54; }
+    public static int slot3X() { return 26; }
     public static int slot3Y() { return 69; }
 
-    /** 结果槽：2×2 ends x72 → 箭头 (82,59) ends104 → 结果 120 起 ends138（距滚动列表 x172 安全）。 */
-    public static int slotResultX() { return 120; }
+    /** 结果槽（UI9）：2×2 ends x44 → 箭头 (54,60) ends76 → 结果 92 起 ends110 → 右列三钮 x112 起（滚动列表 x172 安全）。 */
+    public static int slotResultX() { return 92; }
     public static int slotResultY() { return 59; }
 
     /** 配方名称输入框：无锤子让位 → (8,8) 宽 158（ends166，滚动列表 x172 前 6px 间隙）。 */
@@ -37,8 +41,8 @@ public final class DropLayout {
     public static int nameY() { return 8; }
     public static int nameWidth() { return 158; }
 
-    /** 箭头（复用 231b 的 anvil_arrow.png 透明裁片 22×15）：2×2 ends x72 与结果框 starts x119 之间垂直居中。 */
-    public static int arrowX() { return 82; }
+    /** 箭头（复用 231b 的 anvil_arrow.png 透明裁片 22×15；UI9 随槽组左移28）：2×2 ends x44 与结果框 starts x91 之间垂直居中。 */
+    public static int arrowX() { return 54; }
     public static int arrowY() { return 60; }
 
     /** 右侧按钮列（新建/移除/保存/音效/绑定/清除绑定），与铁砧/熔炼同一列位。 */
@@ -46,19 +50,24 @@ public final class DropLayout {
     public static int btnY() { return 12; }
     public static int btnSpacing() { return 22; }
 
-    /** 233a「仅名字检查」开关（合成槽左边，2×2 槽 starts x36 前的空隙）。233d-UI7 上移与粒子钮对齐结果槽中心：结果槽 y59 center=68，两钮高18+2 间隔→pair top=49。 */
-    public static int switchX() { return 8; }
-    public static int switchY() { return 49; }
+    /**
+     * 233d-UI9 右侧竖列三钮（放结果槽右边：结果 ends110 → x112 起 2px 间隙）：
+     * 自上而下＝音效(39) / 仅名字检查(59) / 粒子效果编辑(79)，钮 18 高、2px 间隔，
+     * 列 ends y97；与名称框(y8..24)/滚动列表(x172)/背包(y113) 零重叠。
+     */
+    /** 「仅名字检查」开关（UI9 竖列中位，原 (8,49) 合成槽左边） */
+    public static int switchX() { return 112; }
+    public static int switchY() { return 59; }
     public static int switchW() { return 18; }
     public static int switchH() { return 18; }
 
-    /** 233d-UI7 音效图标钮：结果槽右边（120+18=138 右缘 +2 间隔），与结果槽同 y。 */
-    public static int soundX() { return 140; }
-    public static int soundY() { return 59; }
+    /** 音效图标钮（UI9 竖列首位，原 (140,59) 结果槽右侧同行） */
+    public static int soundX() { return 112; }
+    public static int soundY() { return 39; }
 
-    /** 233d-UI7 粒子特效图标钮：「仅名字检查」正下方（49+18+2 间隔），同 x 竖列；pair center=68 对齐结果槽中心。 */
-    public static int fxX() { return 8; }
-    public static int fxY() { return 69; }
+    /** 粒子特效图标钮（UI9 竖列末位，原 (8,69) 仅名字正下方） */
+    public static int fxX() { return 112; }
+    public static int fxY() { return 79; }
 
     /** 整个界面的整体偏移（与熔炼/锻造/铁砧同一既定值：用户确认过的全局面板位置）。 */
     public static int guiOffsetX() { return 0; }

@@ -100,7 +100,8 @@ public class TradeDataStore {
                 NbtIo.writeCompressed(fileTag, fos);
             }
         } catch (IOException e) {
-            System.out.println("[vt] store save failed: " + e); // 问题日志：仅写盘失败输出
+            // 233d-UI9 日志清理：println→error 级 logger（写盘失败=数据丢失风险，保留控制台可见）
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[vt] store save failed", e);
         }
     }
 
@@ -113,7 +114,8 @@ public class TradeDataStore {
                 SERVER_DATA.put(Integer.parseInt(key), fileTag.getCompound(key));
             }
         } catch (IOException e) {
-            System.out.println("[vt] store load failed: " + e); // 问题日志：仅读盘失败输出
+            // 233d-UI9 日志清理：println→error 级 logger（读盘失败=配方库不可用，保留控制台可见）
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[vt] store load failed", e);
         }
     }
 

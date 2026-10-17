@@ -29,8 +29,13 @@ public final class DropFxCaps {
     public static final int MAX_SHAPES_PER_CONFIG = 32;
     /** 单形状时长上限（tick）≈ 60 秒。 */
     public static final int MAX_DURATION_TICKS = 1200;
-    /** 单形状采样点数上限（density 推导后 clamp）。 */
-    public static final int MAX_POINTS_PER_SHAPE = 64;
+    /**
+     * 单形状采样点数上限（density 推导后 clamp）。
+     * 233d-UI9 64→256：= POINT_BUDGET_PER_INSTANCE_TICK（单 tick 正好发完、不跨 tick 顺延）。
+     * 原 64 会让 density≥4 即饱和——哈基彬反馈「半径放大后密度10仍太稀疏」；
+     * 256 后 density 10→160 点可用，density≥16 饱和（tips 文案同步 1~256）。
+     */
+    public static final int MAX_POINTS_PER_SHAPE = 256;
     /** 每维度同时存在的特效实例上限（连续合成防御）。 */
     public static final int MAX_INSTANCES_PER_LEVEL = 32;
     /** 每实例每 tick 发送点预算（网络包防洪）。 */
@@ -55,7 +60,7 @@ public final class DropFxCaps {
     public static void sanitize(DropRecipeData recipe) {
         List<DropFxConfig> fxs = recipe.fxs;
         if (fxs.size() > MAX_CONFIGS_PER_RECIPE) {
-            LOGGER.warn("[drop-fx] 配方 id={} 粒子配置数 {} 超上限，截断至 {}",
+            LOGGER.debug("[drop-fx] 配方 id={} 粒子配置数 {} 超上限，截断至 {}",
                     recipe.id, fxs.size(), MAX_CONFIGS_PER_RECIPE);
             while (fxs.size() > MAX_CONFIGS_PER_RECIPE) {
                 fxs.remove(fxs.size() - 1);
@@ -63,7 +68,7 @@ public final class DropFxCaps {
         }
         for (DropFxConfig c : fxs) {
             if (c.shapes.size() > MAX_SHAPES_PER_CONFIG) {
-                LOGGER.warn("[drop-fx] 配方 id={} 粒子 {} 形状数 {} 超上限，截断至 {}",
+                LOGGER.debug("[drop-fx] 配方 id={} 粒子 {} 形状数 {} 超上限，截断至 {}",
                         recipe.id, c.particleId, c.shapes.size(), MAX_SHAPES_PER_CONFIG);
                 while (c.shapes.size() > MAX_SHAPES_PER_CONFIG) {
                     c.shapes.remove(c.shapes.size() - 1);
@@ -72,9 +77,28 @@ public final class DropFxCaps {
             for (ShapePreset p : c.shapes) {
                 p.withDefaults();
                 if (p.durationTicks > MAX_DURATION_TICKS) {
-                    LOGGER.warn("[drop-fx] 配方 id={} 形状时长 {} 超上限，截断至 {}",
+                    LOGGER.debug("[drop-fx] 配方 id={} 形状时长 {} 超上限，截断至 {}",
                             recipe.id, p.durationTicks, MAX_DURATION_TICKS);
                     p.durationTicks = MAX_DURATION_TICKS;
+                }
+            }
+            // 233d-UI8（用户拍板A）：同配置内全等形状去重——UI6 always-add 时代
+            // 堆出的重复圆与用户新设的星形叠加播放=「设六芒星出来是圆形」头号嫌疑。
+            // ShapePreset.equals=全字段值相等（与点集缓存同语义）；首见保留、后见丢弃。
+            // O(n²) 但 n≤MAX_SHAPES_PER_CONFIG=32，仅在载入时跑一次。
+            for (int i = c.shapes.size() - 1; i > 0; i--) {
+                ShapePreset p = c.shapes.get(i);
+                boolean dup = false;
+                for (int j = 0; j < i; j++) {
+                    if (c.shapes.get(j).equals(p)) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if (dup) {
+                    LOGGER.debug("[drop-fx] 配方 id={} 粒子 {} 去除全等重复形状 {} (233d-UI8)",
+                            recipe.id, c.particleId, p.type.name());
+                    c.shapes.remove(i);
                 }
             }
         }

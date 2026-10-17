@@ -174,7 +174,7 @@ public final class SmithingRecipeRegistry {
             Map<Integer, SmithingRecipeData> map = ensure();
             if (!map.containsKey(data.id)) {
                 LoggerFactory.getLogger("cnpcplus")
-                        .warn("[smithing] Registry更新失败(不存在) id={}", data.id);
+                        .debug("[smithing] Registry更新失败(不存在) id={}", data.id);
                 return false;
             }
             map.put(data.id, data.copy());
@@ -188,7 +188,7 @@ public final class SmithingRecipeRegistry {
             Map<Integer, SmithingRecipeData> map = ensure();
             if (map.remove(id) == null) {
                 LoggerFactory.getLogger("cnpcplus")
-                        .warn("[smithing] Registry删除失败(不存在) id={}", id);
+                        .debug("[smithing] Registry删除失败(不存在) id={}", id);
                 return false;
             }
             writeDisk();

@@ -4,6 +4,7 @@ package top.cnpcplus.smithing;
  * 锻造配方界面布局，全部坐标硬编码。
  * 放在 common 包，容器（服务端）也能安全引用。
  * 226：从 SmeltingLayout 复制，槽位换锻造台（火焰/箭头/4个图标开关坐标删除）。
+ * 233d-UI9：「仅名字检查」开关从输入槽左下 (14,68) 移到结果槽正下方 (145,75)。
  */
 public final class SmithingLayout {
 
@@ -38,12 +39,13 @@ public final class SmithingLayout {
     public static int arrowX() { return 117; }
     public static int arrowY() { return 56; }
     /**
-     * 230 「仅名字检查」开关（照抄熔炼外观：20x20 图标按钮），放三个输入槽（x56 起）的左边。
-     * 取 (14,68)：锤子贴图占 (14..44, 36..66)，其正下方 2px 起落开关 →
-     * x14..34 完全在槽左侧（槽框 x55 起）且与锤子/名称框(y8..28)/箭头(x117) 零重叠。
+     * 230 「仅名字检查」开关（20x20 图标按钮）。233d-UI9 哈基彬指定：换到结果槽正下方——
+     * 结果槽 (146,55) 18 宽中心 x155 → 开关宽20 → x=145；y = 槽行 ends73 + 2 = 75，
+     * ends (165,95)：与箭头(ends x139)/滚动列表 x172/背包 y113 零重叠；
+     * 原位置 (14,68)（锤子正下方）让出左下空地。
      */
-    public static int nameOnlyX() { return 14; }
-    public static int nameOnlyY() { return 68; }
+    public static int nameOnlyX() { return 145; }
+    public static int nameOnlyY() { return 75; }
     public static int nameOnlyWidth() { return 20; }
     public static int nameOnlyHeight() { return 20; }
     /** 右侧按钮列（新建/移除/保存） */

@@ -22,16 +22,16 @@ public class PacketAnvilRemove {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[anvil] Remove拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[anvil] Remove拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }
             if (!AnvilRecipeRegistry.remove(this.id)) {
-                LOGGER.warn("[anvil] Remove终止: Registry无此id={}", this.id);
+                LOGGER.debug("[anvil] Remove终止: Registry无此id={}", this.id);
                 return;
             }
-            // 本轮用户允许打日志：删除成功一行 INFO
-            LOGGER.info("[anvil] 配方删除 id={}", this.id);
+            // 233d-UI9 日志清理：info→debug（默认不输出，只留 error 级）
+            LOGGER.debug("[anvil] 配方删除 id={}", this.id);
             // 一人删除全服生效：全员同步（配方生效在服务端事件直查 Registry，删了自然查不到）
             AnvilRecipeRegistry.syncToPlayers(sender.server);
         });

@@ -29,12 +29,12 @@ public class PacketAnvilSave {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[anvil] Save拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[anvil] Save拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }
             if (this.data == null) {
-                LOGGER.warn("[anvil] Save拒绝: NBT为空");
+                LOGGER.debug("[anvil] Save拒绝: NBT为空");
                 return;
             }
             AnvilRecipeData d = AnvilRecipeData.fromNBT(this.data);
@@ -48,7 +48,7 @@ public class PacketAnvilSave {
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             // 没有打开编辑容器就直接拒绝——否则会退化成信任客户端发来的 ItemStack（可伪造任意 NBT）。
             if (!(sender.containerMenu instanceof ContainerAnvilRecipes c)) {
-                LOGGER.warn("[anvil] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
+                LOGGER.debug("[anvil] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
                 return;
             }
             d.inputA = c.getInputA().copy();
@@ -56,17 +56,17 @@ public class PacketAnvilSave {
             d.result = c.getOutput().copy();
             // 231 注册条件（铁砧语义）：A、B、结果三槽全部必放（A+B 敲打=C 必须两输入）。
             if (d.inputA.isEmpty() || d.inputB.isEmpty() || d.result.isEmpty()) {
-                LOGGER.warn("[anvil] Save拒绝: 槽位条件不满足 a={} b={} r={} (规则=A/B/结果全必放)",
+                LOGGER.debug("[anvil] Save拒绝: 槽位条件不满足 a={} b={} r={} (规则=A/B/结果全必放)",
                         !d.inputA.isEmpty(), !d.inputB.isEmpty(), !d.result.isEmpty());
                 return;
             }
             boolean ok = d.id >= 0 ? AnvilRecipeRegistry.update(d) : (AnvilRecipeRegistry.create(d) != null);
             if (!ok) {
-                LOGGER.warn("[anvil] Save拒绝: Registry写入失败 id={}", d.id);
+                LOGGER.debug("[anvil] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
-            // 本轮用户允许打日志：保存成功一行 INFO（低频操作）
-            LOGGER.info("[anvil] 配方保存 id={} name={} exp={} nameOnly={}", d.id, d.name, d.expCost, d.nameOnly);
+            // 233d-UI9 日志清理：info→debug（默认不输出，只留 error 级）
+            LOGGER.debug("[anvil] 配方保存 id={} name={} exp={} nameOnly={}", d.id, d.name, d.expCost, d.nameOnly);
             // 一人创建全服可用：全员同步编辑列表（配方生效在服务端事件直查 Registry，无需 RecipeManager 注入）
             AnvilRecipeRegistry.syncToPlayers(sender.server);
         });

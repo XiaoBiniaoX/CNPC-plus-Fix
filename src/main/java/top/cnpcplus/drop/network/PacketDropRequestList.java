@@ -22,7 +22,7 @@ public class PacketDropRequestList {
             // 需要权限：配方列表只给编辑者看。否则任意客户端都能反复索取全部配方 NBT，
             // 既泄露配方内容，也能靠服务端序列化做流量放大。
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[drop] RequestList拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[drop] RequestList拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }

@@ -95,7 +95,8 @@ public final class DropRecipeRegistry {
                 if (d == null || d.id < 0) continue;
                 map.put(d.id, d);
             }
-            LoggerFactory.getLogger("cnpcplus").info("[drop] 载入自定义掉落物配方 {} 条", map.size());
+            // 233d-UI9 日志清理：info→debug（默认不输出，只留 error 级）
+            LoggerFactory.getLogger("cnpcplus").debug("[drop] 载入自定义掉落物配方 {} 条", map.size());
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("读取自定义掉落物配方文件失败", e);
         }
@@ -176,7 +177,7 @@ public final class DropRecipeRegistry {
             Map<Integer, DropRecipeData> map = ensure();
             if (!map.containsKey(data.id)) {
                 LoggerFactory.getLogger("cnpcplus")
-                        .warn("[drop] Registry更新失败(不存在) id={}", data.id);
+                        .debug("[drop] Registry更新失败(不存在) id={}", data.id);
                 return false;
             }
             map.put(data.id, data.copy());
@@ -190,7 +191,7 @@ public final class DropRecipeRegistry {
             Map<Integer, DropRecipeData> map = ensure();
             if (map.remove(id) == null) {
                 LoggerFactory.getLogger("cnpcplus")
-                        .warn("[drop] Registry删除失败(不存在) id={}", id);
+                        .debug("[drop] Registry删除失败(不存在) id={}", id);
                 return false;
             }
             writeDisk();

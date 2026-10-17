@@ -41,6 +41,21 @@ public final class DropFxConfig {
         return c;
     }
 
+    /**
+     * 233d-UI8 诊断摘要："particleId:[TYPE,TYPE,…]"（保存/启动日志共用——
+     * 「设六芒星出来是圆形/音效没播放」排查：日志一眼看出该配方存了什么形状）。
+     * 无形状时 shapes 段为空 "[…]"（空 config 会被 DropFxCaps.sanitize 清掉，
+     * 正常链路不会出现，日志如实反映）。
+     */
+    public String summary() {
+        StringBuilder sb = new StringBuilder(this.particleId).append(":[");
+        for (int i = 0; i < this.shapes.size(); i++) {
+            if (i > 0) sb.append(',');
+            sb.append(this.shapes.get(i).type.name());
+        }
+        return sb.append(']').toString();
+    }
+
     public CompoundTag toNBT() {
         CompoundTag t = new CompoundTag();
         t.putString("ParticleId", this.particleId == null ? "" : this.particleId);

@@ -83,7 +83,9 @@ public class EditableMerchantMenu extends MerchantMenu {
                 offers.set(idx, newOffer);
                 if (onChange != null) onChange.run();
             } else {
-                System.out.println("[vt] sync skip idx=" + idx + " offers=" + offers.size());
+                // 233d-UI9 日志清理：println→debug（默认不输出，只留 error 级）
+                org.slf4j.LoggerFactory.getLogger("cnpcplus").debug(
+                        "[vt] sync skip idx={} offers={}", idx, offers.size());
             }
         } finally {
             syncing = false;

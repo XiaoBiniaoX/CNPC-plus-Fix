@@ -96,8 +96,8 @@ public final class AnvilRecipeRegistry {
                 if (d == null || d.id < 0) continue;
                 map.put(d.id, d);
             }
-            // 本轮用户允许打日志：载入一次一行（启动/惰性首载才触发，非每次操作）
-            LoggerFactory.getLogger("cnpcplus").info("[anvil] 载入自定义铁砧配方 {} 条", map.size());
+            // 233d-UI9 日志清理：info→debug（默认不输出；只留 error 级，排查时临时开 debug 即可）
+            LoggerFactory.getLogger("cnpcplus").debug("[anvil] 载入自定义铁砧配方 {} 条", map.size());
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("读取自定义铁砧配方文件失败", e);
         }
@@ -181,7 +181,7 @@ public final class AnvilRecipeRegistry {
             Map<Integer, AnvilRecipeData> map = ensure();
             if (!map.containsKey(data.id)) {
                 LoggerFactory.getLogger("cnpcplus")
-                        .warn("[anvil] Registry更新失败(不存在) id={}", data.id);
+                        .debug("[anvil] Registry更新失败(不存在) id={}", data.id);
                 return false;
             }
             map.put(data.id, data.copy());
@@ -195,7 +195,7 @@ public final class AnvilRecipeRegistry {
             Map<Integer, AnvilRecipeData> map = ensure();
             if (map.remove(id) == null) {
                 LoggerFactory.getLogger("cnpcplus")
-                        .warn("[anvil] Registry删除失败(不存在) id={}", id);
+                        .debug("[anvil] Registry删除失败(不存在) id={}", id);
                 return false;
             }
             writeDisk();

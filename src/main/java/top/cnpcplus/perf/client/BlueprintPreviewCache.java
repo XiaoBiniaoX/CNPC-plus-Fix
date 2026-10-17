@@ -175,7 +175,7 @@ public final class BlueprintPreviewCache {
     public static void discard() {
         for (Batch batch : BATCHES) {
             try { batch.vbo.close(); }
-            catch (RuntimeException e) { LogManager.getLogger("CNPCOptimization").warn("Close preview buffer failed", e); }
+            catch (RuntimeException e) { LogManager.getLogger("CNPCOptimization").error("Close preview buffer failed", e); }
         }
         BATCHES.clear();
         for (BufferBuilder builder : PENDING.values()) {

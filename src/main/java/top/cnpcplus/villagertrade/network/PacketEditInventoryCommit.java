@@ -49,7 +49,8 @@ public class PacketEditInventoryCommit {
             if (player == null) return;
             // 单机（含 LAN 主机，integrated server）才接受；专用服拒绝
             if (player.level().getServer() == null || player.level().getServer().isDedicatedServer()) {
-                System.out.println("[vt] inv commit rejected (dedicated)");
+                // 233d-UI9 日志清理：println→debug（默认不输出，只留 error 级）
+                org.slf4j.LoggerFactory.getLogger("cnpcplus").debug("[vt] inv commit rejected (dedicated)");
                 return;
             }
             var inv = player.getInventory();

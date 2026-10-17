@@ -29,12 +29,12 @@ public class PacketDropSave {
         ctx.get().enqueueWork(() -> {
             var sender = ctx.get().getSender();
             if (sender == null || !sender.hasPermissions(2)) {
-                LOGGER.warn("[drop] Save拒绝: 无发送者或权限不足 player={}",
+                LOGGER.debug("[drop] Save拒绝: 无发送者或权限不足 player={}",
                         sender == null ? "?" : sender.getGameProfile().getName());
                 return;
             }
             if (this.data == null) {
-                LOGGER.warn("[drop] Save拒绝: NBT为空");
+                LOGGER.debug("[drop] Save拒绝: NBT为空");
                 return;
             }
             DropRecipeData d = DropRecipeData.fromNBT(this.data);
@@ -42,7 +42,7 @@ public class PacketDropSave {
             if (d.name != null && d.name.length() > 64) d.name = d.name.substring(0, 64);
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             if (!(sender.containerMenu instanceof ContainerDropRecipes c)) {
-                LOGGER.warn("[drop] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
+                LOGGER.debug("[drop] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
                 return;
             }
             for (int i = 0; i < 4; i++) {
@@ -56,18 +56,23 @@ public class PacketDropSave {
             if (d.result.getCount() > 64) d.result.setCount(64);
             // 232 注册条件（用户要求1）：至少两个输入槽有物 + 结果必放。
             if (d.filledInputCount() < 2 || d.result.isEmpty()) {
-                LOGGER.warn("[drop] Save拒绝: 槽位条件不满足 filled={} r={} (规则=输入≥2槽+结果必放)",
+                LOGGER.debug("[drop] Save拒绝: 槽位条件不满足 filled={} r={} (规则=输入≥2槽+结果必放)",
                         d.filledInputCount(), !d.result.isEmpty());
                 return;
             }
             boolean ok = d.id >= 0 ? DropRecipeRegistry.update(d) : (DropRecipeRegistry.create(d) != null);
             if (!ok) {
-                LOGGER.warn("[drop] Save拒绝: Registry写入失败 id={}", d.id);
+                LOGGER.debug("[drop] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
-            LOGGER.info("[drop] 配方保存 id={} name={} inputs={} result={} soundId={} fxs={} (233d-UI7 服务端打点：soundId 空=不播)",
+            // 233d-UI8：fxs 由「数量」改「明细 particleId:[TYPE,…]」——「出来是圆形/
+            // 音效没播放」决定性日志：保存那一刻配方里到底存了哪些形状一眼可见
+            // （233d-UI9 降为 debug：默认不输出，排查时开 cnpcplus debug 级即可）
+            String fxsDetail = String.join(", ",
+                    d.fxs.stream().map(fx -> fx.summary()).toList());
+            LOGGER.debug("[drop] 配方保存 id={} name={} inputs={} result={} soundId={} fxs={} (233d-UI8 明细；soundId 空=不播)",
                     d.id, d.name, d.filledInputCount(), d.result.getCount() + "x" + d.result.getItem(),
-                    d.soundId, d.fxs.size());
+                    d.soundId, fxsDetail);
             // 一人创建全服可用：全员同步编辑列表（配方生效在 DropCraftHandler 直查 Registry）
             DropRecipeRegistry.syncToPlayers(sender.server);
         });
