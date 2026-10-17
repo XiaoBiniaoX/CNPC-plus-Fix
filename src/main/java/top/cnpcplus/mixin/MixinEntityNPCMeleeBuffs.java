@@ -59,6 +59,12 @@ public class MixinEntityNPCMeleeBuffs {
         for (Map.Entry<String, int[]> entry : buffs.entrySet()) {
             int[] value = entry.getValue();
             if (value == null || value.length < 2) continue;
+            // 238-4 哨兵「火」：命中点燃（等级忽略，秒=条目秒值），原版 effect=666 同语义。
+            if (MeleeBuffStore.isFire(entry.getKey())) {
+                // setSecondsOnFire 参数是秒（内部×20），不换算 ticks。
+                victim.setSecondsOnFire(MeleeBuffStore.clampSeconds(value[1]));
+                continue;
+            }
             // 注册名查不到 = 对应 mod 已被移除，跳过而不是崩。
             MobEffect effect = MeleeBuffStore.resolve(entry.getKey());
             if (effect == null) continue;

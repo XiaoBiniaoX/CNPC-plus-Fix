@@ -40,7 +40,7 @@ import top.cnpcplus.config.ServerConfigAccess;
  * （{@code :152-161}），更进不了 ±0.2；几个来回后 {@code stuckCount > 5} 成立 →
  * setPos 瞬移（玩家看到的跳跃）。整个过程发生在离起点不到一格的地方，所以特别违和。
  *
- * <h3>修法：拦三处调用点，只在「已经很接近起点」时改变行为</h3>
+ * <h3>修法：拦多处调用点，只在「已经很接近起点」时改变行为</h3>
  * <ol>
  *   <li><b>{@code m_6034_}（setPos）</b> —— 两个瞬移点共用同一个方法，
  *       一个 Redirect 全覆盖。近起点则不瞬移并清零 stuck 计数；
@@ -146,6 +146,14 @@ public abstract class MixinEntityAIReturnSmoothArrival {
      *
      * 近起点时路径走完是**正常现象**而不是卡住，所以报告 false 并就地补一段路径。
      * 这样既不冻结十刻，也不会因为没路径而站住。
+     *
+     * <h3>238-5a 死带修复（哈基彬报「到附近寻路就终止、回不准确」）</h3>
+     * 原逻辑「就地 repath」有死带：moveTo 终点取整格节点、到达精度 0.45，够不到
+     * {@code isVeryNearAssignedPlace} 的 ±0.2 —— done↔repath 无限打转，goal 永不
+     * 结束 → 坐/躺永不恢复（5b）、昼夜切换被 MOVE 锁死（5c）同源。改为：
+     * 近起点(3.0)且路径走完时，**d≤1.0 直接贴齐 endPos**（半格级收尾，观感可接受），
+     * 清 stuck 计数；1.0~3.0 仍 repath 逼近后下轮贴点；>3.0 照原版卡死判定。
+     * 贴点后 ±0.2 成立 → 下 tick canContinueToUse 为假 → goal 正常结束。
      */
     @Redirect(method = "m_8037_",
             at = @At(value = "INVOKE",
@@ -155,8 +163,39 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         boolean done = nav != null && nav.isDone();
         if (!done) return false;
         if (!cnpcplus$nearHome(this.npc)) return true;
+        if (this.npc != null) {
+            double dx = this.npc.getX() - this.endPosX;
+            double dz = this.npc.getZ() - this.endPosZ;
+            if (dx * dx + dz * dz <= 1.0D * 1.0D) {
+                this.stuckTicks = 0;
+                this.stuckCount = 0;
+                this.npc.setPos(this.endPosX, this.endPosY, this.endPosZ);
+                return false;
+            }
+        }
         cnpcplus$repath(this.npc);
         return false;
+    }
+
+    /**
+     * 238c（#5）：canContinueToUse 的 isDone 早退——路径走完但没贴齐 ±0.2 就结束 goal
+     * （陆地到达容差 0.45 &gt; 0.2），停在 1 格内、坐姿不复原（EntityAIAnimation 判
+     * isVeryNearAssignedPlace）。近起点且未贴齐时报告「未走完」，让 goal 继续交给
+     * tick 分支贴点/续寻路；贴齐后走 offset 34 的 isVeryNearAssignedPlace 早退正常
+     * 结束；超距或关 config 照原版。m_8045_ 内 m_26571_ 唯一（字节码 offset 69；
+     * :77 那处在 m_8037_，不冲突）。
+     */
+    @Redirect(method = "m_8045_",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;m_26571_()Z"),
+            remap = false)
+    private boolean cnpcplus$keepGoingUntilArrived(PathNavigation nav) {
+        boolean done = nav != null && nav.isDone();
+        if (!done) return false;
+        if (this.npc != null && cnpcplus$nearHome(this.npc) && !this.npc.isVeryNearAssignedPlace()) {
+            return false;
+        }
+        return true;
     }
 
     /**

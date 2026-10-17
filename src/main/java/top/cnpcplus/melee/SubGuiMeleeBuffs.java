@@ -152,6 +152,12 @@ public class SubGuiMeleeBuffs extends GuiBasic
         Map<String, int[]> chosen = this.table.get();
 
         List<String> availableList = new ArrayList<>();
+        // 238-4：哨兵「火」固定排最前（原版点燃通路 UI 已隐藏，这里补回入口）。
+        if (!chosen.containsKey(MeleeBuffStore.FIRE_KEY)) {
+            String fireDisplay = I18n.get("cnpcplus.melee.fire");
+            this.availableNames.put(fireDisplay, MeleeBuffStore.FIRE_KEY);
+            availableList.add(fireDisplay);
+        }
         for (MobEffect effect : BuiltInRegistries.MOB_EFFECT) {
             String registry = MeleeBuffStore.nameOf(effect);
             if (registry == null) continue;
@@ -168,8 +174,20 @@ public class SubGuiMeleeBuffs extends GuiBasic
 
         List<String> selectedList = new ArrayList<>();
         for (Map.Entry<String, int[]> entry : chosen.entrySet()) {
+            String base;
+            if (MeleeBuffStore.isFire(entry.getKey())) {
+                // 哨兵「火」：等级忽略，只显示时长。
+                base = I18n.get("cnpcplus.melee.fire");
+                String display = base + " (" + entry.getValue()[1] + "s)";
+                if (this.selectedNames.containsKey(display)) {
+                    display = display + " [" + entry.getKey() + "]";
+                }
+                this.selectedNames.put(display, entry.getKey());
+                selectedList.add(display);
+                continue;
+            }
             MobEffect effect = MeleeBuffStore.resolve(entry.getKey());
-            String base = effect != null
+            base = effect != null
                     ? cnpcplus$displayName(effect, entry.getKey())
                     // 对应 mod 已被移除：仍然显示出来，让玩家能手动删掉。
                     : entry.getKey();

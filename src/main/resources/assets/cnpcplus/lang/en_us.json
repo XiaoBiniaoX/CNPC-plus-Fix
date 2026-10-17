@@ -164,5 +164,13 @@
   "cnpcplus.villagertrader.refreshsecs.tooltip": "Wait before restock after selling out, in seconds (not ticks).",
   "cnpcplus.villagertrader.selecthint": "Click an entry on the left to select",
   "cnpcplus.villagertrader.refreshin": "Restock in %s s",
-  "cnpcplus.villagertrader.refreshready": "Restock ready"
+  "cnpcplus.villagertrader.refreshready": "Restock ready",
+  "cnpcplus.respawn.hidedelay": "Hide Delay",
+  "guihint.cnpcplus.hidedelay": "Corpse hide delay in ticks (1s=20t), default 5",
+  "cnpcplus.respawn.deathfx": "Death FX",
+  "cnpcplus.respawn.nofx": "No FX",
+  "cnpcplus.respawn.fxcount": "FX(%s)",
+  "cnpcplus.melee.fire": "Fire",
+  "cnpcplus.projectile.spinspeed": "Spin Speed",
+  "guihint.cnpcplus.spinspeed": "Projectile spin factor (x speed), 0 = vanilla"
 }

@@ -102,5 +102,13 @@
   "cnpcplus.villagertrader.refreshsecs.tooltip": "Ожидание пополнения после исчерпания, в секундах (не тиках).",
   "cnpcplus.villagertrader.selecthint": "Нажмите запись слева, чтобы выбрать",
   "cnpcplus.villagertrader.refreshin": "Пополнение через %s с",
-  "cnpcplus.villagertrader.refreshready": "Пополнение готово"
+  "cnpcplus.villagertrader.refreshready": "Пополнение готово",
+  "cnpcplus.respawn.hidedelay": "Задержка скрытия",
+  "guihint.cnpcplus.hidedelay": "Задержка скрытия трупа в тиках (1с=20т), по умолчанию 5",
+  "cnpcplus.respawn.deathfx": "Эффект смерти",
+  "cnpcplus.respawn.nofx": "Без частиц",
+  "cnpcplus.respawn.fxcount": "Частицы: %s",
+  "cnpcplus.melee.fire": "Огонь",
+  "cnpcplus.projectile.spinspeed": "Скорость вращения",
+  "guihint.cnpcplus.spinspeed": "Коэффициент вращения снаряда (× скорость), 0 = ванилла"
 }

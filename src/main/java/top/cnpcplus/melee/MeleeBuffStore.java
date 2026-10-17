@@ -50,11 +50,24 @@ public final class MeleeBuffStore {
     /** NBT 键。挂在 DataMelee 自己的复合标签里，随 STATS 菜单包全量同步。 */
     public static final String NBT_KEY = "CNPCPlusMeleeBuffs";
 
+    /**
+     * 238-4：哨兵键「火」。原版 effect=666 点燃通路 UI 已被隐藏，用 BUFF 表
+     * 哨兵复用同一行为（命中/爆炸波及→{@code setSecondsOnFire(秒)}，参数即秒、内部×20，等级忽略）。
+     * 该键在 resolve 前拦截，不查注册表（cnpcplus 命名空间无 MobEffect 注册，
+     * {@code resolve} 会因 DefaultedRegistry 返回空气效果，故必须前置判）。
+     */
+    public static final String FIRE_KEY = "cnpcplus:fire";
+
     /** 单项上限，防止误操作把整表 200+ 效果全加上导致每次命中刷屏。 */
     public static final int MAX_ENTRIES = 32;
 
     public static final int MAX_AMPLIFIER = 255;
     public static final int MAX_SECONDS = 99999;
+
+    /** 是否哨兵「火」条目（执行端在 resolve 前判，GUI 在列表里特判显示）。 */
+    public static boolean isFire(String registryName) {
+        return FIRE_KEY.equals(registryName);
+    }
 
     private static final Map<DataMelee, Map<String, int[]>> BUFFS = new WeakHashMap<>();
     private static final Object LOCK = new Object();

@@ -4,6 +4,7 @@ import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.client.gui.SubGuiNpcProjectiles;
 import noppes.npcs.entity.data.DataRanged;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
+import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,6 +18,7 @@ import top.cnpcplus.drop.fx.client.SubGuiDropFx;
 import top.cnpcplus.melee.SubGuiMeleeBuffs;
 import top.cnpcplus.ranged.RangedBuffStore;
 import top.cnpcplus.ranged.RangedFxStore;
+import top.cnpcplus.ranged.RangedSpinStore;
 
 import java.util.List;
 
@@ -56,6 +58,13 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
 
     private static final int BTN_BUFFS = 60;
     private static final int BTN_FX = 61;
+    private static final int TF_SPIN = 12;
+
+    @Unique
+    private GuiTextFieldNop cnpcplus$spinTf;
+
+    @Unique
+    private GuiLabel cnpcplus$spinLabel;
 
     @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
     private void cnpcplus$replaceEffectAndTrailControls(CallbackInfo ci) {
@@ -90,6 +99,26 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
         self.addButton(new GuiButtonNop((IGuiInterface) self, BTN_FX,
                 self.guiLeft + 60, self.guiTop + 190, 76, 20,
                 cnpcplus$fxButtonText()));
+
+        // --- 238-9/238c：自旋速度系数框（0=原版 10/20 公式，负数=反旋）。
+        //     门槛=getRender3D && getSpins（反馈：仅自旋开时显示）；恒建+enabled 显隐
+        //     （库内既有手法），buttonEvent TAIL 随开关翻转。y130 行右侧无原版控件；
+        //     宽 45 → 190+45=235 ≤ 256。minmax 放开负区间（原 minF 默认 0，
+        //     失焦校验会把负数洗成 0）---
+        boolean showSpin = this.stats.getRender3D() && this.stats.getSpins();
+        this.cnpcplus$spinLabel = new GuiLabel(
+                TF_SPIN, "cnpcplus.projectile.spinspeed",
+                self.guiLeft + 140, self.guiTop + 135, "guihint.cnpcplus.spinspeed");
+        this.cnpcplus$spinLabel.enabled = showSpin;
+        self.addLabel(this.cnpcplus$spinLabel);
+        this.cnpcplus$spinTf = new GuiTextFieldNop(TF_SPIN, self,
+                self.guiLeft + 190, self.guiTop + 130, 45, 18,
+                cnpcplus$spinText());
+        this.cnpcplus$spinTf.numbersOnly = false;
+        this.cnpcplus$spinTf.floatsOnly = true;
+        this.cnpcplus$spinTf.setMinMaxDefault(-RangedSpinStore.MAX_SPIN, RangedSpinStore.MAX_SPIN, 0);
+        this.cnpcplus$spinTf.enabled = showSpin;
+        self.addTextField(this.cnpcplus$spinTf);
     }
 
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true, remap = false)
@@ -104,6 +133,33 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
                     this::cnpcplus$applyFx, RangedFxStore.get(this.stats)));
             ci.cancel();
         }
+    }
+
+    /** 238c：render3D（id7）/自旋（id8）开关后重算自旋框显隐（原版这两个按钮不重建）。 */
+    @Inject(method = "buttonEvent", at = @At("TAIL"), remap = false)
+    private void cnpcplus$syncSpinBox(GuiButtonNop button, CallbackInfo ci) {
+        if (this.cnpcplus$spinTf == null || this.cnpcplus$spinLabel == null) return;
+        boolean show = this.stats.getRender3D() && this.stats.getSpins();
+        this.cnpcplus$spinTf.enabled = show;
+        this.cnpcplus$spinLabel.enabled = show;
+    }
+
+    /** 238-9：自旋系数框失焦回写（原版 unFocused 只处理 id 1..5，不冲突）。 */
+    @Inject(method = "unFocused", at = @At("HEAD"), remap = false)
+    private void cnpcplus$saveSpin(GuiTextFieldNop textfield, CallbackInfo ci) {
+        if (textfield != null && textfield.id == TF_SPIN) {
+            try {
+                RangedSpinStore.put(this.stats, Float.parseFloat(textfield.getValue()));
+            } catch (NumberFormatException ignored) {
+                RangedSpinStore.put(this.stats, 0.0f);
+            }
+        }
+    }
+
+    @Unique
+    private String cnpcplus$spinText() {
+        float v = RangedSpinStore.get(this.stats);
+        return v == 0.0f ? "0" : String.valueOf(v);
     }
 
     /** 确定回写：整表替换进 RangedFxStore（落盘随 STATS 菜单包，见 Store 类注释）。 */

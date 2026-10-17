@@ -119,7 +119,12 @@
     "MixinAnvilMenu",
     "MerchantMenuAccessor",
     "MixinDataRangedExtras",
-    "MixinEntityProjectileBuffs"
+    "MixinEntityProjectileBuffs",
+    "MixinDataTransformClearEditing",
+    "MixinDataStatsExtras",
+    "MixinEntityNPCDieFx",
+    "MixinDataTransformFullReplace",
+    "MixinEntityProjectileSpin"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -203,7 +208,10 @@
     "MerchantScreenAccessor",
     "MerchantContainerAccessor",
     "MixinMerchantResultSlotEditable",
-    "MixinMerchantContainerEditable"
+    "MixinMerchantContainerEditable",
+    "MixinRenderCustomNpcSimpleRenderHide",
+    "MixinRenderNPCInterfaceHideDelay",
+    "MixinSubGuiNpcRespawnExtras"
   ],
   "server": []
 }

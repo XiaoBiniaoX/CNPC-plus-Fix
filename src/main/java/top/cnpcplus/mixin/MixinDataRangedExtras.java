@@ -9,16 +9,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.ranged.RangedBuffStore;
 import top.cnpcplus.ranged.RangedFxStore;
+import top.cnpcplus.ranged.RangedSpinStore;
 
 /**
- * 把弹射物的 BUFF 表与粒子特效表挂进 {@code DataRanged} 的 NBT（234），
- * 白拿存档与两端同步——与近战 {@code MixinDataMeleeBuffNBT} 完全同套路。
+ * 把弹射物的 BUFF 表、粒子特效表与自旋速度系数挂进 {@code DataRanged} 的 NBT
+ * （234/238），白拿存档与两端同步——与近战 {@code MixinDataMeleeBuffNBT} 完全同套路。
  *
  * <h3>为什么不需要新增网络包</h3>
  * {@code DataStats.readToNBT/save}（反编译 57-58 / 77-78 行）把 {@code ranged}
  * <b>直接展开到 NPC 根标签</b>（无子标签包裹）；GUI 保存走
  * {@code SPacketMenuSave(STATS)} → 服务端 {@code npc.stats.readToNBT}，
- * 读取走 {@code SPacketMenuGet(STATS)}。两键挂在 DataRanged 复合标签上即自动：
+ * 读取走 {@code SPacketMenuGet(STATS)}。键挂在 DataRanged 复合标签上即自动：
  * GUI 保存过河、GUI 打开回传、随 NPC 实体 NBT 进存档。
  *
  * <h3>注入点签名</h3>
@@ -26,9 +27,9 @@ import top.cnpcplus.ranged.RangedFxStore;
  * {@code CallbackInfoReturnable} + {@code cir.getReturnValue()} 取返回标签；
  * {@code load} 返回 void（:47）→ {@code CallbackInfo}。
  *
- * <h3>两键</h3>
- * {@code CNPCPlusRangedBuffs}（多 BUFF，与近战 CNPCPlusMeleeBuffs 平行）、
- * {@code CNPCPlusProjectileFx}（粒子尾迹特效）——均带 CNPCPlus 前缀，
+ * <h3>三键</h3>
+ * {@code CNPCPlusRangedBuffs}（多 BUFF）、{@code CNPCPlusProjectileFx}（粒子尾迹）、
+ * {@code CNPCPlusSpinSpeed}（自旋系数，238-9）——均带 CNPCPlus 前缀，
  * 与原版平铺键 {@code pEffect/pTrail} 无冲突。
  */
 @Mixin(value = DataRanged.class, remap = false)
@@ -39,6 +40,7 @@ public class MixinDataRangedExtras {
         DataRanged self = (DataRanged) (Object) this;
         RangedBuffStore.read(self, compound);
         RangedFxStore.read(self, compound);
+        RangedSpinStore.read(self, compound);
     }
 
     @Inject(method = "save", at = @At("RETURN"), remap = false)
@@ -49,5 +51,6 @@ public class MixinDataRangedExtras {
         CompoundTag target = out == null ? compound : out;
         RangedBuffStore.write(self, target);
         RangedFxStore.write(self, target);
+        RangedSpinStore.write(self, target);
     }
 }

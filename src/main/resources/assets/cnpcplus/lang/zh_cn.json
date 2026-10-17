@@ -164,5 +164,13 @@
   "cnpcplus.villagertrader.refreshsecs.tooltip": "耗尽后恢复购买的等待时间，单位：秒（不是tick）",
   "cnpcplus.villagertrader.selecthint": "点击左侧条目选中",
   "cnpcplus.villagertrader.refreshin": "还有 %s 秒刷新",
-  "cnpcplus.villagertrader.refreshready": "刷新已就绪"
+  "cnpcplus.villagertrader.refreshready": "刷新已就绪",
+  "cnpcplus.respawn.hidedelay": "隐藏延迟",
+  "guihint.cnpcplus.hidedelay": "尸体隐藏延迟，单位 tick（1秒=20tick），默认 5",
+  "cnpcplus.respawn.deathfx": "死亡特效",
+  "cnpcplus.respawn.nofx": "无特效",
+  "cnpcplus.respawn.fxcount": "特效(%s)",
+  "cnpcplus.melee.fire": "火",
+  "cnpcplus.projectile.spinspeed": "自旋速度",
+  "guihint.cnpcplus.spinspeed": "弹射物自旋系数（×速度），0=原版"
 }
