@@ -121,8 +121,13 @@ public final class DropCraftHandler {
             }
             if (plan == null) return;
 
+            // 233d-UI6 粒子锚点：消耗前先快照触发掉落物实体的当前位置
+            // （链式循环中 trigger 实体可能已被 shrink/discard，必须先取
+            // Vec3 值快照；用户要求粒子以「合成时掉落物所在位置」发射，
+            // 不是方块中心。音效仍留方块中心——用户只反馈粒子位置）
+            net.minecraft.world.phys.Vec3 anchor = trigger.position();
             // 先判定后消耗：plan 已验证全部充足，这里只按计划扣减
-            execute(level, pos, plan);
+            execute(level, pos, anchor, plan);
             // 允许日志（用户授权）：链式只打第一条防刷屏
             if (chain == 0) {
                 LOGGER.info("[drop] 合成触发 pos=({},{},{}) id={} name={} result={}",
@@ -146,7 +151,12 @@ public final class DropCraftHandler {
         return !r.hasBindPos || (r.bindX == pos.getX() && r.bindY == pos.getY() && r.bindZ == pos.getZ());
     }
 
-    private static void execute(ServerLevel level, BlockPos pos, CraftPlan plan) {
+    /**
+     * @param anchor 233d-UI6 粒子发射锚点=合成触发掉落物实体位置（消耗前快照）；
+     *               方块坐标 pos 仍用于产出位置与音效位置（不变）。
+     */
+    private static void execute(ServerLevel level, BlockPos pos,
+                                net.minecraft.world.phys.Vec3 anchor, CraftPlan plan) {
         for (Map.Entry<ItemEntity, Integer> en : plan.deduct.entrySet()) {
             ItemEntity e = en.getKey();
             if (e.isRemoved()) continue; // 并发窗口兜底（单线程 tick 内基本不会发生）
@@ -158,17 +168,23 @@ public final class DropCraftHandler {
         out.setDefaultPickUpDelay();
         level.addFreshEntity(out);
         // 233d 粒子特效：实例快照入队（引擎 LevelTick 驱动发送；fx 空=零开销）
+        // 233d-UI6：锚点=掉落物实体位置 anchor（用户「以被合成掉落物实体世界坐标为锚点」）
         top.cnpcplus.drop.fx.runtime.DropFxEngine.spawn(level,
-                pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5, plan.recipe.fxs);
+                anchor.x, anchor.y, anchor.z, plan.recipe.fxs);
         // 233c 合成音效：全房间可闻；音量/音高固定 1.0（用户确认）；坏 id 仅 WARN 不崩
         String snd = plan.recipe.soundId;
         if (snd != null && !snd.isEmpty()) {
             net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT
                     .getOptional(new net.minecraft.resources.ResourceLocation(snd))
                     .ifPresentOrElse(
-                            ev -> level.playSound(null,
-                                    pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
-                                    ev, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F),
+                            ev -> {
+                                level.playSound(null,
+                                        pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                                        ev, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F);
+                                // 233d-UI6 打点：音效确实播了（用户「绑定音效完全没有」排查）
+                                LOGGER.info("[drop] 播放合成音效 id={} pos=({},{},{})", snd,
+                                        pos.getX(), pos.getY(), pos.getZ());
+                            },
                             () -> LOGGER.warn("[drop] 音效 id 无效 {}", snd));
         }
     }

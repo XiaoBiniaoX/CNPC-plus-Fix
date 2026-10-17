@@ -65,8 +65,9 @@ public class PacketDropSave {
                 LOGGER.warn("[drop] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
-            LOGGER.info("[drop] 配方保存 id={} name={} inputs={} result={}",
-                    d.id, d.name, d.filledInputCount(), d.result.getCount() + "x" + d.result.getItem());
+            LOGGER.info("[drop] 配方保存 id={} name={} inputs={} result={} soundId={} fxs={} (233d-UI7 服务端打点：soundId 空=不播)",
+                    d.id, d.name, d.filledInputCount(), d.result.getCount() + "x" + d.result.getItem(),
+                    d.soundId, d.fxs.size());
             // 一人创建全服可用：全员同步编辑列表（配方生效在 DropCraftHandler 直查 Registry）
             DropRecipeRegistry.syncToPlayers(sender.server);
         });

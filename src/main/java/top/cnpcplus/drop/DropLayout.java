@@ -46,11 +46,19 @@ public final class DropLayout {
     public static int btnY() { return 12; }
     public static int btnSpacing() { return 22; }
 
-    /** 233a「仅名字检查」开关（合成槽左边，2×2 槽 starts x36 前的空隙）。 */
+    /** 233a「仅名字检查」开关（合成槽左边，2×2 槽 starts x36 前的空隙）。233d-UI7 上移与粒子钮对齐结果槽中心：结果槽 y59 center=68，两钮高18+2 间隔→pair top=49。 */
     public static int switchX() { return 8; }
-    public static int switchY() { return 59; }
+    public static int switchY() { return 49; }
     public static int switchW() { return 18; }
     public static int switchH() { return 18; }
+
+    /** 233d-UI7 音效图标钮：结果槽右边（120+18=138 右缘 +2 间隔），与结果槽同 y。 */
+    public static int soundX() { return 140; }
+    public static int soundY() { return 59; }
+
+    /** 233d-UI7 粒子特效图标钮：「仅名字检查」正下方（49+18+2 间隔），同 x 竖列；pair center=68 对齐结果槽中心。 */
+    public static int fxX() { return 8; }
+    public static int fxY() { return 69; }
 
     /** 整个界面的整体偏移（与熔炼/锻造/铁砧同一既定值：用户确认过的全局面板位置）。 */
     public static int guiOffsetX() { return 0; }

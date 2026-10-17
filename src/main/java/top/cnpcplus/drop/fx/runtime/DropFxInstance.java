@@ -14,7 +14,7 @@ import java.util.List;
  */
 public final class DropFxInstance {
 
-    /** 合成掉落物中心（方块中心+0.2，与产出 ItemEntity 一致）。 */
+    /** 合成触发掉落物实体位置（233d-UI6：用户要求粒子以掉落物世界坐标发射，非方块中心）。 */
     public final double cx, cy, cz;
     /** fx 快照（每个 config 的 shapes 已深拷贝且经 Caps 裁剪）。 */
     public final List<DropFxConfig> fxs;

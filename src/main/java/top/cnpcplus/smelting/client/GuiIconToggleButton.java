@@ -22,19 +22,31 @@ import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
  */
 public class GuiIconToggleButton extends GuiButtonNop {
 
-    private static final int COLOR_ON = 0xFF00FF00;   // 绿框（启用）
+    /** 绿框（启用——233d-UI6 起改为可配置「on 色」的默认值）。 */
+    public static final int COLOR_ON = 0xFF00FF00;
+    /** 蓝框（233d-UI6 音效专用「已设置」态：与开/关语义区分）。 */
+    public static final int COLOR_SOUND = 0xFF5555FF;
     private static final int COLOR_OFF = 0xFFFF0000;  // 红框（禁用，默认）
     private static final int COLOR_BG = 0xFF202020;   // 按钮底色
 
     private final ItemStack icon;
     private final Component tooltipText;
+    /** on=true 时的边框色（默认绿；音效钮传蓝=「已绑定」专属态）。 */
+    private final int colorOn;
 
     public GuiIconToggleButton(IGuiInterface gui, int id, int x, int y, int width, int height,
                                ItemStack icon, boolean on, Component tooltip) {
+        this(gui, id, x, y, width, height, icon, on, tooltip, COLOR_ON);
+    }
+
+    /** 233d-UI6：允许指定 on 态边框色（音效钮=蓝框「已设置」，其余仍默认绿）。 */
+    public GuiIconToggleButton(IGuiInterface gui, int id, int x, int y, int width, int height,
+                               ItemStack icon, boolean on, Component tooltip, int colorOn) {
         // display 两项都是空串：即使父类逻辑改了显示文本，也不会画出任何字
         super(gui, id, x, y, width, height, new String[]{"", ""}, on ? 1 : 0);
         this.icon = icon;
         this.tooltipText = tooltip; // 不用 vanilla setTooltip（见类注释），renderWidget 自绘
+        this.colorOn = colorOn;
     }
 
     @Override
@@ -49,9 +61,9 @@ public class GuiIconToggleButton extends GuiButtonNop {
         int y = this.getY();
         int w = this.getWidth();
         int h = this.getHeight();
-        int border = this.getValue() == 1 ? COLOR_ON : COLOR_OFF;
+        int border = this.getValue() == 1 ? this.colorOn : COLOR_OFF;
 
-        // 底色 + 四边高亮框（红=禁用 / 绿=启用）
+        // 底色 + 四边高亮框（红=禁用 / 绿=启用 / 蓝=音效已设置）
         graphics.fill(x, y, x + w, y + h, COLOR_BG);
         graphics.hLine(x, x + w - 1, y, border);
         graphics.hLine(x, x + w - 1, y + h - 1, border);
