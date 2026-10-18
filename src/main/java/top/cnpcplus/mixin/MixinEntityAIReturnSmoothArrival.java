@@ -9,10 +9,14 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.config.CnpcPlusServerConfig;
 import top.cnpcplus.config.ServerConfigAccess;
+import top.cnpcplus.ai.ReturnHomeState;
 
 /**
  * 修「返回起点时快到了却停顿一下再瞬移过去」（哈基彬需求 B2）。
@@ -75,12 +79,17 @@ import top.cnpcplus.config.ServerConfigAccess;
 @Mixin(value = EntityAIReturn.class, remap = false)
 public abstract class MixinEntityAIReturnSmoothArrival {
 
+    @Unique
+    private static final double CNPCPLUS_FINAL_SNAP_DISTANCE = 1.5D;
+
     @Shadow(remap = false) @Final private EntityNPCInterface npc;
     @Shadow(remap = false) private double endPosX;
     @Shadow(remap = false) private double endPosY;
     @Shadow(remap = false) private double endPosZ;
     @Shadow(remap = false) private int stuckTicks;
     @Shadow(remap = false) private int stuckCount;
+    @Shadow(remap = false) private int totalTicks;
+    @Shadow(remap = false) private boolean wasAttacked;
 
     /** 本刻是否刚抑制了一次瞬移。用于把紧随其后的 navigation.stop() 换成重新寻路。 */
     @Unique private boolean cnpcplus$suppressedTeleport;
@@ -108,6 +117,41 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         nav.moveTo(this.endPosX, this.endPosY, this.endPosZ, 1.0D);
     }
 
+    @Inject(method = "m_8037_", at = @At("HEAD"), remap = false)
+    private void cnpcplus$markReturnNavigationActive(CallbackInfo ci) {
+        ReturnHomeState.start(this.npc);
+    }
+
+    @Inject(method = "m_8041_", at = @At("HEAD"), remap = false)
+    private void cnpcplus$clearReturnNavigationActive(CallbackInfo ci) {
+        ReturnHomeState.end(this.npc);
+    }
+
+    @Inject(method = "m_8037_", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$walkFinalReturnGap(CallbackInfo ci) {
+        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)
+                || this.npc == null || this.npc.ais == null
+                || this.npc.isAttacking() || this.npc.isInteracting()
+                || this.npc.isKilled() || this.npc.isPassenger()) return;
+        double dx = this.endPosX - this.npc.getX();
+        double dz = this.endPosZ - this.npc.getZ();
+        double distanceSqr = dx * dx + dz * dz;
+        if (distanceSqr <= 0.2D * 0.2D
+                || distanceSqr > CNPCPLUS_FINAL_SNAP_DISTANCE * CNPCPLUS_FINAL_SNAP_DISTANCE) return;
+        PathNavigation nav = this.npc.getNavigation();
+        if (nav == null || !nav.isDone()) return;
+
+        // Ground navigation ends its path near the block center. Keep the
+        // return goal active and walk the remaining sub-block delta directly;
+        // only the ±0.2 arrival condition below may finish this goal.
+        nav.stop();
+        this.stuckTicks = 0;
+        this.stuckCount = 0;
+        double speed = Math.min(1.0D, Math.max(0.1D, Math.sqrt(distanceSqr) * 1.5D));
+        this.npc.getMoveControl().setWantedPosition(this.endPosX, this.endPosY, this.endPosZ, speed);
+        ci.cancel();
+    }
+
     /** 两处瞬移。近起点则跳过，并清掉 stuck 计数避免下一刻又被判卡住。 */
     @Redirect(method = "m_8037_",
             at = @At(value = "INVOKE",
@@ -116,6 +160,14 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     private void cnpcplus$smoothArrival(EntityNPCInterface npc, double x, double y, double z) {
         if (!cnpcplus$nearHome(npc)) {
             this.cnpcplus$suppressedTeleport = false;
+            if (npc != null) npc.setPos(x, y, z);
+            return;
+        }
+        int timeoutTicks = ServerConfigAccess.integer(CnpcPlusServerConfig.ReturnHomeTimeoutSeconds, 30) * 20;
+        if (this.totalTicks > timeoutTicks) {
+            this.cnpcplus$suppressedTeleport = false;
+            this.stuckTicks = 0;
+            this.stuckCount = 0;
             if (npc != null) npc.setPos(x, y, z);
             return;
         }
@@ -151,9 +203,8 @@ public abstract class MixinEntityAIReturnSmoothArrival {
      * 原逻辑「就地 repath」有死带：moveTo 终点取整格节点、到达精度 0.45，够不到
      * {@code isVeryNearAssignedPlace} 的 ±0.2 —— done↔repath 无限打转，goal 永不
      * 结束 → 坐/躺永不恢复（5b）、昼夜切换被 MOVE 锁死（5c）同源。改为：
-     * 近起点(3.0)且路径走完时，**d≤1.0 直接贴齐 endPos**（半格级收尾，观感可接受），
-     * 清 stuck 计数；1.0~3.0 仍 repath 逼近后下轮贴点；>3.0 照原版卡死判定。
-     * 贴点后 ±0.2 成立 → 下 tick canContinueToUse 为假 → goal 正常结束。
+     * 近起点且路径走完时，不把 1.5 格以内剩余距离当作已到：重新寻路继续走；
+     * 到达 ±0.2 后才让 canContinueToUse 正常结束。
      */
     @Redirect(method = "m_8037_",
             at = @At(value = "INVOKE",
@@ -162,14 +213,22 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     private boolean cnpcplus$notStuckNearHome(PathNavigation nav) {
         boolean done = nav != null && nav.isDone();
         if (!done) return false;
-        if (!cnpcplus$nearHome(this.npc)) return true;
+        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) return true;
         if (this.npc != null) {
             double dx = this.npc.getX() - this.endPosX;
             double dz = this.npc.getZ() - this.endPosZ;
-            if (dx * dx + dz * dz <= 1.0D * 1.0D) {
+            double distanceSqr = dx * dx + dz * dz;
+            if (distanceSqr <= 0.2D * 0.2D) {
                 this.stuckTicks = 0;
                 this.stuckCount = 0;
-                this.npc.setPos(this.endPosX, this.endPosY, this.endPosZ);
+                return false;
+            }
+            if (distanceSqr <= CNPCPLUS_FINAL_SNAP_DISTANCE * CNPCPLUS_FINAL_SNAP_DISTANCE) {
+                // PathNavigation considers the last node reached early. Keep
+                // the return goal active and compute another path to endPos.
+                this.stuckTicks = 0;
+                this.stuckCount = 0;
+                cnpcplus$repath(this.npc);
                 return false;
             }
         }
@@ -191,11 +250,47 @@ public abstract class MixinEntityAIReturnSmoothArrival {
             remap = false)
     private boolean cnpcplus$keepGoingUntilArrived(PathNavigation nav) {
         boolean done = nav != null && nav.isDone();
+        // This replaces only the nav.isDone() operand in the original
+        // ternary: a live path must evaluate false here so canContinue falls
+        // through to the timeout check and remains true.
         if (!done) return false;
         if (this.npc != null && cnpcplus$nearHome(this.npc) && !this.npc.isVeryNearAssignedPlace()) {
+            // Keep the goal alive so the HEAD handler can close CNPC's final
+            // navigation-tolerance gap and the normal stop lifecycle runs.
             return false;
         }
         return true;
+    }
+
+    @Inject(method = "m_8045_", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$preventNearHomeEarlyExit(CallbackInfoReturnable<Boolean> cir) {
+        if (this.npc == null || this.npc.ais == null) return;
+        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) return;
+        if (this.npc.isFollower() || this.npc.isKilled() || this.npc.isAttacking()
+                || this.npc.isInteracting() || this.npc.isPassenger()) {
+            cir.setReturnValue(false);
+            return;
+        }
+        double dx = this.npc.getX() - this.endPosX;
+        double dz = this.npc.getZ() - this.endPosZ;
+        double distanceSqr = dx * dx + dz * dz;
+        int timeoutTicks = ServerConfigAccess.integer(CnpcPlusServerConfig.ReturnHomeTimeoutSeconds, 30) * 20;
+        boolean timedOut = this.totalTicks > timeoutTicks;
+        if (timedOut) {
+            this.stuckTicks = 0;
+            this.stuckCount = 0;
+            this.npc.setPos(this.endPosX, this.endPosY, this.endPosZ);
+            cir.setReturnValue(false);
+            return;
+        }
+        if (distanceSqr <= 0.2D * 0.2D) {
+            cir.setReturnValue(false);
+            return;
+        }
+        // This runs before vanilla's isVeryNearAssignedPlace early return.
+        // Keep an active return goal alive until its actual endPos is reached;
+        // during attacked returns that target can be the pre-attack position.
+        cir.setReturnValue(true);
     }
 
     /**
@@ -211,5 +306,18 @@ public abstract class MixinEntityAIReturnSmoothArrival {
             constant = @Constant(intValue = 600), remap = false)
     private int cnpcplus$configurableTimeout(int original) {
         return ServerConfigAccess.integer(CnpcPlusServerConfig.ReturnHomeTimeoutSeconds, 30) * 20;
+    }
+
+    @Inject(method = "m_8041_", at = @At("RETURN"), remap = false)
+    private void cnpcplus$restoreConfiguredAnimation(CallbackInfo ci) {
+        if (this.npc == null || this.npc.ais == null
+                || this.npc.isAttacking() || this.npc.isInteracting() || this.npc.isKilled()) return;
+        // EntityAIAnimation normally performs this transition after Return
+        // releases MOVE.  Do it here as well so a near-home early-exit cannot
+        // leave the NPC in the temporary walking animation forever.
+        this.npc.setCurrentAnimation(this.npc.ais.getAnimation());
+        this.npc.refreshDimensions();
+        this.npc.setPos(this.npc.getX(), this.npc.getY(), this.npc.getZ());
+        this.npc.updateAI = true;
     }
 }

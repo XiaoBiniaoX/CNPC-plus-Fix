@@ -172,5 +172,7 @@
   "cnpcplus.respawn.fxcount": "FX(%s)",
   "cnpcplus.melee.fire": "Fire",
   "cnpcplus.projectile.spinspeed": "Spin Speed",
-  "guihint.cnpcplus.spinspeed": "Projectile spin factor (x speed), 0 = vanilla"
+  "guihint.cnpcplus.spinspeed": "Projectile X-axis spin factor (x speed); negative reverses",
+  "guihint.cnpcplus.spinspeedy": "Projectile Y-axis spin factor (x speed); negative reverses",
+  "guihint.cnpcplus.spinspeedz": "Projectile Z-axis roll factor (x speed); negative reverses"
 }

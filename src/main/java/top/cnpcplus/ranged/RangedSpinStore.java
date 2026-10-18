@@ -2,55 +2,61 @@ package top.cnpcplus.ranged;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import noppes.npcs.entity.EntityProjectile;
 import noppes.npcs.entity.data.DataRanged;
 
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/**
- * 238-9：弹射物自旋速度系数挂载点。
- *
- * <h3>语义</h3>
- * 原版每 tick 硬编码 {@code (isBlock ? 10 : 20) * getSpeed()} 度（反编译
- * {@code EntityProjectile.tick :293-296}）。本系数<b>替换 10/20 那个系数</b>
- * （仍 ×getSpeed，原版同单位）；0（未配置）= 回落原公式，零变化。
- *
- * <h3>NBT</h3>
- * 键 {@code CNPCPlusSpinSpeed}（float）挂 DataRanged 复合标签，随 STATS 菜单包双向同步
- * （见 {@code MixinDataRangedExtras}）。
- */
+/** Storage, persistence and projectile sync accessors for the three spin axes. */
 public final class RangedSpinStore {
 
-    public static final String NBT_KEY = "CNPCPlusSpinSpeed";
+    public static final int AXIS_X = 0;
+    public static final int AXIS_Y = 1;
+    public static final int AXIS_Z = 2;
 
-    /** 上限：防误输入把自旋拉到每 tick 几百度造成眩晕。 */
+    /** X keeps the original key so existing single-axis configs continue to load. */
+    public static final String NBT_KEY_X = "CNPCPlusSpinSpeed";
+    public static final String NBT_KEY_Y = "CNPCPlusSpinSpeedY";
+    public static final String NBT_KEY_Z = "CNPCPlusSpinSpeedZ";
     public static final float MAX_SPIN = 1000.0f;
 
-    private static final Map<DataRanged, Float> SPINS = new WeakHashMap<>();
+    public static final EntityDataAccessor<Float> SPIN_X =
+            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
+    public static final EntityDataAccessor<Float> SPIN_Y =
+            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
+    public static final EntityDataAccessor<Float> SPIN_Z =
+            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
+
+    private static final String[] NBT_KEYS = {NBT_KEY_X, NBT_KEY_Y, NBT_KEY_Z};
+    private static final Map<DataRanged, float[]> SPINS = new WeakHashMap<>();
+    /** Client-side continuous angles: current XYZ followed by previous XYZ. */
+    private static final Map<EntityProjectile, float[]> ANGLES = new WeakHashMap<>();
     private static final Object LOCK = new Object();
 
     private RangedSpinStore() {
     }
 
-    /** 未配置返回 0（消费端回落原公式 10/20）。 */
-    public static float get(DataRanged ranged) {
-        if (ranged == null) return 0.0f;
+    public static float get(DataRanged ranged, int axis) {
+        if (ranged == null || !validAxis(axis)) return 0.0f;
         synchronized (LOCK) {
-            return SPINS.getOrDefault(ranged, 0.0f);
+            float[] values = SPINS.get(ranged);
+            return values == null ? 0.0f : values[axis];
         }
     }
 
-    /** 输入框回写。非有限数按 0（=未配置）；区间 [-MAX_SPIN, MAX_SPIN]，负数=反旋。 */
-    public static void put(DataRanged ranged, float factor) {
-        if (ranged == null) return;
+    public static void put(DataRanged ranged, int axis, float factor) {
+        if (ranged == null || !validAxis(axis)) return;
         if (!Float.isFinite(factor)) factor = 0.0f;
-        if (factor > MAX_SPIN) factor = MAX_SPIN;
-        if (factor < -MAX_SPIN) factor = -MAX_SPIN;
+        factor = Math.max(-MAX_SPIN, Math.min(MAX_SPIN, factor));
         synchronized (LOCK) {
-            if (factor == 0.0f) {
+            float[] values = SPINS.computeIfAbsent(ranged, ignored -> new float[3]);
+            values[axis] = factor;
+            if (values[0] == 0.0f && values[1] == 0.0f && values[2] == 0.0f) {
                 SPINS.remove(ranged);
-            } else {
-                SPINS.put(ranged, factor);
             }
         }
     }
@@ -62,26 +68,61 @@ public final class RangedSpinStore {
         }
     }
 
-    /** 写入。0 不落键（旧档零变化）；负数（反旋）照写。 */
     public static void write(DataRanged ranged, CompoundTag compound) {
         if (compound == null) return;
-        float v = get(ranged);
+        float x = get(ranged, AXIS_X);
+        float y = get(ranged, AXIS_Y);
+        float z = get(ranged, AXIS_Z);
+        writeAxis(compound, AXIS_X, x);
+        writeAxis(compound, AXIS_Y, y);
+        writeAxis(compound, AXIS_Z, z);
+    }
+
+    public static void read(DataRanged ranged, CompoundTag compound) {
+        if (ranged == null || compound == null) return;
+        float x = readAxis(compound, AXIS_X);
+        float y = readAxis(compound, AXIS_Y);
+        float z = readAxis(compound, AXIS_Z);
+        put(ranged, AXIS_X, x);
+        put(ranged, AXIS_Y, y);
+        put(ranged, AXIS_Z, z);
+    }
+
+    public static void advanceAngles(EntityProjectile projectile, float x, float y, float z) {
+        if (projectile == null || !Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) return;
         synchronized (LOCK) {
-            if (v == 0.0f) {
-                compound.remove(NBT_KEY);
-            } else {
-                compound.putFloat(NBT_KEY, v);
-            }
+            float[] angles = ANGLES.computeIfAbsent(projectile, ignored -> new float[6]);
+            angles[3] = angles[0];
+            angles[4] = angles[1];
+            angles[5] = angles[2];
+            angles[0] += x;
+            angles[1] += y;
+            angles[2] += z;
         }
     }
 
-    /** 读取。缺键=清配置（回落 0=原公式）。 */
-    public static void read(DataRanged ranged, CompoundTag compound) {
-        if (ranged == null || compound == null) return;
-        if (compound.contains(NBT_KEY, Tag.TAG_ANY_NUMERIC)) {
-            put(ranged, compound.getFloat(NBT_KEY));
-        } else {
-            clear(ranged);
+    public static float angleOf(EntityProjectile projectile, int axis, float partialTicks) {
+        if (projectile == null || !validAxis(axis)) return 0.0f;
+        synchronized (LOCK) {
+            float[] angles = ANGLES.get(projectile);
+            if (angles == null) return 0.0f;
+            float partial = Math.max(0.0f, Math.min(1.0f, partialTicks));
+            return angles[axis + 3] + (angles[axis] - angles[axis + 3]) * partial;
         }
+    }
+
+    private static void writeAxis(CompoundTag compound, int axis, float value) {
+        String key = NBT_KEYS[axis];
+        if (value == 0.0f) compound.remove(key);
+        else compound.putFloat(key, value);
+    }
+
+    private static float readAxis(CompoundTag compound, int axis) {
+        String key = NBT_KEYS[axis];
+        return compound.contains(key, Tag.TAG_ANY_NUMERIC) ? compound.getFloat(key) : 0.0f;
+    }
+
+    private static boolean validAxis(int axis) {
+        return axis >= AXIS_X && axis <= AXIS_Z;
     }
 }

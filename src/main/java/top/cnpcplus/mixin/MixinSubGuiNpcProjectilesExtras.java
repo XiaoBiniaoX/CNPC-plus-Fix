@@ -58,13 +58,27 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
 
     private static final int BTN_BUFFS = 60;
     private static final int BTN_FX = 61;
-    private static final int TF_SPIN = 12;
+    private static final int TF_SPIN_X = 12;
+    private static final int TF_SPIN_Y = 13;
+    private static final int TF_SPIN_Z = 14;
 
     @Unique
-    private GuiTextFieldNop cnpcplus$spinTf;
+    private GuiTextFieldNop cnpcplus$spinTfX;
 
     @Unique
-    private GuiLabel cnpcplus$spinLabel;
+    private GuiTextFieldNop cnpcplus$spinTfY;
+
+    @Unique
+    private GuiTextFieldNop cnpcplus$spinTfZ;
+
+    @Unique
+    private GuiLabel cnpcplus$spinLabelX;
+
+    @Unique
+    private GuiLabel cnpcplus$spinLabelY;
+
+    @Unique
+    private GuiLabel cnpcplus$spinLabelZ;
 
     @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
     private void cnpcplus$replaceEffectAndTrailControls(CallbackInfo ci) {
@@ -100,31 +114,38 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
                 self.guiLeft + 60, self.guiTop + 190, 76, 20,
                 cnpcplus$fxButtonText()));
 
-        // --- 238-9/238c：自旋速度系数框（0=原版 10/20 公式，负数=反旋）。
-        //     门槛=getRender3D && getSpins（反馈：仅自旋开时显示）；恒建+enabled 显隐
-        //     （库内既有手法），buttonEvent TAIL 随开关翻转。y130 行右侧无原版控件；
-        //     宽 45 → 190+45=235 ≤ 256。minmax 放开负区间（原 minF 默认 0，
-        //     失焦校验会把负数洗成 0）---
+        // --- 238d：X/Y/Z 独立自旋系数；只在 3D 且启用自旋时可编辑。 ---
         boolean showSpin = this.stats.getRender3D() && this.stats.getSpins();
-        this.cnpcplus$spinLabel = new GuiLabel(
-                TF_SPIN, "cnpcplus.projectile.spinspeed",
-                self.guiLeft + 140, self.guiTop + 135, "guihint.cnpcplus.spinspeed");
-        this.cnpcplus$spinLabel.enabled = showSpin;
-        self.addLabel(this.cnpcplus$spinLabel);
-        this.cnpcplus$spinTf = new GuiTextFieldNop(TF_SPIN, self,
-                self.guiLeft + 190, self.guiTop + 130, 45, 18,
-                cnpcplus$spinText());
-        this.cnpcplus$spinTf.numbersOnly = false;
-        this.cnpcplus$spinTf.floatsOnly = true;
-        this.cnpcplus$spinTf.setMinMaxDefault(-RangedSpinStore.MAX_SPIN, RangedSpinStore.MAX_SPIN, 0);
-        this.cnpcplus$spinTf.enabled = showSpin;
-        self.addTextField(this.cnpcplus$spinTf);
+        this.cnpcplus$spinLabelX = new GuiLabel(TF_SPIN_X, "X",
+                self.guiLeft + 122, self.guiTop + 135, "guihint.cnpcplus.spinspeed");
+        this.cnpcplus$spinLabelY = new GuiLabel(TF_SPIN_Y, "Y",
+                self.guiLeft + 166, self.guiTop + 135, "guihint.cnpcplus.spinspeedy");
+        this.cnpcplus$spinLabelZ = new GuiLabel(TF_SPIN_Z, "Z",
+                self.guiLeft + 210, self.guiTop + 135, "guihint.cnpcplus.spinspeedz");
+        this.cnpcplus$spinLabelX.enabled = showSpin;
+        this.cnpcplus$spinLabelY.enabled = showSpin;
+        this.cnpcplus$spinLabelZ.enabled = showSpin;
+        self.addLabel(this.cnpcplus$spinLabelX);
+        self.addLabel(this.cnpcplus$spinLabelY);
+        self.addLabel(this.cnpcplus$spinLabelZ);
+
+        this.cnpcplus$spinTfX = cnpcplus$createSpinField(self, TF_SPIN_X,
+                self.guiLeft + 131, self.guiTop + 130, RangedSpinStore.AXIS_X, showSpin);
+        this.cnpcplus$spinTfY = cnpcplus$createSpinField(self, TF_SPIN_Y,
+                self.guiLeft + 175, self.guiTop + 130, RangedSpinStore.AXIS_Y, showSpin);
+        this.cnpcplus$spinTfZ = cnpcplus$createSpinField(self, TF_SPIN_Z,
+                self.guiLeft + 219, self.guiTop + 130, RangedSpinStore.AXIS_Z, showSpin);
     }
 
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$openSubGuis(GuiButtonNop button, CallbackInfo ci) {
         if (button == null) return;
         SubGuiNpcProjectiles self = (SubGuiNpcProjectiles) (Object) this;
+        if (button.id == 66) {
+            cnpcplus$saveSpinField(this.cnpcplus$spinTfX, RangedSpinStore.AXIS_X);
+            cnpcplus$saveSpinField(this.cnpcplus$spinTfY, RangedSpinStore.AXIS_Y);
+            cnpcplus$saveSpinField(this.cnpcplus$spinTfZ, RangedSpinStore.AXIS_Z);
+        }
         if (button.id == BTN_BUFFS) {
             self.setSubGui(new SubGuiMeleeBuffs(RangedBuffStore.tableFor(this.stats)));
             ci.cancel();
@@ -138,27 +159,54 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
     /** 238c：render3D（id7）/自旋（id8）开关后重算自旋框显隐（原版这两个按钮不重建）。 */
     @Inject(method = "buttonEvent", at = @At("TAIL"), remap = false)
     private void cnpcplus$syncSpinBox(GuiButtonNop button, CallbackInfo ci) {
-        if (this.cnpcplus$spinTf == null || this.cnpcplus$spinLabel == null) return;
+        if (this.cnpcplus$spinTfX == null) return;
         boolean show = this.stats.getRender3D() && this.stats.getSpins();
-        this.cnpcplus$spinTf.enabled = show;
-        this.cnpcplus$spinLabel.enabled = show;
+        this.cnpcplus$spinTfX.enabled = show;
+        this.cnpcplus$spinTfY.enabled = show;
+        this.cnpcplus$spinTfZ.enabled = show;
+        this.cnpcplus$spinLabelX.enabled = show;
+        this.cnpcplus$spinLabelY.enabled = show;
+        this.cnpcplus$spinLabelZ.enabled = show;
     }
 
     /** 238-9：自旋系数框失焦回写（原版 unFocused 只处理 id 1..5，不冲突）。 */
     @Inject(method = "unFocused", at = @At("HEAD"), remap = false)
     private void cnpcplus$saveSpin(GuiTextFieldNop textfield, CallbackInfo ci) {
-        if (textfield != null && textfield.id == TF_SPIN) {
-            try {
-                RangedSpinStore.put(this.stats, Float.parseFloat(textfield.getValue()));
-            } catch (NumberFormatException ignored) {
-                RangedSpinStore.put(this.stats, 0.0f);
-            }
+        if (textfield != null) {
+            int axis = textfield.id == TF_SPIN_X ? RangedSpinStore.AXIS_X
+                    : textfield.id == TF_SPIN_Y ? RangedSpinStore.AXIS_Y
+                    : textfield.id == TF_SPIN_Z ? RangedSpinStore.AXIS_Z : -1;
+            if (axis < 0) return;
+            cnpcplus$saveSpinField(textfield, axis);
         }
     }
 
     @Unique
-    private String cnpcplus$spinText() {
-        float v = RangedSpinStore.get(this.stats);
+    private void cnpcplus$saveSpinField(GuiTextFieldNop field, int axis) {
+        if (field == null) return;
+        try {
+            RangedSpinStore.put(this.stats, axis, Float.parseFloat(field.getValue()));
+        } catch (NumberFormatException ignored) {
+            RangedSpinStore.put(this.stats, axis, 0.0f);
+        }
+    }
+
+    @Unique
+    private GuiTextFieldNop cnpcplus$createSpinField(SubGuiNpcProjectiles self, int id,
+                                                       int x, int y, int axis, boolean enabled) {
+        GuiTextFieldNop field = new GuiTextFieldNop(id, self, x, y, 32, 18,
+                cnpcplus$spinText(axis));
+        field.numbersOnly = false;
+        field.floatsOnly = true;
+        field.setMinMaxDefault(-RangedSpinStore.MAX_SPIN, RangedSpinStore.MAX_SPIN, 0.0f);
+        field.enabled = enabled;
+        self.addTextField(field);
+        return field;
+    }
+
+    @Unique
+    private String cnpcplus$spinText(int axis) {
+        float v = RangedSpinStore.get(this.stats, axis);
         return v == 0.0f ? "0" : String.valueOf(v);
     }
 

@@ -12,7 +12,7 @@ import top.cnpcplus.ranged.RangedFxStore;
 import top.cnpcplus.ranged.RangedSpinStore;
 
 /**
- * 把弹射物的 BUFF 表、粒子特效表与自旋速度系数挂进 {@code DataRanged} 的 NBT
+ * 把弹射物的 BUFF 表、粒子特效表与 X/Y/Z 三轴自旋系数挂进 {@code DataRanged} 的 NBT
  * （234/238），白拿存档与两端同步——与近战 {@code MixinDataMeleeBuffNBT} 完全同套路。
  *
  * <h3>为什么不需要新增网络包</h3>
@@ -29,7 +29,8 @@ import top.cnpcplus.ranged.RangedSpinStore;
  *
  * <h3>三键</h3>
  * {@code CNPCPlusRangedBuffs}（多 BUFF）、{@code CNPCPlusProjectileFx}（粒子尾迹）、
- * {@code CNPCPlusSpinSpeed}（自旋系数，238-9）——均带 CNPCPlus 前缀，
+ * {@code CNPCPlusSpinSpeed}, {@code CNPCPlusSpinSpeedY},
+ * {@code CNPCPlusSpinSpeedZ}（三轴自旋系数，238d）——均带 CNPCPlus 前缀，
  * 与原版平铺键 {@code pEffect/pTrail} 无冲突。
  */
 @Mixin(value = DataRanged.class, remap = false)

@@ -172,5 +172,7 @@
   "cnpcplus.respawn.fxcount": "特效(%s)",
   "cnpcplus.melee.fire": "火",
   "cnpcplus.projectile.spinspeed": "自旋速度",
-  "guihint.cnpcplus.spinspeed": "弹射物自旋系数（×速度），0=原版"
+  "guihint.cnpcplus.spinspeed": "弹射物 X 轴自旋系数（×速度），负数反转",
+  "guihint.cnpcplus.spinspeedy": "弹射物 Y 轴自旋系数（×速度），负数反转",
+  "guihint.cnpcplus.spinspeedz": "弹射物 Z 轴翻滚系数（×速度），负数反转"
 }

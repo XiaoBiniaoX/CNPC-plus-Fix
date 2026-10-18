@@ -85,6 +85,7 @@
     "MixinEntityCustomNpcKilledBody",
     "MixinEntityNPCRespawnY",
     "MixinEntityAIReturnSmoothArrival",
+    "MixinNpcGroundPathNavigatorReturnTolerance",
     "MixinServerPlayerMountJump",
     "MixinServerEventsHandlerTeamKill",
     "MixinDataMeleeBuffNBT",
@@ -211,7 +212,8 @@
     "MixinMerchantContainerEditable",
     "MixinRenderCustomNpcSimpleRenderHide",
     "MixinRenderNPCInterfaceHideDelay",
-    "MixinSubGuiNpcRespawnExtras"
+    "MixinSubGuiNpcRespawnExtras",
+    "MixinRenderProjectileRoll"
   ],
   "server": []
 }
