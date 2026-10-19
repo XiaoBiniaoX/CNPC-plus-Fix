@@ -174,5 +174,17 @@
   "cnpcplus.projectile.spinspeed": "自旋速度",
   "guihint.cnpcplus.spinspeed": "弹射物 X 轴自旋系数（×速度），负数反转",
   "guihint.cnpcplus.spinspeedy": "弹射物 Y 轴自旋系数（×速度），负数反转",
-  "guihint.cnpcplus.spinspeedz": "弹射物 Z 轴翻滚系数（×速度），负数反转"
+  "guihint.cnpcplus.spinspeedz": "弹射物 Z 轴翻滚系数（×速度），负数反转",
+  "cnpcplus.inspection.enabled": "视察：开",
+  "cnpcplus.inspection.disabled": "视察：关",
+  "cnpcplus.inspection.tooltip": "受伤且附近没有攻击者时，沿受击方向走近指定距离查看，然后恢复原有行为。",
+  "cnpcplus.inspection.distance": "视察距离",
+  "cnpcplus.script.promptweb": "脚本提示词",
+  "cnpcplus.script.promptweb.tooltip": "AI网页版可用的免费CNPC脚本提示词",
+  "cnpcplus.script.aiskills": "AI CNPC skills",
+  "cnpcplus.script.aiskills.tooltip": "AI agent可用的高质量CNPC脚本提示词\n来源于水锅群@SaltfishSheep 老师",
+  "cnpcplus.script.followus": "关注我们",
+  "cnpcplus.script.followus.tooltip": "关注CNPCplus-Fix的主创B站账号",
+  "cnpcplus.spawner.candidates": "可召唤列表",
+  "cnpcplus.spawner.assigned": "已配置列表"
 }

@@ -202,6 +202,7 @@ public class TraderPager {
                 s.add(si);
             }
         }
+
         List<String> titles = new ArrayList<>();
         synchronized (LOCK) {
             CURRENCY.put(role, c);
@@ -215,6 +216,58 @@ public class TraderPager {
                 titles.add("");
             }
             TITLES.put(role, titles);
+        }
+    }
+
+    /** Restore page navigation metadata after its inventories have been moved to external storage. */
+    public static void initializeExternal(RoleTrader role, int pages, List<String> titles) {
+        ensure(role);
+        synchronized (LOCK) {
+            List<NpcMiscInventory> currency = CURRENCY.get(role);
+            List<NpcMiscInventory> sold = SOLD.get(role);
+            while (currency.size() < Math.max(1, pages)) {
+                currency.add(new NpcMiscInventory(36));
+                sold.add(new NpcMiscInventory(18));
+            }
+            while (currency.size() > Math.max(1, pages)) {
+                currency.remove(currency.size() - 1);
+                sold.remove(sold.size() - 1);
+            }
+            PAGE.put(role, 0);
+            List<String> restoredTitles = new ArrayList<>(titles);
+            while (restoredTitles.size() < currency.size()) restoredTitles.add("");
+            TITLES.put(role, restoredTitles);
+        }
+    }
+
+    public static void initializeExternal(RoleTrader role, List<CompoundTag> pages, List<String> titles) {
+        synchronized (LOCK) {
+            CURRENCY.remove(role);
+            SOLD.remove(role);
+            PAGE.remove(role);
+            TITLES.remove(role);
+            List<NpcMiscInventory> currency = new ArrayList<>();
+            List<NpcMiscInventory> sold = new ArrayList<>();
+            for (CompoundTag page : pages) {
+                NpcMiscInventory c = new NpcMiscInventory(36);
+                NpcMiscInventory s = new NpcMiscInventory(18);
+                c.setFromNBT(page.getCompound("Currency"));
+                s.setFromNBT(page.getCompound("Sold"));
+                currency.add(c);
+                sold.add(s);
+            }
+            if (currency.isEmpty()) {
+                currency.add(new NpcMiscInventory(36));
+                sold.add(new NpcMiscInventory(18));
+            }
+            CURRENCY.put(role, currency);
+            SOLD.put(role, sold);
+            PAGE.put(role, 0);
+            List<String> restored = new ArrayList<>(titles);
+            while (restored.size() < currency.size()) restored.add("");
+            TITLES.put(role, restored);
+            copyTo(currency.get(0), role.inventoryCurrency);
+            copyTo(sold.get(0), role.inventorySold);
         }
     }
 }

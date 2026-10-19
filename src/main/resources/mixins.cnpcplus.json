@@ -100,6 +100,7 @@
     "MixinJobFarmerProcessed",
     "MixinMassBlockController",
     "MixinRoleTraderMarketCache",
+    "MixinEntityNPCMerchantExternal",
     "MixinSchematicWrapperBuild",
     "MixinSchematicWrapperNBTSmall",
     "MixinTileBuilderPositions",
@@ -114,7 +115,6 @@
     "MixinEntityNPCSpawnDataExpand",
     "MixinEntityNPCResetVisibility",
     "MixinRoleTransporterUnlock",
-    "MixinDataAdvancedCustomRoleJob",
     "MixinMerchantOfferNameOnly",
     "MixinMerchantMenuTradeSound",
     "MixinAnvilMenu",
@@ -124,8 +124,19 @@
     "MixinDataTransformClearEditing",
     "MixinDataStatsExtras",
     "MixinEntityNPCDieFx",
+    "MixinEntityNPCDamageInspection",
+    "MixinNpcFixTargetSearch",
+    "MixinNpcFixAttackSelector",
+    "TargetGoalAccessor",
+    "MixinNpcFixEventHooks",
+    "MixinDataAdvancedDamageInspection",
+    "MixinDataAdvancedCustomRoleJob",
+    "MobGoalSelectorAccess",
     "MixinDataTransformFullReplace",
-    "MixinEntityProjectileSpin"
+    "MixinEntityProjectileSpin",
+    "MixinEntityNPCScriptsExternal",
+    "MixinJobSpawnerAllDynamic",
+    "MixinEntityNPCDataStores"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -205,6 +216,7 @@
     "MixinRenderNPCInterfaceLabel",
     "MixinPacketNpcUpdateRetry",
     "MixinGuiNpcMenuCloseNoClientReset",
+    "MixinGuiNPCFactionInspection",
     "MixinGuiNpcAdvancedCustomRoleJob",
     "MerchantScreenAccessor",
     "MerchantContainerAccessor",
@@ -213,7 +225,9 @@
     "MixinRenderCustomNpcSimpleRenderHide",
     "MixinRenderNPCInterfaceHideDelay",
     "MixinSubGuiNpcRespawnExtras",
-    "MixinRenderProjectileRoll"
+    "MixinRenderProjectileRoll",
+    "MixinGuiScriptInterfaceLinks",
+    "MixinGuiNpcSpawnerLists"
   ],
   "server": []
 }

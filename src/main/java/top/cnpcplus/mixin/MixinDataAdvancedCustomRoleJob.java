@@ -10,22 +10,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.roles.JobTestProfession;
 import top.cnpcplus.roles.RoleVillagerTrader;
 
-/**
- * 在 DataAdvanced.setRole / setJob 的 HEAD 拦截自定义 type ID，
- * 赶在原版的 {@code role -= 2; %= 8} / {@code job %= 12} 篡改之前。
- */
+/** Keeps only the existing single-value custom Role/Job compatibility IDs. */
 @Mixin(value = DataAdvanced.class, remap = false)
 public class MixinDataAdvancedCustomRoleJob {
-
-    @Shadow
-    private EntityNPCInterface npc;
+    @Shadow private EntityNPCInterface npc;
 
     @Inject(method = "setRole", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$setCustomRole(int role, CallbackInfo ci) {
         if (role == 8) {
-            if (!(this.npc.role instanceof RoleVillagerTrader)) {
-                this.npc.role = new RoleVillagerTrader(this.npc);
-            }
+            if (!(this.npc.role instanceof RoleVillagerTrader)) this.npc.role = new RoleVillagerTrader(this.npc);
             ci.cancel();
         }
     }
@@ -33,12 +26,8 @@ public class MixinDataAdvancedCustomRoleJob {
     @Inject(method = "setJob", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$setCustomJob(int job, CallbackInfo ci) {
         if (job == 12) {
-            if (!this.npc.level().isClientSide) {
-                this.npc.job.reset();
-            }
-            if (!(this.npc.job instanceof JobTestProfession)) {
-                this.npc.job = new JobTestProfession(this.npc);
-            }
+            if (!this.npc.level().isClientSide) this.npc.job.reset();
+            if (!(this.npc.job instanceof JobTestProfession)) this.npc.job = new JobTestProfession(this.npc);
             ci.cancel();
         }
     }

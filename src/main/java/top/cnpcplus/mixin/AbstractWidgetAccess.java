@@ -9,4 +9,10 @@ public interface AbstractWidgetAccess {
 
     @Accessor("width")
     void cnpcplus$setWidth(int width);
+
+    @Accessor("x")
+    void cnpcplus$setX(int x);
+
+    @Accessor("y")
+    void cnpcplus$setY(int y);
 }

@@ -8,6 +8,7 @@ import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import top.cnpcplus.config.CnpcPlusConfigData;
 import top.cnpcplus.perf.Config;
+import top.cnpcplus.config.NpcAiOptimizerConfig;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,16 @@ public class CnpcPlusConfigScreen extends Screen {
         addBool("蓝图预览缓存", Config.previewEnabledValue());
         addDouble("预览每帧毫秒", Config.budgetMillisValue());
         addInt("预览每帧方块", Config.blocksPerFrameValue());
+
+        addHeader("NPC AI 优化（cnpcplus-npcfix.toml）");
+        addBool("NPC AI 优化总开关", NpcAiOptimizerConfig.ENABLED);
+        addInt("仇恨搜索间隔 tick", NpcAiOptimizerConfig.TARGET_SEARCH_INTERVAL_TICKS);
+        addBool("仇恨搜索错峰", NpcAiOptimizerConfig.STAGGER_TARGET_SEARCHES);
+        addInt("有效仇恨范围上限", NpcAiOptimizerConfig.MAX_EFFECTIVE_AGGRO_RANGE);
+        addBool("脚本关闭仍触发 UpdateEvent", NpcAiOptimizerConfig.UPDATE_EVENT_WHEN_SCRIPTS_DISABLED);
+        addInt("UpdateEvent 间隔 tick", NpcAiOptimizerConfig.UPDATE_EVENT_INTERVAL_TICKS);
+        addBool("脚本关闭仍扫描碰撞", NpcAiOptimizerConfig.COLLIDE_SCAN_WHEN_SCRIPTS_DISABLED);
+        addInt("碰撞扫描间隔 tick", NpcAiOptimizerConfig.COLLIDE_SCAN_INTERVAL_TICKS);
 
         contentHeight = rows.size() * ROW_H;
 

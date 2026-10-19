@@ -84,8 +84,9 @@ public abstract class MixinRoleTraderMarketCache {
 
         CompoundTag tag = MarketCache.load(name);
         if (tag != null) {
-            // 关键：走 role.readNBT，让商人多页等附属的 RETURN 注入拿到完整 NBT。
-            role.readNBT(tag);
+            top.cnpcplus.trader.MerchantExternalStore.beginMarketIO();
+            try { role.readNBT(tag); }
+            finally { top.cnpcplus.trader.MerchantExternalStore.endMarketIO(); }
         }
         // tag == null 时什么都不做，与原版「文件不存在 / 解析失败」的行为一致：
         // 保留 role 当前的库存内容，不清空。
@@ -102,7 +103,9 @@ public abstract class MixinRoleTraderMarketCache {
         }
         // 关键：走 role.writeNBT，让商人多页的 HEAD（flush 当前页）
         // 与 RETURN（写入 TraderPages）注入都执行，产出的 NBT 含分页数据。
-        MarketCache.store(name, role.writeNBT(new CompoundTag()));
+        top.cnpcplus.trader.MerchantExternalStore.beginMarketIO();
+        try { MarketCache.store(name, role.writeNBT(new CompoundTag())); }
+        finally { top.cnpcplus.trader.MerchantExternalStore.endMarketIO(); }
         ci.cancel();
     }
 }

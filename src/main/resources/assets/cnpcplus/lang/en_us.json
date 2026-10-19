@@ -174,5 +174,17 @@
   "cnpcplus.projectile.spinspeed": "Spin Speed",
   "guihint.cnpcplus.spinspeed": "Projectile X-axis spin factor (x speed); negative reverses",
   "guihint.cnpcplus.spinspeedy": "Projectile Y-axis spin factor (x speed); negative reverses",
-  "guihint.cnpcplus.spinspeedz": "Projectile Z-axis roll factor (x speed); negative reverses"
+  "guihint.cnpcplus.spinspeedz": "Projectile Z-axis roll factor (x speed); negative reverses",
+  "cnpcplus.inspection.enabled": "Inspect: On",
+  "cnpcplus.inspection.disabled": "Inspect: Off",
+  "cnpcplus.inspection.tooltip": "When hurt with no attacker nearby, walk toward the hit direction for the configured distance, then resume normal behavior.",
+  "cnpcplus.inspection.distance": "Inspect Distance",
+  "cnpcplus.script.promptweb": "Script Prompts",
+  "cnpcplus.script.promptweb.tooltip": "Free CNPC script prompts for AI web apps",
+  "cnpcplus.script.aiskills": "AI CNPC skills",
+  "cnpcplus.script.aiskills.tooltip": "High-quality CNPC script skills for AI agents\nFrom SaltfishSheep @ Shuiguo Group",
+  "cnpcplus.script.followus": "Follow us",
+  "cnpcplus.script.followus.tooltip": "Follow the CNPCplus-Fix creator on Bilibili",
+  "cnpcplus.spawner.candidates": "Candidates",
+  "cnpcplus.spawner.assigned": "Assigned"
 }
