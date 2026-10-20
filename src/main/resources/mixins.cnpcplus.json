@@ -136,7 +136,9 @@
     "MixinEntityProjectileSpin",
     "MixinEntityNPCScriptsExternal",
     "MixinJobSpawnerAllDynamic",
-    "MixinEntityNPCDataStores"
+    "MixinEntityNPCDataStores",
+    "MixinEntityAIClearTargetTestLog",
+    "MixinNpcFixServerAiStepTestLog"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
