@@ -54,6 +54,7 @@ public class CnpcPlus {
         // 生效层=DropCraftHandler 挂 EntityJoinLevel/Tick/Leave（服务端物品落地触发，下方注册）
         top.cnpcplus.drop.DropMenus.register();
         top.cnpcplus.drop.network.DropPacketHandler.init();
+        top.cnpcplus.transport.network.TransportPacketHandler.init();
         LinkedPacketHandler.init();
         top.cnpcplus.villagertrade.network.VillagerEditPacketHandler.init();
         // 熔炼配方注入时机：世界加载时 RecipeManager 的首次 apply 发生在 MinecraftServer 实例创建之前，

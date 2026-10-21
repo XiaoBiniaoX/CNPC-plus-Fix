@@ -6,7 +6,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import noppes.npcs.ai.target.NpcNearestAttackableTargetGoal;
 import noppes.npcs.entity.EntityNPCInterface;
-import org.slf4j.LoggerFactory;
+import noppes.npcs.shared.common.util.LogWriter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -31,28 +31,14 @@ import top.cnpcplus.ai.NpcAiOptimizerAccess;
  * {@code random.nextInt(bound)}，原版行为不变；HEAD 门已保证走到 nextInt 的必是
  * 合法存活 NPC（aggro&gt;0），故 redirect 无需重复那些校验。
  *
- * <p><b>240d 诊断测试日志（[tgt-test]，WARN 级限流，定位后整段删除）</b>：
- * canUse 返回值/扫描通过/获得目标三处埋点，配合 MixinNpcFixAttackSelector 的
- * selector 埋点，判定「主动索敌失效」卡在哪一层（节流门 / selector 拒绝 /
- * TargetingConditions 拒绝 / 获得后被清）。
+ * <p>241f 诊断日志：仅在 scan 通过门时记录 findTarget 前后状态（每 40t 限流）。
  */
 @Mixin(value = NearestAttackableTargetGoal.class, remap = false)
 public abstract class MixinNpcFixTargetSearch {
-    /** 240 测试日志专用 slf4j logger（区别于生产 ERROR 日志）。 */
     @Unique
-    private static final org.slf4j.Logger cnpcplus$TEST_LOG = LoggerFactory.getLogger("cnpcplus");
-
+    private long cnpcplus$lastDiagLog = Long.MIN_VALUE;
     @Unique
-    private long cnpcplus$lastCanUseLog = Long.MIN_VALUE;
-
-    @Unique
-    private int cnpcplus$canUseLogCount = 0;
-
-    @Unique
-    private long cnpcplus$lastRedirLog = Long.MIN_VALUE;
-
-    @Unique
-    private int cnpcplus$redirLogCount = 0;
+    private long cnpcplus$lastEntryLog = Long.MIN_VALUE;
 
     @Unique
     private EntityNPCInterface cnpcplus$testNpc() {
@@ -80,48 +66,64 @@ public abstract class MixinNpcFixTargetSearch {
         if (interval > 4 && Math.floorMod(tick, interval) != 0L) cir.setReturnValue(false);
     }
 
+    /** 241h 无条件入口日志：确认 m_8036_ 是否被调用（限流 40t，不受 scan 门限制）。 */
+    @Inject(method = "m_8036_", at = @At("HEAD"), remap = false)
+    private void cnpcplus$diagEntry(CallbackInfoReturnable<Boolean> cir) {
+        EntityNPCInterface npc = cnpcplus$testNpc();
+        if (npc == null || npc.level() == null) return;
+        long now = npc.level().getGameTime();
+        if (now - cnpcplus$lastEntryLog < 40L) return;
+        cnpcplus$lastEntryLog = now;
+        LogWriter.warn("[tgt] ENTRY id=" + npc.getId() + " t=" + now + " curTgt=" + npc.getTarget()
+                + " enabled=" + NpcAiOptimizerAccess.enabled() + " interval=" + NpcAiOptimizerAccess.targetInterval());
+    }
+
     @Redirect(method = "m_8036_", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/RandomSource;m_188503_(I)I"), remap = false)
     private int cnpcplus$forceTargetScan(RandomSource random, int bound) {
         if (NpcAiOptimizerAccess.enabled() && NpcAiOptimizerAccess.targetInterval() > 4
                 && (Object) this instanceof NpcNearestAttackableTargetGoal<?>) {
-            EntityNPCInterface npc = cnpcplus$testNpc();
-            if (npc != null && npc.level() != null) {
-                long now = npc.level().getGameTime();
-                if (cnpcplus$redirLogCount < 3 || now - cnpcplus$lastRedirLog >= 40L) {
-                    cnpcplus$lastRedirLog = now;
-                    cnpcplus$redirLogCount++;
-                    cnpcplus$TEST_LOG.warn("[tgt-test] forcedScan bound={} tick={} id={}", bound, now, npc.getId());
-                }
-            }
             return 0;
         }
         return random.nextInt(bound);
     }
 
-    /** 240 测试日志：canUse 完整结果（含 findTarget 后的判定）。 */
-    @Inject(method = "m_8036_", at = @At("RETURN"), remap = false)
-    private void cnpcplus$testCanUseLog(CallbackInfoReturnable<Boolean> cir) {
+    /** 241f 诊断：scan 真正通过门进入 findTarget 时记一条（限流 40t）。 */
+    @Inject(method = "m_8036_", at = @At("HEAD"), remap = false)
+    private void cnpcplus$diagScanEnter(CallbackInfoReturnable<Boolean> cir) {
         EntityNPCInterface npc = cnpcplus$testNpc();
         if (npc == null || npc.level() == null) return;
+        // 仅在真正会走到 findTarget 的 scan tick 记（非节流阻塞时）
+        int interval = NpcAiOptimizerAccess.targetInterval();
+        long tick = npc.level().getGameTime() + (NpcAiOptimizerAccess.staggerTargets() ? npc.getId() : 0);
+        if (interval > 4 && Math.floorMod(tick, interval) != 0L) return;
         long now = npc.level().getGameTime();
-        if (cnpcplus$canUseLogCount >= 5 && now - cnpcplus$lastCanUseLog < 40L) return;
-        cnpcplus$lastCanUseLog = now;
-        cnpcplus$canUseLogCount++;
+        if (now - cnpcplus$lastDiagLog < 40L) return;
+        cnpcplus$lastDiagLog = now;
         double follow = npc.getAttributeValue(Attributes.FOLLOW_RANGE);
-        cnpcplus$TEST_LOG.warn(
-                "[tgt-test] canUse={} curTarget={} followRange={} aggro={} enabled={} interval={} tick={} id={}",
-                cir.getReturnValueZ(), npc.getTarget(), follow,
-                npc.stats == null ? -1 : npc.stats.aggroRange,
-                NpcAiOptimizerAccess.enabled(), NpcAiOptimizerAccess.targetInterval(),
-                now, npc.getId());
+        LogWriter.warn("[tgt] scanEnter id=" + npc.getId() + " t=" + now + " curTgt=" + npc.getTarget()
+                + " follow=" + follow + " aggro=" + (npc.stats == null ? -1 : npc.stats.aggroRange)
+                + " los=" + (npc.ais != null ? npc.ais.directLOS : "?")
+                + " invisible=" + (npc.ais != null ? npc.ais.attackInvisible : "?"));
     }
 
-    /** 240 测试日志：主动索敌真正拿到目标（start 末尾 setTarget 已生效）。 */
-    @Inject(method = "m_8056_", at = @At("RETURN"), remap = false)
-    private void cnpcplus$testAcquireLog(CallbackInfo ci) {
+    /** 241f 诊断：findTarget 后结果（RETURN，限流 40t）。 */
+    @Inject(method = "m_8036_", at = @At("RETURN"), remap = false)
+    private void cnpcplus$diagScanResult(CallbackInfoReturnable<Boolean> cir) {
         EntityNPCInterface npc = cnpcplus$testNpc();
         if (npc == null || npc.level() == null) return;
-        cnpcplus$TEST_LOG.warn("[tgt-test] acquired target={} npcId={} tick={}",
-                npc.getTarget(), npc.getId(), npc.level().getGameTime());
+        int interval = NpcAiOptimizerAccess.targetInterval();
+        long tick = npc.level().getGameTime() + (NpcAiOptimizerAccess.staggerTargets() ? npc.getId() : 0);
+        if (interval > 4 && Math.floorMod(tick, interval) != 0L) return;
+        long now = npc.level().getGameTime();
+        if (now - cnpcplus$lastDiagLog < 39L) return; // 与 enter 配对，紧邻
+        LogWriter.warn("[tgt] scanResult id=" + npc.getId() + " t=" + now + " ret=" + cir.getReturnValueZ() + " newTgt=" + npc.getTarget());
+    }
+
+    /** 241f 诊断：start（真正拿到目标）。 */
+    @Inject(method = "m_8056_", at = @At("RETURN"), remap = false)
+    private void cnpcplus$diagStart(CallbackInfo ci) {
+        EntityNPCInterface npc = cnpcplus$testNpc();
+        if (npc == null || npc.level() == null) return;
+        LogWriter.warn("[tgt] start id=" + npc.getId() + " t=" + npc.level().getGameTime() + " tgt=" + npc.getTarget());
     }
 }

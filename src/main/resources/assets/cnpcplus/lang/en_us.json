@@ -186,5 +186,14 @@
   "cnpcplus.script.followus": "Follow us",
   "cnpcplus.script.followus.tooltip": "Follow the CNPCplus-Fix creator on Bilibili",
   "cnpcplus.spawner.candidates": "Candidates",
-  "cnpcplus.spawner.assigned": "Assigned"
+  "cnpcplus.spawner.assigned": "Assigned",
+  "cnpcplus.transporter.edit": "Visual Editor",
+  "cnpcplus.transporter.done": "Done",
+  "cnpcplus.transporter.current": "Current Location",
+  "cnpcplus.transporter.search": "Search destinations",
+  "cnpcplus.transporter.mode.0": "Fill",
+  "cnpcplus.transporter.mode.1": "Stretch",
+  "cnpcplus.transporter.mode.2": "Tile",
+  "cnpcplus.transporter.mode.3": "Center",
+  "cnpcplus.transporter.mode.4": "Fit"
 }

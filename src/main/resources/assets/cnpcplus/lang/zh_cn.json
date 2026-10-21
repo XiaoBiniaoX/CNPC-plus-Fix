@@ -186,5 +186,14 @@
   "cnpcplus.script.followus": "关注我们",
   "cnpcplus.script.followus.tooltip": "关注CNPCplus-Fix的主创B站账号",
   "cnpcplus.spawner.candidates": "可召唤列表",
-  "cnpcplus.spawner.assigned": "已配置列表"
+  "cnpcplus.spawner.assigned": "已配置列表",
+  "cnpcplus.transporter.edit": "可视化编辑",
+  "cnpcplus.transporter.done": "完成",
+  "cnpcplus.transporter.current": "当前位置",
+  "cnpcplus.transporter.search": "搜索传送点",
+  "cnpcplus.transporter.mode.0": "填充",
+  "cnpcplus.transporter.mode.1": "拉伸",
+  "cnpcplus.transporter.mode.2": "平铺",
+  "cnpcplus.transporter.mode.3": "居中",
+  "cnpcplus.transporter.mode.4": "适应"
 }

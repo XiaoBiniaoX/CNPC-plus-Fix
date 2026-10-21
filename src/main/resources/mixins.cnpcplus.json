@@ -127,6 +127,7 @@
     "MixinEntityNPCDamageInspection",
     "MixinNpcFixTargetSearch",
     "MixinNpcFixAttackSelector",
+    "MixinNpcNearestTargetStuck",
     "TargetGoalAccessor",
     "MixinNpcFixEventHooks",
     "MixinDataAdvancedDamageInspection",
@@ -138,7 +139,8 @@
     "MixinJobSpawnerAllDynamic",
     "MixinEntityNPCDataStores",
     "MixinEntityAIClearTargetTestLog",
-    "MixinNpcFixServerAiStepTestLog"
+    "MixinNpcFixServerAiStepTestLog",
+    "MixinTransportLocationVisualNbt"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -229,7 +231,9 @@
     "MixinSubGuiNpcRespawnExtras",
     "MixinRenderProjectileRoll",
     "MixinGuiScriptInterfaceLinks",
-    "MixinGuiNpcSpawnerLists"
+    "MixinGuiNpcSpawnerLists",
+    "MixinGuiTransportSelection",
+    "MixinGuiNpcTransporterEditorButton"
   ],
   "server": []
 }
