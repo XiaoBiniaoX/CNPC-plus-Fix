@@ -27,9 +27,16 @@ public class PacketTransportImageRequest {
             if (safe.isEmpty()) return;
             byte[] data = TransportImageIO.read(safe);
             if (data != null) {
-                ctx.get().enqueueWork(() -> TransportPacketHandler.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                        new PacketTransportImageResponse(safe, data)));
+                // 241z-3：分块回传（整包超上限会被丢包 → 玩家页永远没图）
+                int chunk = PacketTransportImageResponse.chunkSize();
+                int seq = 0;
+                for (int off = 0; off < data.length; off += chunk, seq++) {
+                    int len = Math.min(chunk, data.length - off);
+                    byte[] part = java.util.Arrays.copyOfRange(data, off, off + len);
+                    TransportPacketHandler.CHANNEL.send(
+                            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
+                            new PacketTransportImageResponse(safe, seq, off + len >= data.length, part));
+                }
             }
         });
         ctx.get().setPacketHandled(true);

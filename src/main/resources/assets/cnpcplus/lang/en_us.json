@@ -218,7 +218,7 @@
 "cnpcplus.transporter.editor.iconSelectedHint": "The selected row shows the selected icon",
 "cnpcplus.transporter.editor.default": "Default",
 "cnpcplus.transporter.editor.dragPng": "Drag a PNG onto the image frame to import/replace",
-"cnpcplus.transporter.editor.guide": "Click a text/icon/image in the panel to open the sidebar; click it again to collapse; ESC closes the sidebar only",
+"cnpcplus.transporter.editor.guide": "Click a text/icon/image in the panel to open the sidebar; click it again to collapse; ESC exits and saves",
 "cnpcplus.transporter.editor.fmtBold": "B",
 "cnpcplus.transporter.editor.fmtUnderline": "U",
 "cnpcplus.transporter.editor.fmtItalic": "I",
@@ -237,6 +237,5 @@
 "cnpcplus.transporter.editor.hint.deleted": "Deleted entry:",
 "cnpcplus.transporter.editor.hint.ownNoDelete": "The NPC's own waypoint cannot be deleted",
 "cnpcplus.transporter.editor.hint.saved": "Saved",
-"cnpcplus.transporter.editor.dragFrame": "Drag the image frame edge to change the display size",
 "cnpcplus.transporter.editor.hint.imageSaved": "Image uploaded to the save"
 }

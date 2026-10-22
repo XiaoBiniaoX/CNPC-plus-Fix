@@ -218,7 +218,7 @@
 "cnpcplus.transporter.editor.iconSelectedHint": "选中行显示的是「选中图标」",
 "cnpcplus.transporter.editor.default": "默认",
 "cnpcplus.transporter.editor.dragPng": "把 PNG 文件拖到右侧图片框即可导入/替换",
-"cnpcplus.transporter.editor.guide": "点击面板里的文本/图标/图片 → 出边栏；再点同一项收起；ESC 只关边栏",
+"cnpcplus.transporter.editor.guide": "点击面板里的文本/图标/图片 → 出边栏；再点同一项收起；ESC 退出并保存",
 "cnpcplus.transporter.editor.fmtBold": "B",
 "cnpcplus.transporter.editor.fmtUnderline": "U",
 "cnpcplus.transporter.editor.fmtItalic": "I",
@@ -237,6 +237,5 @@
 "cnpcplus.transporter.editor.hint.deleted": "已删除条目:",
 "cnpcplus.transporter.editor.hint.ownNoDelete": "NPC 本体的传送点不能删除",
 "cnpcplus.transporter.editor.hint.saved": "已保存",
-"cnpcplus.transporter.editor.dragFrame": "拖动右侧图片框的边缘可调整显示大小",
 "cnpcplus.transporter.editor.hint.imageSaved": "图片已上传到存档"
 }

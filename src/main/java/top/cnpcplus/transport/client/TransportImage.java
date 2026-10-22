@@ -6,18 +6,13 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * 任务241z：传送点图片绘制（玩家面板 + 编辑页共用）——**重写版**。
  *
- * <h2>为什么重写</h2>
- * 之前一直"裁剪 / 只显示左上角"的真正原因不是数学，而是 **blit 的参数顺序用反了**：
- * 1.20.1 的签名是
+ * <h2>1.20.1 blit 的三种重载（反编译实锤）</h2>
  * <pre>
- *   blit(ResourceLocation tex, int destX, int destY,
- *        float uOffset, float vOffset,
- *        int srcWidth, int srcHeight,      ← 源图尺寸（texel）
- *        int destWidth, int destHeight)    ← 目标尺寸（像素）
+ *  9 参  blit(tex, x, y, u, v, w, h, texW, texH)        ← **不能缩放**：目标尺寸 = 源尺寸 = w×h
+ * 11 参  blit(tex, x, y, dw, dh, u, v, srcW, srcH, texW, texH)  ← 可缩放：目标 dw×dh，源 srcW×srcH
  * </pre>
- * 之前写成了 {@code blit(tex, dx, dy, 0, 0, dw, dh, srcW, srcH)}（源/目标颠倒）
- * → 实际采样的是贴图左上角 (dw×dh) 那一小块，再放大到 srcW×srcH → **永远只看到左上角放大图**。
- * 图标/面板/边框之所以一直正常，是因为它们源尺寸 = 目标尺寸（1:1），把这个错误掩盖了。
+ * 9 参版本内部就是 `m_280411_(..., w, h, u, v, w, h, texW, texH)` —— 图片会按**原生像素** 1:1 画，
+ * 大图直接冲出框外（1254px 图片画满屏幕）。要缩放必须用 11 参。
  *
  * <h2>现在</h2>
  * ①源尺寸只从**客户端纹理缓存**取（按 ResourceLocation 索引，键不可能对错），不再用 meta 里可能过期的值；
@@ -47,8 +42,10 @@ public final class TransportImage {
         int dx = x + (w - dw) / 2;
         int dy = y + (h - dh) / 2;
         LAST_DX = dx; LAST_DY = dy; LAST_DW = dw; LAST_DH = dh;
-        // 241z：源尺寸(srcW,srcH) 在前，目标尺寸(dw,dh) 在后 —— 顺序千万别再弄反
-        g.blit(tex, dx, dy, 0.0F, 0.0F, srcW, srcH, dw, dh);
+        // 241z-4：必须用 **11 参** blit（x,y,dw,dh, u,v,srcW,srcH,texW,texH 才能缩放）。
+        // 之前用的 9 参 blit 在 1.20.1 里会把 width/height 同时当"目标尺寸"和"源尺寸"
+        // → 图片按原生像素 1:1 画（1254px）→ 直接冲出框外/盖满屏幕。
+        g.blit(tex, dx, dy, dw, dh, 0.0F, 0.0F, srcW, srcH, srcW, srcH);
     }
 
     public static String lastRect() {

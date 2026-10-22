@@ -720,13 +720,10 @@ public class GuiTransporterVisualEditor extends GuiBasic
         }
 
         if (this.isImageElement()) {
-            // 241q：**去掉平铺/拉伸/居中/适应/缩放**（用户实测全无实用价值），
-            // 改为在面板上直接**拖动图片框边缘**调整显示大小
+            // 241z-3：拖动框改尺寸早已删除，只保留拖 PNG 导入提示
             int y = p[SB_MODE];
-            TransportText.draw(graphics, font, tr("cnpcplus.transporter.editor.dragFrame"),
-                    4, y, 1f, 0xFFAAAAAA, false);
             TransportText.draw(graphics, font, tr("cnpcplus.transporter.editor.dragPng"),
-                    4, y + 14, 1f, 0xFFAAAAAA, false);
+                    4, y, 1f, 0xFFAAAAAA, false);
         }
         graphics.disableScissor();
 
