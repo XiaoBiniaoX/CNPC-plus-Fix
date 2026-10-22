@@ -5,6 +5,8 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.ArrayList;
@@ -71,6 +73,26 @@ import java.util.Collection;
 @OnlyIn(Dist.CLIENT)
 @Mixin(value = GuiTextArea.class, remap = false)
 public abstract class MixinGuiTextAreaRender {
+
+    /**
+     * 241v 崩溃修复：{@code GuiTextArea.setText} **不重置选区下标**（startSelection/endSelection/cursorPosition）。
+     * 我们把内容框设成空串（清空介绍文本/页签文本）后，残留的选区仍是旧值 →
+     * {@code render} 第 101 行 {@code this.text.charAt(this.startSelection)} → 空串上 charAt(1) → **StringIndexOutOfBoundsException 崩溃**。
+     * 修法：setText 之后把三个下标归零（与 CNPC 自己在"无变化"分支里的行为一致）。
+     *
+     * <p>241w：描述符必须写全 {@code (Ljava/lang/String;)V}（只写 "setText" 会匹配到别的重载 → 整个 mixin 应用失败
+     * → 打开编辑器直接抛异常）。另外 {@code require = 0}：万一 CNPC 改签名，最多这条注入失效而不会连带崩游戏。
+     */
+    @Inject(method = "setText(Ljava/lang/String;)V", at = @At("TAIL"), require = 0, remap = false)
+    private void cnpcyouhua$resetSelection(String text) {
+        this.startSelection = 0;
+        this.endSelection = 0;
+        this.cursorPosition = 0;
+    }
+
+    @Shadow(remap = false) private int startSelection;
+    @Shadow(remap = false) private int endSelection;
+    @Shadow(remap = false) private int cursorPosition;
 
     @Redirect(
             method = "render",

@@ -17,7 +17,8 @@ public final class TransportLayout {
 
     public static final int LIST_X = 74, LIST_Y = 88, LIST_W = 404, LIST_H = 354;
     public static final int ROW_X = 86, ROW_Y = 98, ROW_W = 372, ROW_H = 64, ROW_STRIDE = 70;
-    public static final int ROW_VISIBLE = 4;
+    /** 241n：列表凹槽高度 354 / 行距 70 → 一页能放 5 行（第 5 行 378..442 正好贴底）。 */
+    public static final int ROW_VISIBLE = 5;
     public static final int SCROLL_TRACK_X = 458, SCROLL_TRACK_Y = 96, SCROLL_TRACK_W = 20, SCROLL_TRACK_H = 340;
     public static final int SCROLL_THUMB_W = 16;
 

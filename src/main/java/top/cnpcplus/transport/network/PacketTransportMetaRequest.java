@@ -10,6 +10,8 @@ import noppes.npcs.controllers.data.TransportLocation;
 import noppes.npcs.controllers.TransportController;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.RoleTransporter;
+import top.cnpcplus.transport.TransportKeys;
+import top.cnpcplus.transport.TransportPanelMeta;
 import top.cnpcplus.transport.TransportVisualMeta;
 
 import java.util.function.Supplier;
@@ -36,12 +38,14 @@ public class PacketTransportMetaRequest {
             ServerPlayer player = ctx.get().getSender();
             if (player == null) return;
             if (player.server == null || player.server.overworld() == null) return;
-            EntityNPCInterface npc = null;
-            for (EntityNPCInterface e : player.level().getEntitiesOfClass(EntityNPCInterface.class,
-                    player.getBoundingBox().inflate(16.0, 16.0, 16.0))) {
-                if (e.getId() == this.npcId) { npc = e; break; }
+            EntityNPCInterface npc = TransportNpcLookup.find(player, this.npcId);
+            if (npc == null) {
+                top.cnpcplus.transport.TransportLog.info(
+                        "[cnpcplus] transport meta request: NPC NOT FOUND id=" + this.npcId
+                                + " editor=" + this.editor + " dim=" + player.level().dimension().location());
+                return;
             }
-            if (npc == null || npc.role.getType() != 4) return;
+            if (npc.role.getType() != 4) return;
             RoleTransporter role = (RoleTransporter) npc.role;
             TransportLocation own = role.getLocation();
             if (own == null || own.category == null) return;
@@ -75,9 +79,15 @@ public class PacketTransportMetaRequest {
             out.put("Entries", entries);
             out.putString("Current", own.name);
             out.put("CurrentMeta", metaOf(own));
+            CompoundTag panel = new CompoundTag();
+            TransportPanelMeta style = (TransportPanelMeta) (Object) own.category;
+            if (style.cnpcplus$panel() != null) {
+                panel = style.cnpcplus$panel().copy();
+            }
+            out.put("Panel", panel);
             TransportPacketHandler.CHANNEL.send(
                     net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-                    new PacketTransportMetaResponse(out));
+                    new PacketTransportMetaResponse(out, this.editor));
         });
         ctx.get().setPacketHandled(true);
     }
@@ -85,11 +95,23 @@ public class PacketTransportMetaRequest {
     static CompoundTag metaOf(TransportLocation loc) {
         CompoundTag t = new CompoundTag();
         TransportVisualMeta m = (TransportVisualMeta) (Object) loc;
+        t.putInt("Id", loc.id);
         t.putString("Icon", m.cnpcplus$getIcon());
         t.putString("IconSel", m.cnpcplus$getIconSel());
         t.putString("Image", m.cnpcplus$getImage());
         t.putInt("ImageMode", m.cnpcplus$getImageMode());
         t.putString("Desc", m.cnpcplus$getDesc());
+        t.putInt(TransportKeys.ICON_SIZE, m.cnpcplus$getIconSize());
+        t.putInt(TransportKeys.IMAGE_ZOOM, m.cnpcplus$getImageZoom());
+        t.putInt(TransportKeys.TEXT_COLOR, m.cnpcplus$getTextColor());
+        t.putInt(TransportKeys.TEXT_SIZE, m.cnpcplus$getTextSize());
+        t.putInt(TransportKeys.IMG_X, m.cnpcplus$getImgX());
+        t.putInt(TransportKeys.IMG_Y, m.cnpcplus$getImgY());
+        t.putInt(TransportKeys.IMG_SCALE, m.cnpcplus$getImgScale());
+        t.putInt(TransportKeys.SRC_W, m.cnpcplus$getSrcW());
+        t.putInt(TransportKeys.SRC_H, m.cnpcplus$getSrcH());
+        t.putString(TransportKeys.DESC_SPANS, m.cnpcplus$getDescSpans());
+        t.putString(TransportKeys.NAME_SPANS, m.cnpcplus$getNameSpans());
         return t;
     }
 }

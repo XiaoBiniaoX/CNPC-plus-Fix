@@ -48,7 +48,20 @@ public class PacketTransportImageUpload {
             if (sender == null || !sender.hasPermissions(2)) return;
             String safe = TransportKeys.sanitize(this.key);
             if (safe.isEmpty() || this.data.length == 0) return;
-            TransportImageIO.write(safe, this.data);
+            boolean ok = TransportImageIO.write(safe, this.data);
+            // 241r：回执 + 日志（之前"进游戏图片没了"完全无从查证）
+            noppes.npcs.shared.common.util.LogWriter.warn(
+                    "[cnpcplus] transport image upload key=" + safe + " bytes=" + this.data.length
+                            + " saved=" + ok);
+            try {
+                net.minecraft.nbt.CompoundTag out = new net.minecraft.nbt.CompoundTag();
+                out.putBoolean("ImageSaved", ok);
+                out.putString("ImageKey", safe);
+                TransportPacketHandler.CHANNEL.send(
+                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
+                        new PacketTransportMetaResponse(out, true));
+            } catch (Throwable ignored) {
+            }
         });
         ctx.get().setPacketHandled(true);
     }

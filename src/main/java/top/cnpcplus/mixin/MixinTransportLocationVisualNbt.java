@@ -24,6 +24,17 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     @Unique private String cnpcplus$image = "";
     @Unique private int cnpcplus$imageMode = TransportKeys.MODE_FILL;
     @Unique private String cnpcplus$desc = "";
+    @Unique private int cnpcplus$iconSize = 100;
+    @Unique private int cnpcplus$imageZoom = 100;
+    @Unique private int cnpcplus$textColor = -1;
+    @Unique private int cnpcplus$textSize = -1;
+    @Unique private int cnpcplus$imgX = 0;
+    @Unique private int cnpcplus$imgY = 0;
+    @Unique private int cnpcplus$imgScale = 100;
+    @Unique private int cnpcplus$srcW = 0;
+    @Unique private int cnpcplus$srcH = 0;
+    @Unique private String cnpcplus$descSpans = "";
+    @Unique private String cnpcplus$nameSpans = "";
 
     @Inject(method = "readNBT", at = @At("TAIL"), remap = false)
     private void cnpcplus$readVisual(CompoundTag compound, CallbackInfo ci) {
@@ -38,6 +49,25 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
             }
         }
         if (compound.contains(TransportKeys.DESC)) this.cnpcplus$desc = compound.getString(TransportKeys.DESC);
+        if (compound.contains(TransportKeys.ICON_SIZE)) {
+            this.cnpcplus$iconSize = clampPct(compound.getInt(TransportKeys.ICON_SIZE));
+        }
+        if (compound.contains(TransportKeys.IMAGE_ZOOM)) {
+            this.cnpcplus$imageZoom = clampPct(compound.getInt(TransportKeys.IMAGE_ZOOM));
+        }
+        if (compound.contains(TransportKeys.TEXT_COLOR)) {
+            this.cnpcplus$textColor = compound.getInt(TransportKeys.TEXT_COLOR);
+        }
+        if (compound.contains(TransportKeys.TEXT_SIZE)) {
+            this.cnpcplus$textSize = compound.getInt(TransportKeys.TEXT_SIZE);
+        }
+        if (compound.contains(TransportKeys.IMG_X)) this.cnpcplus$imgX = compound.getInt(TransportKeys.IMG_X);
+        if (compound.contains(TransportKeys.IMG_Y)) this.cnpcplus$imgY = compound.getInt(TransportKeys.IMG_Y);
+        if (compound.contains(TransportKeys.IMG_SCALE)) this.cnpcplus$imgScale = compound.getInt(TransportKeys.IMG_SCALE);
+        if (compound.contains(TransportKeys.SRC_W)) this.cnpcplus$srcW = compound.getInt(TransportKeys.SRC_W);
+        if (compound.contains(TransportKeys.SRC_H)) this.cnpcplus$srcH = compound.getInt(TransportKeys.SRC_H);
+        if (compound.contains(TransportKeys.DESC_SPANS)) this.cnpcplus$descSpans = compound.getString(TransportKeys.DESC_SPANS);
+        if (compound.contains(TransportKeys.NAME_SPANS)) this.cnpcplus$nameSpans = compound.getString(TransportKeys.NAME_SPANS);
     }
 
     @Inject(method = "writeNBT", at = @At("TAIL"), remap = false,
@@ -50,6 +80,21 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
         if (!this.cnpcplus$image.isEmpty()) out.putString(TransportKeys.IMAGE, this.cnpcplus$image);
         if (this.cnpcplus$imageMode != TransportKeys.MODE_FILL) out.putInt(TransportKeys.IMAGE_MODE, this.cnpcplus$imageMode);
         if (!this.cnpcplus$desc.isEmpty()) out.putString(TransportKeys.DESC, this.cnpcplus$desc);
+        if (this.cnpcplus$iconSize != 100) out.putInt(TransportKeys.ICON_SIZE, this.cnpcplus$iconSize);
+        if (this.cnpcplus$imageZoom != 100) out.putInt(TransportKeys.IMAGE_ZOOM, this.cnpcplus$imageZoom);
+        if (this.cnpcplus$textColor >= 0) out.putInt(TransportKeys.TEXT_COLOR, this.cnpcplus$textColor);
+        if (this.cnpcplus$textSize > 0) out.putInt(TransportKeys.TEXT_SIZE, this.cnpcplus$textSize);
+        if (this.cnpcplus$imgX != 0) out.putInt(TransportKeys.IMG_X, this.cnpcplus$imgX);
+        if (this.cnpcplus$imgY != 0) out.putInt(TransportKeys.IMG_Y, this.cnpcplus$imgY);
+        if (this.cnpcplus$imgScale != 100) out.putInt(TransportKeys.IMG_SCALE, this.cnpcplus$imgScale);
+        if (this.cnpcplus$srcW != 0) out.putInt(TransportKeys.SRC_W, this.cnpcplus$srcW);
+        if (this.cnpcplus$srcH != 0) out.putInt(TransportKeys.SRC_H, this.cnpcplus$srcH);
+        if (!this.cnpcplus$descSpans.isEmpty()) out.putString(TransportKeys.DESC_SPANS, this.cnpcplus$descSpans);
+        if (!this.cnpcplus$nameSpans.isEmpty()) out.putString(TransportKeys.NAME_SPANS, this.cnpcplus$nameSpans);
+    }
+
+    private static int clampPct(int v) {
+        return Math.max(25, Math.min(400, v));
     }
 
     @Override public String cnpcplus$getIcon() { return this.cnpcplus$icon; }
@@ -64,4 +109,26 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     }
     @Override public String cnpcplus$getDesc() { return this.cnpcplus$desc; }
     @Override public void cnpcplus$setDesc(String v) { this.cnpcplus$desc = v == null ? "" : v; }
+    @Override public int cnpcplus$getIconSize() { return this.cnpcplus$iconSize; }
+    @Override public void cnpcplus$setIconSize(int v) { this.cnpcplus$iconSize = clampPct(v); }
+    @Override public int cnpcplus$getImageZoom() { return this.cnpcplus$imageZoom; }
+    @Override public void cnpcplus$setImageZoom(int v) { this.cnpcplus$imageZoom = clampPct(v); }
+    @Override public int cnpcplus$getTextColor() { return this.cnpcplus$textColor; }
+    @Override public void cnpcplus$setTextColor(int v) { this.cnpcplus$textColor = v; }
+    @Override public int cnpcplus$getTextSize() { return this.cnpcplus$textSize; }
+    @Override public void cnpcplus$setTextSize(int v) { this.cnpcplus$textSize = v; }
+    @Override public int cnpcplus$getImgX() { return this.cnpcplus$imgX; }
+    @Override public void cnpcplus$setImgX(int v) { this.cnpcplus$imgX = v; }
+    @Override public int cnpcplus$getImgY() { return this.cnpcplus$imgY; }
+    @Override public void cnpcplus$setImgY(int v) { this.cnpcplus$imgY = v; }
+    @Override public int cnpcplus$getImgScale() { return this.cnpcplus$imgScale; }
+    @Override public void cnpcplus$setImgScale(int v) { this.cnpcplus$imgScale = v; }
+    @Override public int cnpcplus$getSrcW() { return this.cnpcplus$srcW; }
+    @Override public void cnpcplus$setSrcW(int v) { this.cnpcplus$srcW = v; }
+    @Override public int cnpcplus$getSrcH() { return this.cnpcplus$srcH; }
+    @Override public void cnpcplus$setSrcH(int v) { this.cnpcplus$srcH = v; }
+    @Override public String cnpcplus$getDescSpans() { return this.cnpcplus$descSpans; }
+    @Override public void cnpcplus$setDescSpans(String v) { this.cnpcplus$descSpans = v == null ? "" : v; }
+    @Override public String cnpcplus$getNameSpans() { return this.cnpcplus$nameSpans; }
+    @Override public void cnpcplus$setNameSpans(String v) { this.cnpcplus$nameSpans = v == null ? "" : v; }
 }

@@ -6,7 +6,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import top.cnpcplus.CnpcPlus;
 
 /**
- * 传送师扩展网络通道（任务241，id 0-4 手工分配，改动顺序会破坏协议兼容；PROTOCOL_VERSION 锁 "1"）。
+ * 传送师扩展网络通道（任务241，id 0-5 手工分配，改动顺序会破坏协议兼容；PROTOCOL_VERSION 锁 "1"）。
  * 每个包显式声明 NetworkDirection。
  */
 public class TransportPacketHandler {
@@ -39,6 +39,13 @@ public class TransportPacketHandler {
                 java.util.Optional.of(toClient));
         CHANNEL.registerMessage(4, PacketTransportImageUpload.class,
                 PacketTransportImageUpload::encode, PacketTransportImageUpload::decode, PacketTransportImageUpload::handle,
+                java.util.Optional.of(toServer));
+        CHANNEL.registerMessage(5, PacketTransportMetaSave.class,
+                PacketTransportMetaSave::encode, PacketTransportMetaSave::decode, PacketTransportMetaSave::handle,
+                java.util.Optional.of(toServer));
+        // 241v：图片分块上传（整包超上限会被丢包）
+        CHANNEL.registerMessage(6, PacketTransportImageChunk.class,
+                PacketTransportImageChunk::encode, PacketTransportImageChunk::decode, PacketTransportImageChunk::handle,
                 java.util.Optional.of(toServer));
     }
 }

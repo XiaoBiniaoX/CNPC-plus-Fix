@@ -140,7 +140,8 @@
     "MixinEntityNPCDataStores",
     "MixinEntityAIClearTargetTestLog",
     "MixinNpcFixServerAiStepTestLog",
-    "MixinTransportLocationVisualNbt"
+    "MixinTransportLocationVisualNbt",
+    "MixinTransportCategoryPanelNbt"
   ],
   "client": [
     "GuiNpcManageRecipesAccess",
@@ -233,7 +234,8 @@
     "MixinGuiScriptInterfaceLinks",
     "MixinGuiNpcSpawnerLists",
     "MixinGuiTransportSelection",
-    "MixinGuiNpcTransporterEditorButton"
+    "MixinGuiNpcTransporterEditorButton",
+    "MixinScreenFilesDrop"
   ],
   "server": []
 }

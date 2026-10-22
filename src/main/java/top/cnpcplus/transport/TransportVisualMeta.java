@@ -16,4 +16,26 @@ public interface TransportVisualMeta {
     void cnpcplus$setImageMode(int v);
     String cnpcplus$getDesc();
     void cnpcplus$setDesc(String v);
+    int cnpcplus$getIconSize();
+    void cnpcplus$setIconSize(int v);
+    int cnpcplus$getImageZoom();
+    void cnpcplus$setImageZoom(int v);
+    int cnpcplus$getTextColor();
+    void cnpcplus$setTextColor(int v);
+    int cnpcplus$getTextSize();
+    void cnpcplus$setTextSize(int v);
+    int cnpcplus$getImgX();
+    void cnpcplus$setImgX(int v);
+    int cnpcplus$getImgY();
+    void cnpcplus$setImgY(int v);
+    int cnpcplus$getImgScale();
+    void cnpcplus$setImgScale(int v);
+    int cnpcplus$getSrcW();
+    void cnpcplus$setSrcW(int v);
+    int cnpcplus$getSrcH();
+    void cnpcplus$setSrcH(int v);
+    String cnpcplus$getDescSpans();
+    void cnpcplus$setDescSpans(String v);
+    String cnpcplus$getNameSpans();
+    void cnpcplus$setNameSpans(String v);
 }

@@ -196,9 +196,29 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         graphics.blit(TransportAssets.TAB, TransportLayout.TAB_X, TransportLayout.TAB_Y,
                 0f, 0f, TransportLayout.TAB_W, TransportLayout.TAB_H,
                 TransportLayout.TAB_W, TransportLayout.TAB_H);
-        graphics.blit(TransportAssets.TAB_STAR, TransportLayout.TAB_STAR_X, TransportLayout.TAB_STAR_Y,
-                0f, 0f, TransportLayout.TAB_STAR, TransportLayout.TAB_STAR,
-                TransportLayout.TAB_STAR, TransportLayout.TAB_STAR);
+        CompoundTag panelStyle = TransportClientCache.panel();
+        String tabIcon = top.cnpcplus.transport.TransportPanelStyle.tabIcon(panelStyle);
+        int tabIconPct = top.cnpcplus.transport.TransportPanelStyle.tabIconSize(panelStyle);
+        int tabIconSize = Math.round(TransportLayout.TAB_STAR * tabIconPct / 100f);
+        int tabIconX = TransportLayout.TAB_STAR_X + (TransportLayout.TAB_STAR - tabIconSize) / 2;
+        int tabIconY = TransportLayout.TAB_STAR_Y + (TransportLayout.TAB_STAR - tabIconSize) / 2;
+        if (tabIcon.isEmpty()) {
+            graphics.blit(TransportAssets.TAB_STAR, tabIconX, tabIconY,
+                    0f, 0f, tabIconSize, tabIconSize,
+                    TransportLayout.TAB_STAR, TransportLayout.TAB_STAR);
+        } else {
+            this.cnpcplus$drawIcon(graphics, tabIconX, tabIconY, tabIconSize, tabIcon);
+        }
+        int tabSize = top.cnpcplus.transport.TransportPanelStyle.tabSize(panelStyle);
+        // 241r：页签文本也支持样式区间
+        top.cnpcplus.transport.client.TransportText.drawStyled(graphics, Minecraft.getInstance().font,
+                top.cnpcplus.transport.TransportPanelStyle.tabText(panelStyle),
+                panelStyle.getString(top.cnpcplus.transport.TransportPanelStyle.TAB_SPANS),
+                TransportLayout.TAB_TEXT_X + top.cnpcplus.transport.TransportPanelStyle.tabX(panelStyle),
+                TransportLayout.TAB_TEXT_Y + 1 - tabSize / 2
+                        + top.cnpcplus.transport.TransportPanelStyle.tabY(panelStyle),
+                tabSize,
+                top.cnpcplus.transport.TransportPanelStyle.tabColor(panelStyle) | 0xFF000000, 0);
 
         graphics.blit(TransportAssets.SEARCH_BOX, TransportLayout.SEARCH_X, TransportLayout.SEARCH_Y,
                 0f, 0f, TransportLayout.SEARCH_W, TransportLayout.SEARCH_H,
@@ -260,24 +280,36 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         Font font = Minecraft.getInstance().font;
         String current = TransportClientCache.currentName();
         CompoundTag meta = TransportClientCache.meta(current);
-        String icon = meta == null ? "" : meta.getString(TransportKeys.ICON);
-        this.cnpcplus$drawIcon(graphics, TransportLayout.CURRENT_ICON_X, TransportLayout.CURRENT_ICON_Y,
-                TransportLayout.CURRENT_ICON, icon);
-        graphics.drawString(font, "当前位置",
-                TransportLayout.CURRENT_LABEL_X, TransportLayout.CURRENT_LABEL_Y,
+        CompoundTag style = TransportClientCache.panel();
+        String icon = top.cnpcplus.transport.TransportPanelStyle.curIcon(style);
+        if (icon.isEmpty()) {
+            icon = meta == null ? "" : meta.getString(TransportKeys.ICON);
+        }
+        int curIconPct = top.cnpcplus.transport.TransportPanelStyle.curIconSize(style);
+        int curIconSize = Math.round(TransportLayout.CURRENT_ICON * curIconPct / 100f);
+        // 241n：XY 偏移只作用于文本，图标不跟着动
+        this.cnpcplus$drawIcon(graphics,
+                TransportLayout.CURRENT_ICON_X + (TransportLayout.CURRENT_ICON - curIconSize) / 2,
+                TransportLayout.CURRENT_ICON_Y + (TransportLayout.CURRENT_ICON - curIconSize) / 2,
+                curIconSize, icon);
+        graphics.drawString(font, "当前位置：",
+                TransportLayout.CURRENT_LABEL_X + top.cnpcplus.transport.TransportPanelStyle.curX(style),
+                TransportLayout.CURRENT_LABEL_Y + top.cnpcplus.transport.TransportPanelStyle.curY(style),
                 0xFFCCCCCC, false);
-        graphics.drawString(font, current == null ? "" : current,
-                TransportLayout.CURRENT_NAME_X, TransportLayout.CURRENT_NAME_Y,
-                0xFFFFFFFF, false);
+        int curSize = top.cnpcplus.transport.TransportPanelStyle.curSize(style);
+        // 241t：当前位置文字用名字的样式区间
+        top.cnpcplus.transport.client.TransportText.drawStyled(graphics, font,
+                current == null ? "" : current,
+                meta == null ? "" : meta.getString(TransportKeys.NAME_SPANS),
+                TransportLayout.CURRENT_NAME_X + top.cnpcplus.transport.TransportPanelStyle.curX(style),
+                TransportLayout.CURRENT_NAME_Y + top.cnpcplus.transport.TransportPanelStyle.curY(style),
+                curSize,
+                top.cnpcplus.transport.TransportPanelStyle.curColor(style) | 0xFF000000, 0);
     }
 
     @Unique
     private void cnpcplus$drawImagePanel(GuiGraphics graphics) {
-        graphics.blit(TransportAssets.IMAGE_FRAME,
-                TransportLayout.IMG_FRAME_X, TransportLayout.IMG_FRAME_Y,
-                0f, 0f, TransportLayout.IMG_FRAME_W, TransportLayout.IMG_FRAME_H,
-                TransportLayout.IMG_FRAME_W, TransportLayout.IMG_FRAME_H);
-
+        // 241q：**层级 = 展示板 < 图片 < 图片框**；显示矩形可由玩家拖动调整（每点位 ImgX/Y/W/H）
         String showName = this.cnpcplus$selected;
         if (showName == null || showName.isEmpty()) {
             showName = TransportClientCache.currentName();
@@ -287,49 +319,29 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
             CompoundTag root = TransportClientCache.root();
             if (root != null) meta = root.getCompound("CurrentMeta");
         }
+        int rx = TransportLayout.IMG_FRAME_X;
+        int ry = TransportLayout.IMG_FRAME_Y;
+        int rw = TransportLayout.IMG_FRAME_W;
+        int rh = TransportLayout.IMG_FRAME_H;
+        int sw = 0, sh = 0;   // 241z：源尺寸只认客户端纹理缓存
         String imgKey = meta == null ? "" : meta.getString(TransportKeys.IMAGE);
-        int mode = meta == null ? TransportKeys.MODE_FILL : meta.getInt(TransportKeys.IMAGE_MODE);
-        if (mode < 0 || mode >= TransportKeys.MODE_COUNT) mode = TransportKeys.MODE_FILL;
-
-        int areaX = TransportLayout.IMG_FRAME_X + TransportLayout.IMG_PAD;
-        int areaY = TransportLayout.IMG_FRAME_Y + TransportLayout.IMG_PAD;
-        int areaW = TransportLayout.IMG_FRAME_W - TransportLayout.IMG_PAD * 2;
-        int areaH = TransportLayout.IMG_FRAME_H - TransportLayout.IMG_PAD * 2;
-
         if (!imgKey.isEmpty()) {
             TransportClientCache.requestImage(imgKey);
             var tex = TransportClientCache.imageId(imgKey);
             if (TransportClientCache.hasImage(imgKey) && tex != null) {
-                cnpcplus$drawImageMode(graphics, tex, areaX, areaY, areaW, areaH, mode);
-            }
-        }
-    }
-
-    @Unique
-    private static void cnpcplus$drawImageMode(GuiGraphics graphics, net.minecraft.resources.ResourceLocation tex,
-                                              int x, int y, int w, int h, int mode) {
-        if (mode == TransportKeys.MODE_STRETCH) {
-            graphics.blit(tex, x, y, 0f, 0f, w, h, w, h);
-            return;
-        }
-        if (mode == TransportKeys.MODE_TILE) {
-            for (int ty = 0; ty < h; ty += 32) {
-                for (int tx = 0; tx < w; tx += 32) {
-                    graphics.blit(tex, x + tx, y + ty, 0f, 0f, 32, 32, 32, 32);
+                if (sw <= 0 || sh <= 0) {
+                    int[] size = TransportClientCache.imageSize(imgKey);
+                    if (size != null) { sw = size[0]; sh = size[1]; }
                 }
+                // 241w：不再用 scissor（等比缩放后图片本来就在框内，scissor 只会带来裁剪风险）
+                top.cnpcplus.transport.client.TransportImage.drawInFrame(graphics, tex, sw, sh,
+                        rx, ry, rw, rh);
             }
-            return;
-        }
-        if (mode == TransportKeys.MODE_CENTER) {
-            graphics.blit(tex, x + w / 2 - 64, y + h / 2 - 64, 0f, 0f, 128, 128, 128, 128);
-            return;
-        }
-        // MODE_FILL (cover) / MODE_FIT (contain)：贴图源尺寸未知，统一按区域比例近似。
-        if (mode == TransportKeys.MODE_FIT) {
-            graphics.blit(tex, x, y, 0f, 0f, w, h, w, h);
-        } else {
-            graphics.blit(tex, x, y, 0f, 0f, w, h, w, h);
-        }
+        }        // 图片框固定，画在图片之上
+        graphics.blit(TransportAssets.IMAGE_FRAME,
+                TransportLayout.IMG_FRAME_X, TransportLayout.IMG_FRAME_Y,
+                0f, 0f, TransportLayout.IMG_FRAME_W, TransportLayout.IMG_FRAME_H,
+                TransportLayout.IMG_FRAME_W, TransportLayout.IMG_FRAME_H);
     }
 
     @Unique
@@ -362,15 +374,29 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
             CompoundTag root = TransportClientCache.root();
             if (root != null) desc = root.getCompound("CurrentMeta").getString(TransportKeys.DESC);
         }
-        if (desc.isEmpty()) return;
         Font font = Minecraft.getInstance().font;
-        int sc0x = this.cnpcplus$sx(TransportLayout.INTRO_TEXT_X);
-        int sc0y = this.cnpcplus$sy(TransportLayout.INTRO_TEXT_Y);
+        CompoundTag style = TransportClientCache.panel();
+        int introSize = top.cnpcplus.transport.TransportPanelStyle.introSize(style);
+        int offX = top.cnpcplus.transport.TransportPanelStyle.introX(style);
+        int offY = top.cnpcplus.transport.TransportPanelStyle.introY(style);
+        if (desc.isEmpty()) {
+            top.cnpcplus.transport.client.TransportText.draw(graphics, font, "无文本填充",
+                    TransportLayout.INTRO_TEXT_X + offX, TransportLayout.INTRO_TEXT_Y + offY,
+                    introSize, 0xFF777777);
+            return;
+        }
+        int sc0x = this.cnpcplus$sx(TransportLayout.INTRO_TEXT_X + offX);
+        int sc0y = this.cnpcplus$sy(TransportLayout.INTRO_TEXT_Y + offY);
         int sc1x = sc0x + this.cnpcplus$sw(TransportLayout.INTRO_TEXT_W);
-        int sc1y = this.cnpcplus$sy(TransportLayout.INTRO_Y + TransportLayout.INTRO_H - 12);
+        int sc1y = sc0y + this.cnpcplus$sh(TransportLayout.INTRO_H - 16);
         graphics.enableScissor(sc0x, sc0y, sc1x, sc1y);
-        graphics.drawString(font, net.minecraft.network.chat.Component.literal(desc),
-                TransportLayout.INTRO_TEXT_X, TransportLayout.INTRO_TEXT_Y, 0xFFE0E0E0, false);
+        // 241q：多行 + 样式区间
+        top.cnpcplus.transport.client.TransportText.drawStyled(graphics, font, desc,
+                meta == null ? "" : meta.getString(TransportKeys.DESC_SPANS),
+                TransportLayout.INTRO_TEXT_X + offX, TransportLayout.INTRO_TEXT_Y + offY,
+                introSize,
+                top.cnpcplus.transport.TransportPanelStyle.introColor(style) | 0xFF000000,
+                TransportLayout.INTRO_TEXT_W);
         graphics.disableScissor();
     }
 

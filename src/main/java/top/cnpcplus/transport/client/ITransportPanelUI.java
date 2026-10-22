@@ -15,4 +15,6 @@ public interface ITransportPanelUI {
     int cnpcplus$getOffset();
     void cnpcplus$setOffset(int offset);
     CompoundTag cnpcplus$getMeta(String name);
+    /** 241l：显示名（编辑页可改名；玩家页=原名）。 */
+    default String cnpcplus$getDisplay(String name) { return name; }
 }

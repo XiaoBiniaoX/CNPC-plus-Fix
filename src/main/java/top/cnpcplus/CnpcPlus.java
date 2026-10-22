@@ -55,6 +55,8 @@ public class CnpcPlus {
         top.cnpcplus.drop.DropMenus.register();
         top.cnpcplus.drop.network.DropPacketHandler.init();
         top.cnpcplus.transport.network.TransportPacketHandler.init();
+        // 241t：版本横幅 + 传送子系统日志（确认跑的是哪一版 jar；日志在 logs/latest.log 与 CNPC 日志）
+        top.cnpcplus.transport.TransportLog.banner();
         LinkedPacketHandler.init();
         top.cnpcplus.villagertrade.network.VillagerEditPacketHandler.init();
         // 熔炼配方注入时机：世界加载时 RecipeManager 的首次 apply 发生在 MinecraftServer 实例创建之前，
