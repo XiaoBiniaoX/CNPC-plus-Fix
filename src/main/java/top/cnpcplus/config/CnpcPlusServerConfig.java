@@ -16,6 +16,10 @@ public class CnpcPlusServerConfig {
         builder.push("随从");
         builder.comment("随从/雇佣兵距离玩家超过该格数（平方距离开方）后强制传送到玩家身边，避免被困在坑洞/墙壁中无法跟随（默认12，范围1-64）");
         FollowerTeleportRange = builder.defineInRange("FollowerTeleportRange", 12, 1, 64);
+        builder.comment("每个玩家最多同时雇佣多少个 NPC（默认30，范围1-10000）。达到上限后再尝试雇佣会被拒绝并显示提示。");
+        MaxHiredNpcs = builder.defineInRange("MaxHiredNpcs", 30, 1, 10000);
+        builder.comment("玩家超过最大雇佣数仍尝试雇佣时显示的提示文本（默认：你雇佣的人过多）");
+        HireLimitMessage = builder.define("HireLimitMessage", "你雇佣的人过多");
         builder.pop();
 
         builder.push("自定义熔炼");
@@ -100,6 +104,8 @@ public class CnpcPlusServerConfig {
     public static ForgeConfigSpec getConfig() { return CONFIG_SPEC; }
 
     public static ForgeConfigSpec.IntValue FollowerTeleportRange;
+    public static ForgeConfigSpec.IntValue MaxHiredNpcs;
+    public static ForgeConfigSpec.ConfigValue<String> HireLimitMessage;
     public static ForgeConfigSpec.BooleanValue SmeltingRegisterOnServer;
     public static ForgeConfigSpec.BooleanValue InteractItemPriority;
     public static ForgeConfigSpec.BooleanValue ReturnHomeSmoothArrival;

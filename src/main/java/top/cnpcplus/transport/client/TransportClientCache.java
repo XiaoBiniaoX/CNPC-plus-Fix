@@ -57,9 +57,9 @@ public final class TransportClientCache {
         if (data == null) return;
         // 241o：服务端保存回执（只带 Saved 标记，不含条目数据 → 不能覆盖客户端的条目缓存）
         if (data.contains("Saved")) {
+            savedAck = true;
             Runnable l = metaListener;
             if (l != null) l.run();
-            savedAck = true;
             return;
         }
         // 241r：图片上传回执
@@ -115,9 +115,6 @@ public final class TransportClientCache {
             // 241z：**必须用 ResourceLocation 作键**（之前写成 id.toString() → 永远查不到 → 编辑页不画）
             IMG_SIZE.put(id, new int[]{img.getWidth(), img.getHeight()});
             Minecraft.getInstance().getTextureManager().register(id, tex);
-            top.cnpcplus.transport.TransportLog.info(
-                    "[cnpcplus] transport image received key=" + safe + " size="
-                            + img.getWidth() + "x" + img.getHeight());
         } catch (Throwable ignored) {
         }
     }

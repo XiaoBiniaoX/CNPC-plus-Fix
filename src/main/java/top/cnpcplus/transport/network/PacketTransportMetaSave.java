@@ -93,17 +93,12 @@ public class PacketTransportMetaSave {
                     }
                 }
                 if (target == null) {
-                    top.cnpcplus.transport.TransportLog.info(
-                            "[cnpcplus] transport save: entry NOT MATCHED key=" + key
-                                    + " (cat=" + own.category.id + " locs=" + own.category.locations.size() + ")");
                     continue;
                 }
                 if (t.getBoolean(TransportKeys.DELETE)) {
                     // 241n：删除遗留条目（NPC 本体点位、或仍有活着的 NPC 占用的点位不能删）
                     if (target != own && !liveIds.contains(target.id)) {
                         TransportController.getInstance().removeLocation(target.id);
-                        top.cnpcplus.transport.TransportLog.info(
-                                "[cnpcplus] transport save: deleted id=" + target.id + " name=" + target.name);
                     }
                     continue;
                 }
@@ -114,7 +109,7 @@ public class PacketTransportMetaSave {
                 int mode = t.getInt(TransportKeys.IMAGE_MODE);
                 m.cnpcplus$setImageMode(mode < 0 || mode >= TransportKeys.MODE_COUNT
                         ? TransportKeys.MODE_FILL : mode);
-                m.cnpcplus$setDesc(limit(t.getString(TransportKeys.DESC), 255));
+                m.cnpcplus$setDesc(limit(t.getString(TransportKeys.DESC), 2048));
                 m.cnpcplus$setIconSize(t.getInt(TransportKeys.ICON_SIZE));
                 m.cnpcplus$setImageZoom(t.getInt(TransportKeys.IMAGE_ZOOM));
                 m.cnpcplus$setTextColor(t.getInt(TransportKeys.TEXT_COLOR));
@@ -131,29 +126,16 @@ public class PacketTransportMetaSave {
                 if (!newName.isEmpty() && !newName.equals(target.name)) {
                     target.name = newName;
                 }
-                top.cnpcplus.transport.TransportLog.info(
-                        "[cnpcplus] transport save: applied id=" + target.id + " name=" + target.name
-                                + " image=" + m.cnpcplus$getImage()
-                                + " src=" + m.cnpcplus$getSrcW() + "x" + m.cnpcplus$getSrcH());
             }
 
             if (this.disk) {
-                // 241n：清理"删了 NPC 之后残留的孤儿点位"（没有任何活着的传送师 NPC 占用的点位）
-                int pruned = 0;
-                for (TransportLocation loc : new java.util.ArrayList<>(own.category.locations.values())) {
-                    if (loc == own) continue;
-                    if (liveIds.contains(loc.id)) continue;
-                    if (TransportController.getInstance().removeLocation(loc.id) != null) pruned++;
-                }
-                if (pruned > 0) {
-                    top.cnpcplus.transport.TransportLog.info(
-                            "[cnpcplus] transport save: pruned " + pruned + " orphan location(s)");
-                }
                 TransportController.getInstance().saveCategories();
             }
-            noppes.npcs.shared.common.util.LogWriter.warn(
-                    "[cnpcplus] transport meta save npc=" + this.npcId + " entries=" + this.entries.getAllKeys().size()
-                            + " disk=" + this.disk);
+            if (this.disk) {
+                noppes.npcs.shared.common.util.LogWriter.warn(
+                        "[cnpcplus] transport meta save npc=" + this.npcId
+                                + " entries=" + this.entries.getAllKeys().size() + " disk=true");
+            }
 
             // 241o：回执 —— 服务端把当前状态回传，客户端据此显示"已保存"并刷新（能看见有没有真的存进去）
             try {

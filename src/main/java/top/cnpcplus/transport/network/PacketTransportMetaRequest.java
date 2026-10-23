@@ -39,12 +39,7 @@ public class PacketTransportMetaRequest {
             if (player == null) return;
             if (player.server == null || player.server.overworld() == null) return;
             EntityNPCInterface npc = TransportNpcLookup.find(player, this.npcId);
-            if (npc == null) {
-                top.cnpcplus.transport.TransportLog.info(
-                        "[cnpcplus] transport meta request: NPC NOT FOUND id=" + this.npcId
-                                + " editor=" + this.editor + " dim=" + player.level().dimension().location());
-                return;
-            }
+            if (npc == null) return;
             if (npc.role.getType() != 4) return;
             RoleTransporter role = (RoleTransporter) npc.role;
             TransportLocation own = role.getLocation();

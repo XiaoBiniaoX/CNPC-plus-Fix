@@ -89,9 +89,6 @@ public class PacketTransportImageChunk {
             BUFFERS.remove(safe);
             NEXT_SEQ.remove(safe);
             boolean ok = all.length > 0 && TransportImageIO.write(safe, all);
-            top.cnpcplus.transport.TransportLog.info(
-                    "[cnpcplus] transport image upload key=" + safe + " bytes=" + all.length
-                            + " saved=" + ok);
             try {
                 net.minecraft.nbt.CompoundTag out = new net.minecraft.nbt.CompoundTag();
                 out.putBoolean("ImageSaved", ok);

@@ -84,6 +84,9 @@ public final class TransportSpans {
             if (rgb >= 0) {
                 if (s.start < start) next.add(new Span(s.start, start, s.rgb, s.flags));
                 if (s.end > end) next.add(new Span(end, s.end, s.rgb, s.flags));
+                if (s.flags != 0) {
+                    next.add(new Span(Math.max(s.start, start), Math.min(s.end, end), rgb, s.flags));
+                }
             } else {
                 next.add(s);
             }

@@ -8,6 +8,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import top.cnpcplus.transport.client.TextAreaSelectionAccess;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,7 +74,7 @@ import java.util.Collection;
  */
 @OnlyIn(Dist.CLIENT)
 @Mixin(value = GuiTextArea.class, remap = false)
-public abstract class MixinGuiTextAreaRender {
+public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess {
 
     /**
      * 241v 崩溃修复：{@code GuiTextArea.setText} **不重置选区下标**（startSelection/endSelection/cursorPosition）。
@@ -84,12 +86,42 @@ public abstract class MixinGuiTextAreaRender {
      * → 打开编辑器直接抛异常）。另外 {@code require = 0}：万一 CNPC 改签名，最多这条注入失效而不会连带崩游戏。
      */
     @Inject(method = "setText(Ljava/lang/String;)V", at = @At("TAIL"), require = 0, remap = false)
-    private void cnpcyouhua$resetSelection(String text) {
-        this.startSelection = 0;
-        this.endSelection = 0;
-        this.cursorPosition = 0;
+    private void cnpcyouhua$resetSelection(String text, CallbackInfo ci) {
+        int len = text == null ? 0 : text.length();
+        if (this.cursorPosition > len || this.startSelection > len || this.endSelection > len) {
+            this.startSelection = len;
+            this.endSelection = len;
+            this.cursorPosition = len;
+        }
     }
 
+    @Override
+    public void cnpcplus$clearSelection() {
+        int len = this.text == null ? 0 : this.text.length();
+        this.startSelection = len;
+        this.endSelection = len;
+        this.cursorPosition = len;
+    }
+
+    @Override
+    public int cnpcplus$selectionStart() {
+        return this.startSelection;
+    }
+
+    @Override
+    public int cnpcplus$selectionPos(double mouseX, double mouseY) {
+        return ((GuiTextAreaInvoker) (Object) this).cnpcplus$getSelectionPos(mouseX, mouseY);
+    }
+
+    @Override
+    public void cnpcplus$select(int start, int end, int cursor) {
+        int len = this.text == null ? 0 : this.text.length();
+        this.startSelection = Math.max(0, Math.min(start, len));
+        this.endSelection = Math.max(0, Math.min(end, len));
+        this.cursorPosition = Math.max(0, Math.min(cursor, len));
+    }
+
+    @Shadow(remap = false) public String text;
     @Shadow(remap = false) private int startSelection;
     @Shadow(remap = false) private int endSelection;
     @Shadow(remap = false) private int cursorPosition;

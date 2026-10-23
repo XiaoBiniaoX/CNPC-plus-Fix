@@ -23,7 +23,7 @@ import noppes.npcs.shared.client.gui.listeners.IGui;
 import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
 import top.cnpcplus.transport.TransportKeys;
 import top.cnpcplus.transport.TransportPanelStyle;
-import top.cnpcplus.transport.network.PacketTransportImageUpload;
+import top.cnpcplus.transport.TransportVisualMeta;
 import top.cnpcplus.transport.network.PacketTransportMetaSave;
 import top.cnpcplus.transport.network.TransportPacketHandler;
 
@@ -57,6 +57,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     private static final int FIELD_ICON_PCT_ID = 62;
     private static final int FIELD_X_ID = 63;
     private static final int FIELD_Y_ID = 64;
+    private static final int BTN_SAVE_ID = 60;
     private static final int AREA_CONTENT_ID = 67;
 
     private static final int CELL = 30;
@@ -82,6 +83,16 @@ public class GuiTransporterVisualEditor extends GuiBasic
             top.cnpcplus.transport.TransportSpans.FLAG_ITALIC,
             0};
 
+    /** 图片显示模式按钮（顺序 = 界面顺序）。 */
+    private static final int[] IMG_MODE_VALUE = {
+            TransportKeys.MODE_CENTER, TransportKeys.MODE_STRETCH,
+            TransportKeys.MODE_FIT, TransportKeys.MODE_TILE};
+    private static final String[] IMG_MODE_LABEL = {
+            "cnpcplus.transporter.editor.imageModeOriginal",
+            "cnpcplus.transporter.editor.imageModeStretch",
+            "cnpcplus.transporter.editor.imageModeFit",
+            "cnpcplus.transporter.editor.imageModeTile"};
+
     private final TransportLocation location;
     private final int npcId;
     private float scale = 1f;
@@ -102,12 +113,16 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
     private int activeElement = -1;
     private boolean dirty;
+    private boolean edited;
     private boolean syncing;
+    private String areaKey = "";
+    /** 241z-8：GuiTextArea 不支持拖选，自己记录拖选锚点与拖选状态。 */
+    private int areaAnchor = -1;
+    private boolean areaDragging;
     /** 241q：传送点图标编辑时，当前改的是"普通图标"(0) 还是"选中图标"(1)。 */
     private int iconSelMode;
     private String hint = "";
     private long hintUntil;
-    private String lastImageLog = "";
     private int sbScroll;
 
     public GuiTransporterVisualEditor(TransportLocation location, int npcId) {
@@ -146,6 +161,9 @@ public class GuiTransporterVisualEditor extends GuiBasic
     // ---- 边栏内部布局（内容区可滚动） ----
     private int sbContentY() { return this.sbHeadH() - this.sbScroll; }
     private int sbFieldW() { return Math.max(40, (this.sbW() - 16) / 2 - 30); }
+    private int imageModeBtnW() {
+        return Math.max(38, (this.sbW() - 8 - (IMG_MODE_VALUE.length - 1) * 4) / IMG_MODE_VALUE.length);
+    }
     private int sbFullW() { return Math.max(60, this.sbW() - 16 - 30); }
 
     @Override
@@ -154,7 +172,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
             this.cnpcplus$init();
         } catch (Throwable t) {
             // 241n：初始化异常绝不能把游戏带崩（之前 mixin 失败就是这样整局崩的）
-            top.cnpcplus.transport.TransportLog.info(
+            top.cnpcplus.transport.TransportLog.error(
                     "[cnpcplus] transport editor init FAILED: " + t);
             t.printStackTrace();
         }
@@ -219,6 +237,9 @@ public class GuiTransporterVisualEditor extends GuiBasic
                     this.sw(TransportLayout.ROW_W),
                     this.sh(TransportLayout.ROW_H)));
         }
+        this.addButton(new GuiButtonNop(this, BTN_SAVE_ID,
+                this.width - 78, 4, 74, 18,
+                tr("cnpcplus.transporter.editor.save")));
         this.applyFilter();
         this.syncFields();
     }
@@ -256,13 +277,15 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 Integer v = parseInt(raw);
                 if (v == null) return;
                 this.applyOffset(true, v);
-                this.commit(this.activeElement == EL_ROW_TEXT || this.activeElement == EL_ROW_ICON);
+                this.commit(this.activeElement == EL_ROW_TEXT || this.activeElement == EL_ROW_ICON
+                        || this.activeElement == EL_IMAGE);
             }
             case FIELD_Y_ID -> {
                 Integer v = parseInt(raw);
                 if (v == null) return;
                 this.applyOffset(false, v);
-                this.commit(this.activeElement == EL_ROW_TEXT || this.activeElement == EL_ROW_ICON);
+                this.commit(this.activeElement == EL_ROW_TEXT || this.activeElement == EL_ROW_ICON
+                        || this.activeElement == EL_IMAGE);
             }
             default -> { }
         }
@@ -314,6 +337,10 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == BTN_SAVE_ID) {
+            this.saveNow();
+            return;
+        }
         if (button.id < TransportLayout.BTN_ROW_ID_BASE
                 || button.id >= TransportLayout.BTN_ROW_ID_BASE + TransportLayout.ROW_VISIBLE) {
             return;
@@ -446,7 +473,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
         graphics.drawString(font, tr("cnpcplus.transporter.current") + "\uff1a",
                 TransportLayout.CURRENT_LABEL_X + TransportPanelStyle.curX(style),
                 TransportLayout.CURRENT_LABEL_Y + TransportPanelStyle.curY(style),
-                0xFFCCCCCC, false);
+                0xFF444444, false);
         int curSize = TransportPanelStyle.curSize(style);
         // 241t：当前位置文字用**名字的样式区间**（可局部上色）
         TransportText.drawStyled(graphics, font, this.displayName(this.selectedName),
@@ -457,7 +484,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     }
 
     private void drawImagePanel(GuiGraphics graphics) {
-        // 241q：**框固定**（图片框贴图不动），图内可缩放/平移；层级 = 展示板 < 图片 < 图片框
+        // 框固定；层级 = 展示板 < 图片 < 图片框。图片按 ImageMode 绘制 + ImgX/Y 平移，并裁剪在框内。
         int[] rect = this.imageFrameRect();
         CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
         if (meta != null) {
@@ -466,30 +493,21 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 TransportClientCache.requestImage(imgKey);
                 var tex = TransportClientCache.imageId(imgKey);
                 if (TransportClientCache.hasImage(imgKey) && tex != null) {
-                    // 241t：**以客户端缓存里的真实像素为准**（meta 里的 SrcW/SrcH 可能来自旧数据/丢失）
-                    // 241z：源尺寸**只认客户端纹理缓存**（meta 里的值可能过期/是旧键）
+                    // 源尺寸只认客户端纹理缓存（meta 里的 SrcW/SrcH 可能来自旧数据/丢失）
                     int[] cached = TransportClientCache.imageSizeOf(tex);
                     int sw = cached == null ? 0 : cached[0];
                     int sh = cached == null ? 0 : cached[1];
-                    String imgLog = "[cnpcplus] transport image draw key=" + imgKey
-                            + " cached=" + (cached == null ? "null" : cached[0] + "x" + cached[1])
-                            + " meta=" + meta.getInt(TransportKeys.SRC_W) + "x" + meta.getInt(TransportKeys.SRC_H)
-                            + " used=" + sw + "x" + sh
-                            + " frame=" + rect[2] + "x" + rect[3];
-                    if (!imgLog.equals(this.lastImageLog)) {
-                        this.lastImageLog = imgLog;
-                        top.cnpcplus.transport.TransportLog.info(imgLog);
-                    }
-                    // 241w：**不再用 scissor**（contain 等比缩放后图片本来就在框内，scissor 只会带来裁剪风险），
-                    // 图片框的边框不透明部分会自然盖住图片边缘（包边效果）。
-                    TransportImage.drawInFrame(graphics, tex, sw, sh,
-                            rect[0], rect[1], rect[2], rect[3]);
-                    // 自证日志：把**实际绘制矩形**也打出来（证明确实缩放了，不是左上角）
-                    String drawn = imgLog + " drawn " + TransportImage.lastRect();
-                    if (!drawn.equals(this.lastImageLog)) {
-                        this.lastImageLog = drawn;
-                        top.cnpcplus.transport.TransportLog.info(drawn);
-                    }
+                    int mode = meta.getInt(TransportKeys.IMAGE_MODE);
+                    int offX = meta.getInt(TransportKeys.IMG_X);
+                    int offY = meta.getInt(TransportKeys.IMG_Y);
+                    int cx1 = this.sx(rect[0]);
+                    int cy1 = this.sy(rect[1]);
+                    int cx2 = cx1 + this.sw(rect[2]);
+                    int cy2 = cy1 + this.sh(rect[3]);
+                    graphics.enableScissor(cx1, cy1, cx2, cy2);
+                    TransportImage.draw(graphics, tex, sw, sh,
+                            rect[0], rect[1], rect[2], rect[3], mode, offX, offY);
+                    graphics.disableScissor();
                 }
             }
         }
@@ -720,10 +738,25 @@ public class GuiTransporterVisualEditor extends GuiBasic
         }
 
         if (this.isImageElement()) {
-            // 241z-3：拖动框改尺寸早已删除，只保留拖 PNG 导入提示
             int y = p[SB_MODE];
+            graphics.drawString(font, tr("cnpcplus.transporter.editor.imageMode"),
+                    4, y + 2, 0xFF88CCFF, false);
+            int by = y + 14;
+            int bw = this.imageModeBtnW();
+            int cur = this.currentImageMode();
+            for (int i = 0; i < IMG_MODE_VALUE.length; i++) {
+                int bx = 4 + i * (bw + 4);
+                boolean sel = IMG_MODE_VALUE[i] == cur;
+                boolean hover = inRect(mouseX, mouseY, bx, by, bw, ROW_H);
+                graphics.fill(bx, by, bx + bw, by + ROW_H,
+                        sel ? 0xC8C8841E : (hover ? 0xC83A5F8A : 0x60000000));
+                drawFrame(graphics, bx, by, bw, ROW_H, sel ? 0xFFFFD700 : 0xFF505068);
+                TransportText.draw(graphics, font, tr(IMG_MODE_LABEL[i]),
+                        bx + 4, by + 4, 1f, sel ? 0xFFFFD700 : 0xFFFFFFFF, false);
+            }
+            // 拖动框改尺寸早已删除，只保留拖 PNG 导入提示
             TransportText.draw(graphics, font, tr("cnpcplus.transporter.editor.dragPng"),
-                    4, y, 1f, 0xFFAAAAAA, false);
+                    4, by + ROW_H + 8, 1f, 0xFFAAAAAA, false);
         }
         graphics.disableScissor();
 
@@ -957,6 +990,12 @@ public class GuiTransporterVisualEditor extends GuiBasic
             // 241q：点击输入框时**主动给 vanilla 焦点**（否则拖选无效：Screen.mouseClicked 没跑到）
             GuiTextFieldNop hit = this.fieldAt(mouseX, mouseY);
             if (hit != null) {
+                // 241z-7：输入框和内容框只能有一个吃键盘，否则打字会同时覆盖 X 和正文
+                GuiTextArea area = this.textArea();
+                if (area != null) {
+                    area.active = false;
+                    area.clicked = false;
+                }
                 this.setFocused(hit);
                 return super.m_6375_(mouseX, mouseY, button);
             }
@@ -965,7 +1004,13 @@ public class GuiTransporterVisualEditor extends GuiBasic
             GuiTextArea area = this.textArea();
             if (area != null && area.visible && area.enabled
                     && inRect(mouseX, mouseY, area.x, area.y, area.width, area.height)) {
+                // 241z-7：点正文时清掉输入框焦点，避免两边同时接收字符
+                this.setFocused(null);
+                GuiTextFieldNop.unfocus();
                 area.m_6375_(mouseX, mouseY, button);
+                this.areaAnchor = area instanceof TextAreaSelectionAccess acc
+                        ? acc.cnpcplus$selectionStart() : -1;
+                this.areaDragging = this.areaAnchor >= 0;
                 return true;
             }
             if (this.handleSidebarClick(mouseX, mouseY)) return true;
@@ -978,11 +1023,9 @@ public class GuiTransporterVisualEditor extends GuiBasic
         return super.m_6375_(mouseX, mouseY, button);
     }
 
-    /** 找出鼠标位置命中的边栏输入框（用于给 vanilla 焦点）。 */
+    /** 找出鼠标位置命中的输入框（边栏字段 + 搜索框），用于给 vanilla 焦点。 */
     private GuiTextFieldNop fieldAt(double mx, double my) {
-        int[] ids = {FIELD_SIZE_ID, FIELD_ICON_PCT_ID, FIELD_X_ID, FIELD_Y_ID};
-        for (int id : ids) {
-            GuiTextFieldNop f = this.getTextField(id);
+        for (GuiTextFieldNop f : this.wrapper.textfields.values()) {
             if (f == null || !f.visible || !f.enabled) continue;
             if (inRect(mx, my, f.getX(), f.getY(), f.getWidth(), f.getHeight())) return f;
         }
@@ -994,11 +1037,21 @@ public class GuiTransporterVisualEditor extends GuiBasic
         // 241q：CNPC 的 GuiWrapper.mouseDragged 不给输入框转发 → 手动转给 vanilla 焦点控件（拖选文字）
         var focused = this.getFocused();
         if (focused != null && focused.mouseDragged(x, y, button, dragX, dragY)) return true;
+        // 241z-8：GuiTextArea 自身没有 mouseDragged，不转发就永远只能整段上色
+        GuiTextArea area = this.textArea();
+        if (button == 0 && this.areaDragging && area != null && area.active
+                && area.visible && area.enabled && area instanceof TextAreaSelectionAccess acc) {
+            int anchor = this.areaAnchor >= 0 ? this.areaAnchor : acc.cnpcplus$selectionStart();
+            int pos = acc.cnpcplus$selectionPos(x, y);
+            acc.cnpcplus$select(Math.min(anchor, pos), Math.max(anchor, pos), pos);
+            return true;
+        }
         return super.m_7979_(x, y, button, dragX, dragY);
     }
 
     @Override
     public boolean m_6348_(double x, double y, int button) {
+        this.areaDragging = false;
         return super.m_6348_(x, y, button);
     }
 
@@ -1042,11 +1095,6 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 int cx = 4 + (i % SWATCH_COLS) * (SWATCH + 2);
                 int cy = py + (i / SWATCH_COLS) * (SWATCH + 2);
                 if (!inRect(mouseX, mouseY, cx, cy, SWATCH, SWATCH)) continue;
-                top.cnpcplus.transport.TransportLog.info(
-                        "[cnpcplus] transport palette click idx=" + i + " rgb=" + String.format("%06X", PALETTE[i])
-                                + " at=" + (int) mouseX + "," + (int) mouseY
-                                + " element=" + this.activeElement
-                                + " sel=" + this.selectedName);
                 this.applyColorToContent(PALETTE[i]);
                 return true;
             }
@@ -1088,6 +1136,20 @@ public class GuiTransporterVisualEditor extends GuiBasic
             this.commit(true);
             return true;
         }
+
+        if (this.isImageElement()) {
+            int by = p[SB_MODE] + 14;
+            int bw = this.imageModeBtnW();
+            for (int i = 0; i < IMG_MODE_VALUE.length; i++) {
+                int bx = 4 + i * (bw + 4);
+                if (!inRect(mouseX, mouseY, bx, by, bw, ROW_H)) continue;
+                CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
+                if (meta == null) return true;
+                meta.putInt(TransportKeys.IMAGE_MODE, IMG_MODE_VALUE[i]);
+                this.commit(true);
+                return true;
+            }
+        }
         return false;
     }
 
@@ -1125,7 +1187,17 @@ public class GuiTransporterVisualEditor extends GuiBasic
         if (area != null) {
             area.visible = this.hasContent();
             area.enabled = area.visible;
-            if (area.visible) area.setText(this.currentContent());
+            String key = this.selectedName + "#" + this.activeElement;
+            boolean switched = !key.equals(this.areaKey);
+            this.areaKey = key;
+            if (area.visible) {
+                String next = this.currentContent();
+                if (switched || !next.equals(area.getText())) {
+                    area.setText(next);
+                    if (area instanceof TextAreaSelectionAccess acc) acc.cnpcplus$clearSelection();
+                    this.areaAnchor = -1;
+                }
+            }
         }
         // 241n：不要在这里 unfocus()——会把用户正在输入的光标清掉（曾导致"点输入框没光标"）
         this.syncing = false;
@@ -1161,17 +1233,48 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
     private int currentColor() {
         CompoundTag panel = TransportClientCache.panel();
+        CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
+        int base;
+        String spans;
         if (this.activeElement == EL_ROW_TEXT) {
-            CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
             int c = meta == null ? -1 : meta.getInt(TransportKeys.TEXT_COLOR);
-            return c >= 0 ? (c & 0xFFFFFF) : TransportPanelStyle.rowColor(panel);
+            base = c >= 0 ? (c & 0xFFFFFF) : TransportPanelStyle.rowColor(panel);
+            spans = meta == null ? "" : meta.getString(TransportKeys.NAME_SPANS);
+        } else {
+            switch (this.activeElement) {
+                case EL_CUR_TEXT -> {
+                    base = TransportPanelStyle.curColor(panel);
+                    spans = meta == null ? "" : meta.getString(TransportKeys.NAME_SPANS);
+                }
+                case EL_INTRO -> {
+                    base = TransportPanelStyle.introColor(panel);
+                    spans = meta == null ? "" : meta.getString(TransportKeys.DESC_SPANS);
+                }
+                case EL_TAB_TEXT -> {
+                    base = TransportPanelStyle.tabColor(panel);
+                    spans = panel.getString(TransportPanelStyle.TAB_SPANS);
+                }
+                default -> {
+                    base = 0xFFFFFF;
+                    spans = "";
+                }
+            }
         }
-        return switch (this.activeElement) {
-            case EL_CUR_TEXT -> TransportPanelStyle.curColor(panel);
-            case EL_INTRO -> TransportPanelStyle.introColor(panel);
-            case EL_TAB_TEXT -> TransportPanelStyle.tabColor(panel);
-            default -> 0xFFFFFF;
-        };
+        if (!this.isTextElement()) return base & 0xFFFFFF;
+        int len = this.contentLength();
+        if (len <= 0) return base & 0xFFFFFF;
+        int index;
+        int[] sel = this.selectionRange();
+        if (sel != null) {
+            index = sel[0];
+        } else {
+            GuiTextArea area = this.textArea();
+            int before = area == null ? 0 : area.getSelectionBeforeText().length();
+            if (this.activeElement == EL_CUR_TEXT) before -= this.currentPrefixLen();
+            index = Math.max(0, Math.min(before, len - 1));
+        }
+        return top.cnpcplus.transport.TransportSpans.colorAt(
+                top.cnpcplus.transport.TransportSpans.parse(spans), index, base) & 0xFFFFFF;
     }
 
     private int currentOffset(boolean xAxis) {
@@ -1185,8 +1288,20 @@ public class GuiTransporterVisualEditor extends GuiBasic
                     ? TransportPanelStyle.introX(panel) : TransportPanelStyle.introY(panel);
             case EL_TAB_TEXT, EL_TAB_ICON -> xAxis
                     ? TransportPanelStyle.tabX(panel) : TransportPanelStyle.tabY(panel);
+            case EL_IMAGE -> {
+                CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
+                yield meta == null ? 0
+                        : meta.getInt(xAxis ? TransportKeys.IMG_X : TransportKeys.IMG_Y);
+            }
             default -> 0;
         };
+    }
+
+    /** 当前图片显示模式（旧数据 MODE_FILL = 适应）。 */
+    private int currentImageMode() {
+        CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
+        int mode = meta == null ? TransportKeys.MODE_FIT : meta.getInt(TransportKeys.IMAGE_MODE);
+        return mode == TransportKeys.MODE_FILL ? TransportKeys.MODE_FIT : mode;
     }
 
     private int currentIconPct() {
@@ -1219,18 +1334,34 @@ public class GuiTransporterVisualEditor extends GuiBasic
         return "";
     }
 
+    private int currentPrefixLen() {
+        return (tr("cnpcplus.transporter.current") + "\uff1a").length();
+    }
+
+    private int contentLength() {
+        if (this.activeElement == EL_CUR_TEXT || this.activeElement == EL_ROW_TEXT) {
+            return this.displayName(this.selectedName).length();
+        }
+        return this.currentContent().length();
+    }
+
     /** 241q：颜色/格式应用到**选中的那段**（样式单独存，正文保持干净，不再出现 §x§C§C…）。 */
     private void applyColorToContent(int rgb) {
         if (!this.hasContent()) {
             this.applyColor(rgb);
             return;
         }
-        int[] sel = this.selectionRange();
-        if (sel == null) {
+        int len = this.contentLength();
+        if (len <= 0) {
             this.applyColor(rgb);
             return;
         }
-        this.applySpans(sel[0], sel[1], rgb, 0, false);
+        int[] sel = this.selectionRange();
+        if (sel != null) {
+            this.applySpans(sel[0], sel[1], rgb, 0, false);
+        } else {
+            this.applySpans(0, len, rgb, 0, false);
+        }
     }
 
     /** 241q：粗体/下划线/斜体（切换）作用于选区。 */
@@ -1241,7 +1372,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
         this.applySpans(sel[0], sel[1], -1, flag, true);
     }
 
-    /** 取内容框当前选区（无选区返回 null）。 */
+    /** 取内容框当前选区（无选区返回 null；已换算到样式区间坐标）。 */
     private int[] selectionRange() {
         GuiTextArea area = this.textArea();
         if (area == null) return null;
@@ -1249,7 +1380,20 @@ public class GuiTransporterVisualEditor extends GuiBasic
         String before = area.getSelectionBeforeText();
         String after = area.getSelectionAfterText();
         if (text.length() <= before.length() + after.length()) return null;
-        return new int[]{before.length(), text.length() - after.length()};
+        int start = before.length();
+        int end = text.length() - after.length();
+        if (this.activeElement == EL_CUR_TEXT) {
+            int prefix = this.currentPrefixLen();
+            start -= prefix;
+            end -= prefix;
+        }
+        if (this.activeElement == EL_ROW_TEXT || this.activeElement == EL_CUR_TEXT) {
+            int len = this.displayName(this.selectedName).length();
+            start = Math.max(0, Math.min(start, len));
+            end = Math.max(0, Math.min(end, len));
+        }
+        if (end <= start) return null;
+        return new int[]{start, end};
     }
 
     /** 写样式区间（介绍文本=每条目；传送点/当前位置文字=名字 spans；页签文本=面板级）。 */
@@ -1348,6 +1492,10 @@ public class GuiTransporterVisualEditor extends GuiBasic
             case EL_TAB_TEXT, EL_TAB_ICON -> {
                 if (xAxis) TransportPanelStyle.putOffset(panel, TransportPanelStyle.TAB_X, v);
                 else TransportPanelStyle.putOffset(panel, TransportPanelStyle.TAB_Y, v);
+            }
+            case EL_IMAGE -> {
+                CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
+                if (meta != null) meta.putInt(xAxis ? TransportKeys.IMG_X : TransportKeys.IMG_Y, v);
             }
             default -> { }
         }
@@ -1469,16 +1617,29 @@ public class GuiTransporterVisualEditor extends GuiBasic
         CompoundTag meta = TransportClientCache.editMeta(name);
         if (meta == null) return;
         CompoundTag t = new CompoundTag();
-        t.putString(TransportKeys.ICON, meta.getString(TransportKeys.ICON));
-        t.putString(TransportKeys.ICON_SEL, meta.getString(TransportKeys.ICON_SEL));
-        t.putString(TransportKeys.IMAGE, meta.getString(TransportKeys.IMAGE));
-        t.putInt(TransportKeys.IMAGE_MODE, meta.getInt(TransportKeys.IMAGE_MODE));
-        t.putInt(TransportKeys.ICON_SIZE, meta.getInt(TransportKeys.ICON_SIZE));
-        t.putInt(TransportKeys.IMAGE_ZOOM, meta.getInt(TransportKeys.IMAGE_ZOOM));
-        t.putInt(TransportKeys.TEXT_COLOR, meta.getInt(TransportKeys.TEXT_COLOR));
-        t.putInt(TransportKeys.TEXT_SIZE, meta.getInt(TransportKeys.TEXT_SIZE));
-        t.putString(TransportKeys.DESC, meta.getString(TransportKeys.DESC));
+        copyEntry(meta, t);
         this.entryLocal.put(name, t);
+    }
+
+    /** 条目可视化字段必须整体复制；漏字段会在 meta 回包后被旧值盖掉。 */
+    private static void copyEntry(CompoundTag src, CompoundTag dst) {
+        if (src == null || dst == null) return;
+        dst.putString(TransportKeys.ICON, src.getString(TransportKeys.ICON));
+        dst.putString(TransportKeys.ICON_SEL, src.getString(TransportKeys.ICON_SEL));
+        dst.putString(TransportKeys.IMAGE, src.getString(TransportKeys.IMAGE));
+        dst.putInt(TransportKeys.IMAGE_MODE, src.getInt(TransportKeys.IMAGE_MODE));
+        dst.putInt(TransportKeys.ICON_SIZE, src.getInt(TransportKeys.ICON_SIZE));
+        dst.putInt(TransportKeys.IMAGE_ZOOM, src.getInt(TransportKeys.IMAGE_ZOOM));
+        dst.putInt(TransportKeys.TEXT_COLOR, src.getInt(TransportKeys.TEXT_COLOR));
+        dst.putInt(TransportKeys.TEXT_SIZE, src.getInt(TransportKeys.TEXT_SIZE));
+        dst.putString(TransportKeys.DESC, src.getString(TransportKeys.DESC));
+        dst.putString(TransportKeys.DESC_SPANS, src.getString(TransportKeys.DESC_SPANS));
+        dst.putString(TransportKeys.NAME_SPANS, src.getString(TransportKeys.NAME_SPANS));
+        dst.putInt(TransportKeys.SRC_W, src.getInt(TransportKeys.SRC_W));
+        dst.putInt(TransportKeys.SRC_H, src.getInt(TransportKeys.SRC_H));
+        dst.putInt(TransportKeys.IMG_X, src.getInt(TransportKeys.IMG_X));
+        dst.putInt(TransportKeys.IMG_Y, src.getInt(TransportKeys.IMG_Y));
+        dst.putInt(TransportKeys.IMG_SCALE, src.getInt(TransportKeys.IMG_SCALE));
     }
 
     /** meta 响应把缓存整个换掉 → 把本地改动重新盖回去。 */
@@ -1512,22 +1673,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
             CompoundTag src = TransportClientCache.editMeta(entryName);
             if (src != null) {
                 CompoundTag t = new CompoundTag();
-                t.putString(TransportKeys.ICON, src.getString(TransportKeys.ICON));
-                t.putString(TransportKeys.ICON_SEL, src.getString(TransportKeys.ICON_SEL));
-                t.putString(TransportKeys.IMAGE, src.getString(TransportKeys.IMAGE));
-                t.putInt(TransportKeys.IMAGE_MODE, src.getInt(TransportKeys.IMAGE_MODE));
-                t.putInt(TransportKeys.ICON_SIZE, src.getInt(TransportKeys.ICON_SIZE));
-                t.putInt(TransportKeys.IMAGE_ZOOM, src.getInt(TransportKeys.IMAGE_ZOOM));
-                t.putInt(TransportKeys.TEXT_COLOR, src.getInt(TransportKeys.TEXT_COLOR));
-                t.putInt(TransportKeys.TEXT_SIZE, src.getInt(TransportKeys.TEXT_SIZE));
-                t.putString(TransportKeys.DESC, src.getString(TransportKeys.DESC));
-                t.putString(TransportKeys.DESC_SPANS, src.getString(TransportKeys.DESC_SPANS));
-                t.putString(TransportKeys.NAME_SPANS, src.getString(TransportKeys.NAME_SPANS));
-                t.putInt(TransportKeys.SRC_W, src.getInt(TransportKeys.SRC_W));
-                t.putInt(TransportKeys.SRC_H, src.getInt(TransportKeys.SRC_H));
-                t.putInt(TransportKeys.IMG_X, src.getInt(TransportKeys.IMG_X));
-                t.putInt(TransportKeys.IMG_Y, src.getInt(TransportKeys.IMG_Y));
-                t.putInt(TransportKeys.IMG_SCALE, src.getInt(TransportKeys.IMG_SCALE));
+                copyEntry(src, t);
                 // 241n：改名现在可以实时下发（服务端按**点位 id** 匹配，不会再出现"只存了第一个字"）
                 String newName = this.renames.get(entryName);
                 if (newName != null && !newName.isEmpty()) t.putString(TransportKeys.NAME, newName);
@@ -1540,12 +1686,6 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
     /** 一次改动 = 记录本地 + 即时发包 + 播放提示音。 */
     private void commit(boolean entryScope) {
-        top.cnpcplus.transport.TransportLog.info(
-                "[cnpcplus] transport editor commit element=" + this.activeElement
-                        + " scope=" + (entryScope ? "entry" : "panel")
-                        + " sel=" + this.selectedName
-                        + " color=" + this.currentColor()
-                        + " size=" + this.currentSize());
         if (entryScope) {
             this.markEntryDirty(this.selectedName);
             this.liveSend(this.selectedName);
@@ -1554,7 +1694,40 @@ public class GuiTransporterVisualEditor extends GuiBasic
             this.liveSend(null);
         }
         this.dirty = true;
+        this.edited = true;
+        if (entryScope && this.ownKey.equals(this.selectedName)) {
+            this.syncLocationVisual();
+        }
         playClick();
+    }
+
+    /** 把编辑结果同步回父页持有的 TransportLocation，防止父页 save() 用旧值覆盖。 */
+    private void syncLocationVisual() {
+        if (this.location == null || this.ownKey == null || this.ownKey.isEmpty()) return;
+        CompoundTag meta = TransportClientCache.editMeta(this.ownKey);
+        if (meta == null) return;
+        try {
+            TransportVisualMeta m = (TransportVisualMeta) (Object) this.location;
+            m.cnpcplus$setIcon(meta.getString(TransportKeys.ICON));
+            m.cnpcplus$setIconSel(meta.getString(TransportKeys.ICON_SEL));
+            m.cnpcplus$setImage(meta.getString(TransportKeys.IMAGE));
+            m.cnpcplus$setImageMode(meta.getInt(TransportKeys.IMAGE_MODE));
+            m.cnpcplus$setDesc(meta.getString(TransportKeys.DESC));
+            m.cnpcplus$setIconSize(meta.getInt(TransportKeys.ICON_SIZE));
+            m.cnpcplus$setImageZoom(meta.getInt(TransportKeys.IMAGE_ZOOM));
+            m.cnpcplus$setTextColor(meta.getInt(TransportKeys.TEXT_COLOR));
+            m.cnpcplus$setTextSize(meta.getInt(TransportKeys.TEXT_SIZE));
+            m.cnpcplus$setImgX(meta.getInt(TransportKeys.IMG_X));
+            m.cnpcplus$setImgY(meta.getInt(TransportKeys.IMG_Y));
+            m.cnpcplus$setImgScale(meta.getInt(TransportKeys.IMG_SCALE));
+            m.cnpcplus$setSrcW(meta.getInt(TransportKeys.SRC_W));
+            m.cnpcplus$setSrcH(meta.getInt(TransportKeys.SRC_H));
+            m.cnpcplus$setDescSpans(meta.getString(TransportKeys.DESC_SPANS));
+            m.cnpcplus$setNameSpans(meta.getString(TransportKeys.NAME_SPANS));
+        } catch (Throwable t) {
+            top.cnpcplus.transport.TransportLog.error(
+                    "[cnpcplus] transport editor sync location FAILED: " + t);
+        }
     }
 
     /** 删除条目（遗留传送点）。 */
@@ -1650,9 +1823,6 @@ public class GuiTransporterVisualEditor extends GuiBasic
             meta.putInt(TransportKeys.SRC_W, src[0]);
             meta.putInt(TransportKeys.SRC_H, src[1]);
         }
-        top.cnpcplus.transport.TransportLog.info(
-                "[cnpcplus] transport image import key=" + key + " sel=" + this.selectedName
-                        + " size=" + (src == null ? "?" : src[0] + "x" + src[1]));
         this.commit(true);
         this.setHint(tr("cnpcplus.transporter.editor.hint.imported") + " " + key);
     }
@@ -1661,46 +1831,37 @@ public class GuiTransporterVisualEditor extends GuiBasic
     public void save() {
         TransportDropHandler.clear(this);
         TransportClientCache.setMetaListener(null);
-        if (!this.dirty) return;
+        this.syncLocationVisual();
+        if (!this.dirty && !this.edited) return;
         this.dirty = false;
+        this.edited = false;
+        this.sendMeta(true);
+    }
+
+    /** 显式保存按钮：不关闭页面，强制把当前缓存落盘。 */
+    private void saveNow() {
+        this.syncLocationVisual();
+        this.dirty = false;
+        this.edited = false;
+        this.sendMeta(true);
+        playClick();
+        this.setHint(tr("cnpcplus.transporter.editor.hint.saving"));
+    }
+
+    private void sendMeta(boolean disk) {
         CompoundTag panel = TransportClientCache.panel().copy();
         CompoundTag entries = new CompoundTag();
         for (Map.Entry<String, CompoundTag> e : TransportClientCache.allEditMeta().entrySet()) {
             CompoundTag src = e.getValue();
             if (src == null) continue;
             CompoundTag t = new CompoundTag();
-            t.putString(TransportKeys.ICON, src.getString(TransportKeys.ICON));
-            t.putString(TransportKeys.ICON_SEL, src.getString(TransportKeys.ICON_SEL));
-            t.putString(TransportKeys.IMAGE, src.getString(TransportKeys.IMAGE));
-            t.putInt(TransportKeys.IMAGE_MODE, src.getInt(TransportKeys.IMAGE_MODE));
-            t.putInt(TransportKeys.ICON_SIZE, src.getInt(TransportKeys.ICON_SIZE));
-            t.putInt(TransportKeys.IMAGE_ZOOM, src.getInt(TransportKeys.IMAGE_ZOOM));
-            t.putInt(TransportKeys.TEXT_COLOR, src.getInt(TransportKeys.TEXT_COLOR));
-            t.putInt(TransportKeys.TEXT_SIZE, src.getInt(TransportKeys.TEXT_SIZE));
-            t.putString(TransportKeys.DESC, src.getString(TransportKeys.DESC));
-            t.putString(TransportKeys.DESC_SPANS, src.getString(TransportKeys.DESC_SPANS));
-            t.putString(TransportKeys.NAME_SPANS, src.getString(TransportKeys.NAME_SPANS));
-            t.putInt(TransportKeys.SRC_W, src.getInt(TransportKeys.SRC_W));
-            t.putInt(TransportKeys.SRC_H, src.getInt(TransportKeys.SRC_H));
-            t.putInt(TransportKeys.IMG_X, src.getInt(TransportKeys.IMG_X));
-            t.putInt(TransportKeys.IMG_Y, src.getInt(TransportKeys.IMG_Y));
-            t.putInt(TransportKeys.IMG_SCALE, src.getInt(TransportKeys.IMG_SCALE));
+            copyEntry(src, t);
             String newName = this.renames.get(e.getKey());
             if (newName != null && !newName.isEmpty()) t.putString(TransportKeys.NAME, newName);
             entries.put(this.entryKey(e.getKey()), t);
         }
-        // 241n：关闭编辑器时落盘（前面每次改动已即时发过 disk=false 的包）
-        StringBuilder imgKeys = new StringBuilder();
-        for (Map.Entry<String, CompoundTag> e : TransportClientCache.allEditMeta().entrySet()) {
-            String ik = e.getValue() == null ? "" : e.getValue().getString(TransportKeys.IMAGE);
-            if (!ik.isEmpty()) imgKeys.append(e.getKey()).append('=').append(ik).append(' ');
-        }
-        top.cnpcplus.transport.TransportLog.info(
-                "[cnpcplus] transport editor SAVE npc=" + this.npcId + " entries=" + entries.getAllKeys().size()
-                        + " panelKeys=" + panel.getAllKeys().size()
-                        + " images=[" + imgKeys.toString().trim() + "]");
         TransportPacketHandler.CHANNEL.sendToServer(
-                new PacketTransportMetaSave(this.npcId, panel, entries, true));
+                new PacketTransportMetaSave(this.npcId, panel, entries, disk));
     }
 
     private void drawIcon(GuiGraphics graphics, int designX, int designY, int designSize, String iconName) {

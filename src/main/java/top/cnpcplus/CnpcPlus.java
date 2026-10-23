@@ -4,7 +4,6 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.common.world.ForgeChunkManager;
-import top.cnpcplus.config.CnpcPlusConfigData;
 import top.cnpcplus.config.CnpcPlusServerConfig;
 import top.cnpcplus.config.NpcAiOptimizerConfig;
 import top.cnpcplus.follower.network.FollowerPacketHandler;
@@ -21,19 +20,14 @@ public class CnpcPlus {
     public static final String MOD_ID = "cnpcplus";
 
     public CnpcPlus() {
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, CnpcPlusConfigData.getConfig(), "cnpcplus.toml");
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
+            top.cnpcplus.client.CnpcPlusClientInit.init();
+        }
         // 渲染优化配置（蓝图预览/轮廓缓存/阴影上限），独立文件避免与主配置撞车。
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, top.cnpcplus.perf.Config.SPEC, "cnpcplus-perf.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, CnpcPlusServerConfig.getConfig(), "cnpcplus-server.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, NpcAiOptimizerConfig.SPEC, "cnpcplus-npcfix.toml");
         // Better_Modlist / Forge 标准配置界面扩展点：只在物理客户端注册；
         // ConfigScreenHandler 是 net.minecraftforge.client 类，专用服务器不加载。
-        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
-            ModLoadingContext.get().registerExtensionPoint(
-                    net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
-                    () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
-                            (mc, parent) -> new top.cnpcplus.config.client.CnpcPlusConfigScreen(parent)));
-        }
         ForgeChunkManager.setForcedChunkLoadingCallback(MOD_ID, (level, helper) -> {});
         top.cnpcplus.craftingview.network.PacketHandler.init();
         ModRegistry.register();
@@ -41,6 +35,7 @@ public class CnpcPlus {
         NpcInvPagePacketHandler.init();
         TraderPagePacketHandler.init();
         FollowerPacketHandler.init();
+        top.cnpcplus.config.network.ConfigPacketHandler.init();
         SmeltingMenus.register();
         SmeltingPacketHandler.init();
         top.cnpcplus.smithing.SmithingMenus.register();
@@ -84,14 +79,6 @@ public class CnpcPlus {
                 (net.minecraftforge.event.RegisterCommandsEvent e) ->
                         top.cnpcplus.command.CmdPlayerData.register(e.getDispatcher()));
         // S1：PacketNpcUpdate 实体未注册时缓存补放（客户端 tick；类仅在 Dist.CLIENT 分支内被引用，专用服务器不会加载）
-        if (net.minecraftforge.fml.loading.FMLEnvironment.dist == net.minecraftforge.api.distmarker.Dist.CLIENT) {
-            net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
-                    (net.minecraftforge.event.TickEvent.ClientTickEvent ce) -> {
-                        if (ce.phase == net.minecraftforge.event.TickEvent.Phase.END) {
-                            top.cnpcplus.sync.client.PendingNpcUpdateStore.tick();
-                        }
-                    });
-        }
         // 服务端停止时清掉配方缓存：单人切换存档后必须重读，否则会把上个存档的配方带进新世界
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.server.ServerStoppedEvent e) -> {

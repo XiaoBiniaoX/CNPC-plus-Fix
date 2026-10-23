@@ -91,4 +91,18 @@ public final class ServerConfigAccess {
             }
         }
     }
+
+    public static String string(ForgeConfigSpec.ConfigValue<String> value, String fallback) {
+        if (value == null) return fallback;
+        try {
+            return value.get();
+        } catch (Throwable t) {
+            try {
+                String d = value.getDefault();
+                return d == null ? fallback : d;
+            } catch (Throwable t2) {
+                return fallback;
+            }
+        }
+    }
 }

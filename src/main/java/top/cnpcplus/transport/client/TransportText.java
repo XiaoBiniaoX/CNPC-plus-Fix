@@ -82,10 +82,10 @@ public final class TransportText {
         int total = 0;
         String[] lines = text.split("\n", -1);
         int base = 0;
-        int px = x;
         for (String line : lines) {
             int lineStart = base;
             base += line.length() + 1;
+            int px = x;
             int i = 0;
             while (i < line.length()) {
                 int rgb = top.cnpcplus.transport.TransportSpans.colorAt(list, lineStart + i, baseColor);
@@ -98,12 +98,17 @@ public final class TransportText {
                 }
                 String seg = line.substring(i, j);
                 if (maxWidth > 0) {
-                    while (seg.length() > 1 && font.width(seg) * (size / 9f) > maxWidth) {
+                    int avail = maxWidth - (px - x);
+                    if (avail <= 0) break;
+                    while (seg.length() > 1 && width(font, seg, size / 9f) > avail) {
                         seg = seg.substring(0, seg.length() - 1);
                     }
+                    if (width(font, seg, size / 9f) > avail) break;
                 }
                 // 241t：必须按段宽推进 x（之前每段都画在同一个 x → 前后文本重叠）
-                draw(g, font, stylePrefix(rgb, fl, baseColor) + seg, px, y + total, size, baseColor);
+                // 241z-7：1.20.1 的 StringDecomposer 不解析 §x 十六进制色码（会被当成多个
+                // legacy 色码，最后一个生效 → 金色变紫色）。直接按段传 RGB 颜色绘制。
+                draw(g, font, stylePrefix(fl) + seg, px, y + total, size, 0xFF000000 | (rgb & 0xFFFFFF));
                 px += width(font, seg, size / 9f);
                 i = j;
             }
@@ -112,16 +117,9 @@ public final class TransportText {
         return total;
     }
 
-    /** 把颜色/标志转成 MC 格式码前缀（vanilla 字体原生支持，宽度计算会自动忽略）。 */
-    public static String stylePrefix(int rgb, int flags, int baseColor) {
+    /** 把标志转成 MC 格式码前缀（颜色由 draw 的 color 参数直接传，避免 §x 不兼容）。 */
+    public static String stylePrefix(int flags) {
         StringBuilder sb = new StringBuilder();
-        if (rgb >= 0 && (rgb & 0xFFFFFF) != (baseColor & 0xFFFFFF)) {
-            String hex = String.format("%06X", rgb & 0xFFFFFF);
-            sb.append('\u00a7').append('x');
-            for (int i = 0; i < hex.length(); i++) {
-                sb.append('\u00a7').append(hex.charAt(i));
-            }
-        }
         if ((flags & top.cnpcplus.transport.TransportSpans.FLAG_BOLD) != 0) sb.append('\u00a7').append('l');
         if ((flags & top.cnpcplus.transport.TransportSpans.FLAG_UNDERLINE) != 0) sb.append('\u00a7').append('n');
         if ((flags & top.cnpcplus.transport.TransportSpans.FLAG_ITALIC) != 0) sb.append('\u00a7').append('o');

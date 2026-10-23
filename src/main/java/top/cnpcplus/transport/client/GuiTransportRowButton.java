@@ -75,7 +75,7 @@ public class GuiTransportRowButton extends GuiButtonNop {
         int iconY = this.getY() + (this.getHeight() - iconSize) / 2 + offY;
         ResourceLocationHolder.drawIcon(graphics, iconX, iconY, iconSize, iconName);
 
-        int color = selected ? 0xFFFFD700 : (hovered ? 0xFFAAAA00 : (textColor | 0xFF000000));
+        int color = textColor | 0xFF000000;
         String text = panel.cnpcplus$getDisplay(this.entryName);
         if (text == null) text = "";
         int textX = iconX + iconSize + 10;

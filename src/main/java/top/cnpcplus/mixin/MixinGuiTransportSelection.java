@@ -295,7 +295,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         graphics.drawString(font, "当前位置：",
                 TransportLayout.CURRENT_LABEL_X + top.cnpcplus.transport.TransportPanelStyle.curX(style),
                 TransportLayout.CURRENT_LABEL_Y + top.cnpcplus.transport.TransportPanelStyle.curY(style),
-                0xFFCCCCCC, false);
+                0xFF444444, false);
         int curSize = top.cnpcplus.transport.TransportPanelStyle.curSize(style);
         // 241t：当前位置文字用名字的样式区间
         top.cnpcplus.transport.client.TransportText.drawStyled(graphics, font,
@@ -323,19 +323,28 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         int ry = TransportLayout.IMG_FRAME_Y;
         int rw = TransportLayout.IMG_FRAME_W;
         int rh = TransportLayout.IMG_FRAME_H;
-        int sw = 0, sh = 0;   // 241z：源尺寸只认客户端纹理缓存
         String imgKey = meta == null ? "" : meta.getString(TransportKeys.IMAGE);
         if (!imgKey.isEmpty()) {
             TransportClientCache.requestImage(imgKey);
             var tex = TransportClientCache.imageId(imgKey);
             if (TransportClientCache.hasImage(imgKey) && tex != null) {
-                if (sw <= 0 || sh <= 0) {
-                    int[] size = TransportClientCache.imageSize(imgKey);
-                    if (size != null) { sw = size[0]; sh = size[1]; }
-                }
-                // 241w：不再用 scissor（等比缩放后图片本来就在框内，scissor 只会带来裁剪风险）
-                top.cnpcplus.transport.client.TransportImage.drawInFrame(graphics, tex, sw, sh,
-                        rx, ry, rw, rh);
+                // 源尺寸只认客户端纹理缓存
+                int[] size = TransportClientCache.imageSizeOf(tex);
+                int sw = size == null ? 0 : size[0];
+                int sh = size == null ? 0 : size[1];
+                int mode = meta.getInt(TransportKeys.IMAGE_MODE);
+                int offX = meta.getInt(TransportKeys.IMG_X);
+                int offY = meta.getInt(TransportKeys.IMG_Y);
+                // 设计坐标 → 屏幕坐标（面板整体 translate+scale），按图片框裁剪
+                double s = this.cnpcplus$scale;
+                int cx1 = (int) Math.floor(this.cnpcplus$originX + rx * s);
+                int cy1 = (int) Math.floor(this.cnpcplus$originY + ry * s);
+                int cx2 = (int) Math.ceil(this.cnpcplus$originX + (rx + rw) * s);
+                int cy2 = (int) Math.ceil(this.cnpcplus$originY + (ry + rh) * s);
+                graphics.enableScissor(cx1, cy1, cx2, cy2);
+                top.cnpcplus.transport.client.TransportImage.draw(graphics, tex, sw, sh,
+                        rx, ry, rw, rh, mode, offX, offY);
+                graphics.disableScissor();
             }
         }        // 图片框固定，画在图片之上
         graphics.blit(TransportAssets.IMAGE_FRAME,

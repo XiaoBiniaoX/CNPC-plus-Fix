@@ -33,7 +33,7 @@ public final class TransportAssets {
     public static final ResourceLocation ICON_DIR = new ResourceLocation("cnpcplus", TEX + "icons/");
 
     public static final int ROW_TEX_W = 372, ROW_TEX_H = 64;
-    public static final int ICON_TEX = 1920;
+    public static final int ICON_TEX = 256;
     public static final int CURRENT_ICON_TEX = 40;
     public static final int DEFAULT_ICON_TEX = 32;
 

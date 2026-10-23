@@ -6,18 +6,22 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import top.cnpcplus.config.CnpcPlusConfigData;
-import top.cnpcplus.perf.Config;
+import top.cnpcplus.config.CnpcPlusServerConfig;
 import top.cnpcplus.config.NpcAiOptimizerConfig;
+import top.cnpcplus.config.ServerConfigAccess;
+import top.cnpcplus.config.network.ConfigPacketHandler;
+import top.cnpcplus.config.network.PacketUpdateServerConfig;
+import top.cnpcplus.perf.Config;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Better_Modlist / Forge ConfigScreenFactory 用的客户端配置界面。
- * 只编辑 cnpcplus.toml 与 cnpcplus-perf.toml 中改完即生效的字段；
- * 保存时 ConfigValue.set() 会经 NightConfig autosave 落盘，perf 侧再手动 apply() 刷快照。
- * SERVER 配置（cnpcplus-server.toml）不在此界面，须在服务端存档配置目录修改。
+ * 客户端配置改完即生效；SERVER 配置通过 {@link PacketUpdateServerConfig}
+ * 交给服务端做权限校验后写入 cnpcplus-server.toml，并立即被服务端逻辑热读取。
  */
 public class CnpcPlusConfigScreen extends Screen {
 
@@ -27,6 +31,12 @@ public class CnpcPlusConfigScreen extends Screen {
     private final List<Row> rows = new ArrayList<>();
     private double scroll;
     private int contentHeight;
+
+    private boolean serverEditable;
+    private boolean serverRealArmor;
+    private EditBox serverTeleportRangeBox;
+    private EditBox serverMaxHiredBox;
+    private EditBox serverHireMessageBox;
 
     private record Row(String label, EditBox box, Button toggle) {
         static Row header(String label) { return new Row(label, null, null); }
@@ -56,6 +66,19 @@ public class CnpcPlusConfigScreen extends Screen {
         addInt("对话框选项间距", CnpcPlusConfigData.DialogOptionSpacing);
         addDouble("诗人口量 0~1", CnpcPlusConfigData.BardVolume);
         addInt("诗人看门狗秒", CnpcPlusConfigData.BardWatchdogSeconds);
+
+        serverEditable = minecraft != null && minecraft.level != null && minecraft.getConnection() != null;
+        addHeader(serverEditable
+                ? "服务端配置 cnpcplus-server.toml（需管理员）"
+                : "服务端配置（进入世界后可改）");
+        addServerBool("（NPC）真实护甲值",
+                ServerConfigAccess.bool(CnpcPlusServerConfig.RealArmorEnabled, false));
+        serverTeleportRangeBox = addServerInt("随从瞬移跟随距离",
+                ServerConfigAccess.integer(CnpcPlusServerConfig.FollowerTeleportRange, 12));
+        serverMaxHiredBox = addServerInt("玩家最大雇佣NPC数",
+                ServerConfigAccess.integer(CnpcPlusServerConfig.MaxHiredNpcs, 30));
+        serverHireMessageBox = addServerString("雇佣超限提示",
+                ServerConfigAccess.string(CnpcPlusServerConfig.HireLimitMessage, "你雇佣的人过多"));
 
         addHeader("性能配置 cnpcplus-perf.toml");
         addDouble("阴影半径上限", Config.shadowValue());
@@ -132,12 +155,62 @@ public class CnpcPlusConfigScreen extends Screen {
         addRenderableWidget(btn);
     }
 
+    private void addServerBool(String label, boolean initial) {
+        this.serverRealArmor = initial;
+        Button btn = Button.builder(Component.literal(initial ? "true" : "false"), b -> {
+            this.serverRealArmor = !this.serverRealArmor;
+            b.setMessage(Component.literal(this.serverRealArmor ? "true" : "false"));
+        }).bounds(0, 0, 56, 18).build();
+        btn.active = this.serverEditable;
+        rows.add(new Row(label, null, btn));
+        addRenderableWidget(btn);
+    }
+
+    private EditBox addServerInt(String label, int initial) {
+        EditBox box = new EditBox(font, 0, 0, 80, 18, Component.literal(label));
+        box.setValue(String.valueOf(initial));
+        box.setMaxLength(8);
+        box.setEditable(this.serverEditable);
+        rows.add(new Row(label, box, null));
+        addRenderableWidget(box);
+        return box;
+    }
+
+    private EditBox addServerString(String label, String initial) {
+        EditBox box = new EditBox(font, 0, 0, 200, 18, Component.literal(label));
+        if (initial != null && initial.length() > 128) initial = initial.substring(0, 128);
+        box.setValue(initial == null ? "" : initial);
+        box.setMaxLength(128);
+        box.setEditable(this.serverEditable);
+        rows.add(new Row(label, box, null));
+        addRenderableWidget(box);
+        return box;
+    }
+
     private void saveAll() {
         // perf 快照字段在 set() 后不会自动刷新，手动 apply 一次；
         // 主配置多数是每次 get() 热读，set() 即生效。
         Config.apply();
         // 合成分类改完要重载分类缓存
         top.cnpcplus.craftingview.Config.reload();
+        saveServerConfig();
+    }
+
+    private void saveServerConfig() {
+        if (!this.serverEditable) return;
+        int range = Mth.clamp(parseInt(this.serverTeleportRangeBox.getValue(), 12), 1, 64);
+        int maxHired = Mth.clamp(parseInt(this.serverMaxHiredBox.getValue(), 30), 1, 10000);
+        String message = this.serverHireMessageBox.getValue();
+        ConfigPacketHandler.CHANNEL.sendToServer(
+                new PacketUpdateServerConfig(this.serverRealArmor, range, maxHired, message));
+    }
+
+    private static int parseInt(String raw, int fallback) {
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     private void layoutRows() {
