@@ -9,7 +9,7 @@ public final class TransportLog {
     private TransportLog() {}
 
     /** 构建号：每次改传送 UI 就 +1，日志里能直接看出跑的是哪一版。 */
-    public static final String BUILD = "241z-10";
+    public static final String BUILD = "4.0.5-release";
 
     public static void banner() {
         String msg = "[cnpcplus] transport panel build=" + BUILD + " loaded";

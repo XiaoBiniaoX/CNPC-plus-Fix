@@ -180,6 +180,8 @@
   "cnpcplus.inspection.disabled": "视察：关",
   "cnpcplus.inspection.tooltip": "受伤且附近没有攻击者时，沿受击方向走近指定距离查看，然后恢复原有行为。",
   "cnpcplus.inspection.distance": "视察距离",
+  "cnpcplus.untargetable": "不会被NPC索敌",
+  "cnpcplus.untargetable.tooltip": "开启后任何NPC都不会将其选为攻击目标；不影响阵营关系。",
   "cnpcplus.script.promptweb": "脚本提示词",
   "cnpcplus.script.promptweb.tooltip": "AI网页版可用的免费CNPC脚本提示词",
   "cnpcplus.script.aiskills": "AI CNPC skills",

@@ -41,16 +41,6 @@ public abstract class MixinLivingEntityRealArmor {
         if (armor <= 0.0 && entity.getArmorValue() <= 0) return;
         armor = Math.max(armor, entity.getArmorValue());
         toughness = Math.max(toughness, entity.getAttributeValue(Attributes.ARMOR_TOUGHNESS));
-        if (!entity.level().isClientSide && armor > 0.0 && amount > 0.0f) {
-            int durability = Math.max(1, (int) Math.floor(amount / 4.0f));
-            for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
-                    EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-                ItemStack stack = entity.getItemBySlot(slot);
-                if (!stack.isEmpty() && stack.isDamageableItem()) {
-                    stack.hurtAndBreak(durability, entity, broken -> entity.broadcastBreakEvent(slot));
-                }
-            }
-        }
         cir.setReturnValue(CombatRules.getDamageAfterAbsorb(amount, (float) armor, (float) toughness));
     }
 

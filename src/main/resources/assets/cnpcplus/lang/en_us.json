@@ -180,6 +180,8 @@
   "cnpcplus.inspection.disabled": "Inspect: Off",
   "cnpcplus.inspection.tooltip": "When hurt with no attacker nearby, walk toward the hit direction for the configured distance, then resume normal behavior.",
   "cnpcplus.inspection.distance": "Inspect Distance",
+  "cnpcplus.untargetable": "Not NPC-targetable",
+  "cnpcplus.untargetable.tooltip": "When enabled, no NPC will select this NPC as an attack target. Faction relations are unaffected.",
   "cnpcplus.script.promptweb": "Script Prompts",
   "cnpcplus.script.promptweb.tooltip": "Free CNPC script prompts for AI web apps",
   "cnpcplus.script.aiskills": "AI CNPC skills",

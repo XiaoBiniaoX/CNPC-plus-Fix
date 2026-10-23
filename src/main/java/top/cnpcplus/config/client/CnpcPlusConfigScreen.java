@@ -194,6 +194,15 @@ public class CnpcPlusConfigScreen extends Screen {
         // 合成分类改完要重载分类缓存
         top.cnpcplus.craftingview.Config.reload();
         saveServerConfig();
+        saveAiOptimizerConfig();
+    }
+
+    private void saveAiOptimizerConfig() {
+        if (minecraft == null || minecraft.getSingleplayerServer() == null) return;
+        try {
+            NpcAiOptimizerConfig.SPEC.save();
+        } catch (Throwable ignored) {
+        }
     }
 
     private void saveServerConfig() {

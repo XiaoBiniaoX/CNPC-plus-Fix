@@ -180,6 +180,8 @@
   "cnpcplus.inspection.disabled": "Осмотр: Выкл",
   "cnpcplus.inspection.tooltip": "При получении урона без атакующего рядом идёт в сторону удара на заданное расстояние, затем возвращается к обычному поведению.",
   "cnpcplus.inspection.distance": "Дистанция осмотра",
+  "cnpcplus.untargetable": "Не цель для NPC",
+  "cnpcplus.untargetable.tooltip": "Если включено, ни один NPC не выберет этого NPC целью атаки. Отношения фракций не затрагиваются.",
   "cnpcplus.script.promptweb": "Промпты для скриптов",
   "cnpcplus.script.promptweb.tooltip": "Бесплатные промпты CNPC для веб-ИИ",
   "cnpcplus.script.aiskills": "Навыки AI CNPC",

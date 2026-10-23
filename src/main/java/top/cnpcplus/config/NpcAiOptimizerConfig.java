@@ -18,8 +18,8 @@ public final class NpcAiOptimizerConfig {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         builder.push("npcfix_ai");
         ENABLED = builder.comment("启用 NPC AI 性能优化；关闭后恢复原始频率。").define("enabled", true);
-        TARGET_SEARCH_INTERVAL_TICKS = builder.comment("NPC 仇恨搜索间隔（tick），默认20；最小4。").defineInRange("target_search_interval_ticks", 20, 4, 200);
-        STAGGER_TARGET_SEARCHES = builder.comment("按实体 ID 错峰仇恨搜索，避免同一 tick 集中扫描。").define("stagger_target_searches", true);
+        TARGET_SEARCH_INTERVAL_TICKS = builder.comment("已停用：仅保留旧配置兼容，不再限制索敌启动频率。").defineInRange("target_search_interval_ticks", 20, 4, 200);
+        STAGGER_TARGET_SEARCHES = builder.comment("已停用：仅保留旧配置兼容，不再影响索敌。").define("stagger_target_searches", true);
         MAX_EFFECTIVE_AGGRO_RANGE = builder.comment("有效仇恨范围上限；0 表示使用 NPC 原始 AggroRange。只做距离快速排除，不改变阵营规则。").defineInRange("max_effective_aggro_range", 0, 0, 128);
         builder.pop();
         builder.push("npcfix_events");
