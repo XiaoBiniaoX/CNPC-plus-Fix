@@ -5,7 +5,6 @@ import java.util.WeakHashMap;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.phys.Vec3;
 import noppes.npcs.NoppesUtilServer;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -36,10 +35,7 @@ public final class DamageInspectionController {
         synchronized (GOALS) { goal = GOALS.remove(npc); }
         if (goal == null) return;
         goal.cancel();
-        MobGoalSelectorAccess access = (MobGoalSelectorAccess) npc;
-        for (WrappedGoal wrapped : access.cnpcplus$getGoalSelector().getAvailableGoals()) {
-            if (wrapped.getGoal() == goal) access.cnpcplus$getGoalSelector().removeGoal(goal);
-        }
+        ((MobGoalSelectorAccess) npc).cnpcplus$getGoalSelector().removeGoal(goal);
     }
 
     public static void reset(EntityNPCInterface npc) {
