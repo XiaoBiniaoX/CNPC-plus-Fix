@@ -48,19 +48,23 @@ public final class TransportImage {
                 g.blit(tex, dx, dy, dw, dh, 0.0F, 0.0F, srcW, srcH, srcW, srcH);
             }
             case TransportKeys.MODE_TILE -> {
-                int cols = (w + srcW - 1) / srcW + 1;
-                int rows = (h + srcH - 1) / srcH + 1;
+                double s = Math.min(1.0, Math.min(w / (double) srcW, h / (double) srcH));
+                int tileW = Math.max(1, (int) Math.round(srcW * s));
+                int tileH = Math.max(1, (int) Math.round(srcH * s));
+
+                int cols = (w + tileW - 1) / tileW + 1;
+                int rows = (h + tileH - 1) / tileH + 1;
                 if ((long) cols * rows > MAX_TILES) {
                     drawFit(g, tex, srcW, srcH, x, y, w, h, offX, offY);
                     return;
                 }
                 int startX = x + offX;
                 int startY = y + offY;
-                while (startX > x) startX -= srcW;
-                while (startY > y) startY -= srcH;
-                for (int ty = startY; ty < y + h; ty += srcH) {
-                    for (int tx = startX; tx < x + w; tx += srcW) {
-                        g.blit(tex, tx, ty, srcW, srcH, 0.0F, 0.0F, srcW, srcH, srcW, srcH);
+                while (startX > x) startX -= tileW;
+                while (startY > y) startY -= tileH;
+                for (int ty = startY; ty < y + h; ty += tileH) {
+                    for (int tx = startX; tx < x + w; tx += tileW) {
+                        g.blit(tex, tx, ty, tileW, tileH, 0.0F, 0.0F, srcW, srcH, srcW, srcH);
                     }
                 }
             }
