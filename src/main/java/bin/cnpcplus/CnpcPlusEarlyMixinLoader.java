@@ -34,7 +34,10 @@ public class CnpcPlusEarlyMixinLoader implements IFMLLoadingPlugin, IEarlyMixinL
         // (FurnaceRecipes has a static SMELTING_BASE instance), so the smelting
         // hooks must be applied here or Mixin fails with
         // MixinTargetAlreadyLoadedException during PREPARE.
-        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json", "mixins.cnpcplus.early.ai.json");
+        // GuiScreen is touched by another coremod's early mixin during mod construction,
+        // so a DEFAULT-phase config targeting it dies with MixinTargetAlreadyLoadedException.
+        // The wheel forwarder must therefore live in the early phase.
+        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json", "mixins.cnpcplus.early.ai.json", "mixins.cnpcplus.early.crafting.json", "mixins.cnpcplus.early.gui.json");
     }
 
     @Override

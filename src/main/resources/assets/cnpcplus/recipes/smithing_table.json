@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["II", "PP", "PP"],
+  "key": {
+    "I": {"item":"minecraft:iron_ingot"},
+    "P": {"type":"forge:ore_dict","ore":"plankWood"}
+  },
+  "result": {"item":"cnpcplus:smithing_table"}
+}

@@ -10,8 +10,11 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * 修「返回起点时快到了却停顿一下再瞬移过去」（哈基彬需求 C-1）。
@@ -89,6 +92,59 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     @Shadow(remap = false) private double endPosZ;
     @Shadow(remap = false) private int stuckTicks;
     @Shadow(remap = false) private int stuckCount;
+    @Shadow(remap = false) private int totalTicks;
+
+    /** 路径节点容差大于精确回位容差；最后 1.5 格使用 MoveHelper 继续行走。 */
+    @Inject(method = "func_75246_d()V", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$walkFinalGap(CallbackInfo ci) {
+        if (!CnpcPlusConfig.isReturnHomeSmoothArrival() || this.npc.isAttacking()
+                || this.npc.isInteracting() || this.npc.isKilled() || this.npc.isRiding()
+                || this.npc.isBeingRidden()) return;
+        double dx = this.endPosX - this.npc.posX;
+        double dz = this.endPosZ - this.npc.posZ;
+        double distanceSq = dx * dx + dz * dz;
+        if (distanceSq <= 0.04D || distanceSq > 2.25D || !this.npc.getNavigator().noPath()) return;
+        this.totalTicks++;
+        this.stuckTicks = 0;
+        this.stuckCount = 0;
+        if (this.totalTicks > CnpcPlusConfig.getReturnHomeTimeoutTicks()) {
+            this.npc.setPosition(this.endPosX, this.endPosY, this.endPosZ);
+        } else {
+            this.npc.setCurrentAnimation(0);
+            this.npc.getMoveHelper().setMoveTo(this.endPosX, this.endPosY, this.endPosZ,
+                    Math.min(1.0D, Math.max(0.1D, Math.sqrt(distanceSq) * 1.5D)));
+        }
+        ci.cancel();
+    }
+
+    @Inject(method = "func_75253_b()Z", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$finishAtActualDestination(CallbackInfoReturnable<Boolean> cir) {
+        if (!CnpcPlusConfig.isReturnHomeSmoothArrival()) return;
+        if (this.npc.isFollower() || this.npc.isKilled() || this.npc.isAttacking()
+                || this.npc.isInteracting() || this.npc.isRiding() || this.npc.isBeingRidden()) {
+            cir.setReturnValue(false);
+            return;
+        }
+        double dx = this.endPosX - this.npc.posX;
+        double dz = this.endPosZ - this.npc.posZ;
+        if (this.totalTicks > CnpcPlusConfig.getReturnHomeTimeoutTicks()) {
+            this.npc.setPosition(this.endPosX, this.endPosY, this.endPosZ);
+            cir.setReturnValue(false);
+        } else {
+            cir.setReturnValue(dx * dx + dz * dz > 0.04D);
+        }
+    }
+
+    @Inject(method = "func_75251_c()V", at = @At("TAIL"), require = 1)
+    private void cnpcplus$restoreArrivalPose(CallbackInfo ci) {
+        if (CnpcPlusConfig.isReturnHomeSmoothArrival() && !this.npc.isKilled()
+                && !this.npc.isAttacking() && !this.npc.isInteracting()
+                && (!this.npc.ais.shouldReturnHome() || this.npc.isVeryNearAssignedPlace())) {
+            this.npc.setCurrentAnimation(this.npc.ais.getAnimation());
+            this.npc.updateHitbox();
+            this.npc.setPosition(this.npc.posX, this.npc.posY, this.npc.posZ);
+        }
+    }
 
     /** 本刻是否刚抑制了一次瞬移。用于把紧随其后的 clearPath 换成重新寻路。 */
     @Unique private boolean cnpcplus$suppressedTeleport;
@@ -124,7 +180,7 @@ public abstract class MixinEntityAIReturnSmoothArrival {
                     target = "Lnoppes/npcs/entity/EntityNPCInterface;func_70107_b(DDD)V"),
             remap = false, require = 1)
     private void cnpcplus$smoothArrival(EntityNPCInterface npc, double x, double y, double z) {
-        if (!this.cnpcplus$nearHome(npc)) {
+        if (!this.cnpcplus$nearHome(npc) || this.totalTicks > CnpcPlusConfig.getReturnHomeTimeoutTicks()) {
             this.cnpcplus$suppressedTeleport = false;
             if (npc != null) npc.setPosition(x, y, z);
             return;

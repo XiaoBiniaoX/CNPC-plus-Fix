@@ -39,6 +39,11 @@ public class CnpcPlus {
         MinecraftForge.EVENT_BUS.register(new QuestCompletionEvents());
         MinecraftForge.EVENT_BUS.register(new SmeltingBurnTimeHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDataPersistence());
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.fx.FxEngine.class);
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.melee.RangedBuffStore.class);
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.crafting.DropCrafting.class);
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.crafting.network.PacketRecipeUpload.class);
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.transport.TransportImages.class);
         SmeltingGuiOpener.register();
     }
 
@@ -46,6 +51,13 @@ public class CnpcPlus {
     @Mod.EventHandler
     public void onServerStopped(FMLServerStoppedEvent event) {
         SmeltingRecipeRegistry.clearCache();
+        bin.cnpcplus.fx.FxEngine.clear();
+        bin.cnpcplus.crafting.RecipeStore.clear();
+        bin.cnpcplus.crafting.DropCrafting.clear();
+        bin.cnpcplus.crafting.network.PacketRecipeUpload.clear();
+        bin.cnpcplus.data.NpcExternalData.clear();
+        bin.cnpcplus.villagertrade.TradeStore.clear();
+        bin.cnpcplus.transport.TransportImages.clear();
     }
 
     @Mod.EventHandler
@@ -53,6 +65,7 @@ public class CnpcPlus {
         RecipeGlobalBootstrap.onServerStarting(event.getServer());
         // Only now is CustomNpcs.Dir usable and vanilla recipe registration done.
         SmeltingRecipeRegistry.markReady();
+        bin.cnpcplus.crafting.RecipeStore.start();
         event.registerServerCommand(new CommandCnpcPlus());
     }
 }

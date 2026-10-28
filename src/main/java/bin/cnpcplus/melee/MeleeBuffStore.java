@@ -50,6 +50,13 @@ public final class MeleeBuffStore {
     public static final int MAX_AMPLIFIER = 255;
     public static final int MAX_SECONDS = 99999;
 
+    /** 238-4：哨兵「火」不是药水，命中直接点燃，等级忽略。 */
+    public static final String FIRE_KEY = "cnpcplus:fire";
+
+    public static boolean isFire(String registryName) {
+        return FIRE_KEY.equals(registryName);
+    }
+
     private static final Map<DataMelee, Map<String, int[]>> BUFFS =
             new WeakHashMap<DataMelee, Map<String, int[]>>();
     private static final Object LOCK = new Object();

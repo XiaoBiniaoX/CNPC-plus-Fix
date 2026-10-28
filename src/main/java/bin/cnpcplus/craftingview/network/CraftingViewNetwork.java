@@ -30,5 +30,15 @@ public final class CraftingViewNetwork {
         CHANNEL.registerMessage(PacketSmeltingSync.Handler.class, PacketSmeltingSync.class, nextId++, Side.CLIENT);
         CHANNEL.registerMessage(bin.cnpcplus.common.PacketLinkedScriptSync.Handler.class, bin.cnpcplus.common.PacketLinkedScriptSync.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(bin.cnpcplus.common.PacketLinkedScriptSync.ClientHandler.class, bin.cnpcplus.common.PacketLinkedScriptSync.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.crafting.network.PacketRecipeAction.Handler.class, bin.cnpcplus.crafting.network.PacketRecipeAction.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.crafting.network.PacketRecipeState.Handler.class, bin.cnpcplus.crafting.network.PacketRecipeState.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.crafting.network.PacketRecipeUpload.Handler.class, bin.cnpcplus.crafting.network.PacketRecipeUpload.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.spawner.PacketSpawnerAction.Handler.class, bin.cnpcplus.spawner.PacketSpawnerAction.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.villagertrade.PacketVillageAction.Handler.class, bin.cnpcplus.villagertrade.PacketVillageAction.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.villagertrade.PacketVillageState.Handler.class, bin.cnpcplus.villagertrade.PacketVillageState.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportMeta.Handler.class, bin.cnpcplus.transport.PacketTransportMeta.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportMeta.ClientHandler.class, bin.cnpcplus.transport.PacketTransportMeta.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportImage.Handler.class, bin.cnpcplus.transport.PacketTransportImage.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportImage.ClientHandler.class, bin.cnpcplus.transport.PacketTransportImage.class, nextId++, Side.CLIENT);
     }
 }

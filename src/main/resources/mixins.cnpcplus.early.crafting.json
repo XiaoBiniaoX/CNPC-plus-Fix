@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.crafting",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": ["MixinContainerRepairRecipes"],
+  "client": ["MixinGuiRepairRecipes"],
+  "injectors": {"defaultRequire": 1}
+}

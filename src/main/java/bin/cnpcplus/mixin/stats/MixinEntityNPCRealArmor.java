@@ -42,15 +42,7 @@ public abstract class MixinEntityNPCRealArmor {
         if (armor <= 0.0D && npc.getTotalArmorValue() <= 0) return;
         armor = Math.max(armor, npc.getTotalArmorValue());
         toughness = Math.max(toughness, npc.getEntityAttribute(SharedMonsterAttributes.ARMOR_TOUGHNESS).getAttributeValue());
-        if (!npc.world.isRemote && armor > 0.0D && amount > 0.0F) {
-            int durability = Math.max(1, (int) Math.floor(amount / 4.0F));
-            for (EntityEquipmentSlot slot : CNPCPLUS_ARMOR_SLOTS) {
-                ItemStack stack = npc.getItemStackFromSlot(slot);
-                if (!stack.isEmpty() && stack.isItemStackDamageable()) {
-                    stack.damageItem(durability, npc);
-                }
-            }
-        }
+        // 238-10：NPC 盔甲只参与减伤，不消耗耐久。
         cir.setReturnValue(CombatRules.getDamageAfterAbsorb(amount, (float) armor, (float) toughness));
     }
 

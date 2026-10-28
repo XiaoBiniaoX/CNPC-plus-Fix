@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.gui",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": [],
+  "client": [
+    "MixinGuiScreenSubGuiWheel"
+  ],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

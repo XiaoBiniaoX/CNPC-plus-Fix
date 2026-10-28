@@ -63,6 +63,10 @@ public class MixinEntityNPCInterfaceMeleeBuffs {
             int[] value = entry.getValue();
             if (value == null || value.length < 2) continue;
             // 注册名查不到 = 对应 mod 已被移除，跳过而不是崩。
+            if (MeleeBuffStore.isFire(entry.getKey())) {
+                victim.setFire(MeleeBuffStore.clampSeconds(value[1]));
+                continue;
+            }
             Potion potion = MeleeBuffStore.resolve(entry.getKey());
             if (potion == null) continue;
             // 秒 → ticks，与原版 :491 的 getEffectTime()*20 同一换算。

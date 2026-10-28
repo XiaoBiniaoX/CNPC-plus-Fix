@@ -62,7 +62,9 @@ public abstract class MixinDataStatsFloat implements IDataStatsFloatAccess {
         cnpcplus$maxHealth = health;
         this.maxHealth = Math.round(health);
         this.npc.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue((double) health);
-        this.npc.setHealth(this.npc.getMaxHealth());
+        if (this.npc.getHealth() > health) {
+            this.npc.setHealth(health);
+        }
         this.npc.updateClient = true;
     }
 

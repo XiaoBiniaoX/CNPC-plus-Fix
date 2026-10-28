@@ -9,6 +9,11 @@ public class CnpcPlusConfig {
 
     private static Configuration config;
 
+    public static boolean isTargetSearchOptimized() {
+        return config == null || config.getBoolean("npcTargetSearchOptimize", "performance", true,
+                "Skip impossible NPC target searches and avoid full candidate sorting; keep CNPC random search frequency");
+    }
+
     public static void init(File file) {
         config = new Configuration(file);
         load();
@@ -36,9 +41,15 @@ public class CnpcPlusConfig {
         config.getBoolean("interactPassthrough", "interact", true,
                 "Let held items (bow, food, potion) still work when the crosshair is on an NPC that has nothing to interact with");
         config.getBoolean("RealArmorEnabled", "realarmor", false,
-                "Apply equipped NPC armor, toughness and durability loss (server authoritative)");
+                "Apply equipped NPC armor and toughness without durability loss (server authoritative)");
         config.getBoolean("RealArmorOverrideCompanion", "realarmor", false,
                 "Also replace the companion role's original armor calculation");
+        config.getInt("MaxHiredNpcs", "follower", 30, 1, 10000,
+                "Maximum number of NPCs a single player may hire (1-10000)");
+        config.getString("HireLimitMessage", "follower", "你雇佣的人过多",
+                "Message shown when the player tries to hire beyond MaxHiredNpcs");
+        config.getInt("FollowerTeleportRange", "follower", 32, 0, 256,
+                "Teleport a following NPC to its owner when farther than this many blocks (0 = off)");
         config.getBoolean("returnHomeSmoothArrival", "ai", true,
                 "Walk the last steps back to the start point instead of pausing and teleporting when almost there");
         config.getFloat("returnHomeArrivalTolerance", "ai", 3.0F, 0.5F, 32.0F,
@@ -57,6 +68,8 @@ public class CnpcPlusConfig {
                 "Minimum ticks between two faction-defend scans on the same npc, limits AoE chain storms");
         config.getBoolean("npcRetargetCloser", "performance", true,
                 "Let an npc already in combat switch to a closer attacker instead of locking onto the first target");
+        config.getBoolean("npcTargetSearchOptimize", "performance", true,
+                "Skip impossible NPC target searches and avoid full candidate sorting; keep CNPC random search frequency");
         config.getBoolean("keepGlobalEntityRadius", "performance", true,
                 "Do not raise the global World.MAX_ENTITY_RADIUS for big npcs; compensate locally instead");
         config.getInt("getsAttackedScanRange", "performance", 12, 4, 16,
@@ -102,12 +115,28 @@ public class CnpcPlusConfig {
 
     public static boolean isRealArmorEnabled() {
         return config != null && config.getBoolean("RealArmorEnabled", "realarmor", false,
-                "Apply equipped NPC armor, toughness and durability loss (server authoritative)");
+                "Apply equipped NPC armor and toughness without durability loss (server authoritative)");
     }
 
     public static boolean isRealArmorOverrideCompanion() {
         return config != null && config.getBoolean("RealArmorOverrideCompanion", "realarmor", false,
                 "Also replace the companion role's original armor calculation");
+    }
+
+    public static int getMaxHiredNpcs() {
+        return config == null ? 30 : config.getInt("MaxHiredNpcs", "follower", 30, 1, 10000,
+                "Maximum number of NPCs a single player may hire (1-10000)");
+    }
+
+    public static String getHireLimitMessage() {
+        return config == null ? "你雇佣的人过多"
+                : config.getString("HireLimitMessage", "follower", "你雇佣的人过多",
+                        "Message shown when the player tries to hire beyond MaxHiredNpcs");
+    }
+
+    public static int getFollowerTeleportRange() {
+        return config == null ? 32 : config.getInt("FollowerTeleportRange", "follower", 32, 0, 256,
+                "Teleport a following NPC to its owner when farther than this many blocks (0 = off)");
     }
 
     public static void save() {

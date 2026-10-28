@@ -69,7 +69,9 @@ public abstract class MixinEntityNPCInterfaceStatsSync {
             }
             ((IDataStatsFloatAccess) self.stats).cnpcplus$setMaxHealthFloat(health);
             self.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue((double) health);
-            self.setHealth(self.getMaxHealth());
+            if (self.getHealth() > health) {
+                self.setHealth(health);
+            }
         }
     }
 }

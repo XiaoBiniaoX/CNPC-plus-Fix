@@ -1,0 +1,12 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "particle": "cnpcplus:blocks/smithing_table_front",
+    "down": "cnpcplus:blocks/smithing_table_bottom",
+    "up": "cnpcplus:blocks/smithing_table_top",
+    "north": "cnpcplus:blocks/smithing_table_front",
+    "south": "cnpcplus:blocks/smithing_table_front",
+    "east": "cnpcplus:blocks/smithing_table_side",
+    "west": "cnpcplus:blocks/smithing_table_side"
+  }
+}

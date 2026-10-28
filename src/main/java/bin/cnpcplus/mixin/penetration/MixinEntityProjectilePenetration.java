@@ -2,6 +2,8 @@ package bin.cnpcplus.mixin.penetration;
 
 import bin.cnpcplus.common.IProjectilePenetration;
 import bin.cnpcplus.common.IRangedPenetration;
+import bin.cnpcplus.melee.RangedBuffStore;
+import net.minecraft.entity.EntityLivingBase;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -167,6 +169,10 @@ public class MixinEntityProjectilePenetration implements IProjectilePenetration 
     private boolean cnpcplus$recordDamage(Entity target, DamageSource source, float amount) {
         boolean applied = target.attackEntityFrom(source, amount);
         cnpcplus$damageApplied = applied;
+        EntityProjectile self = (EntityProjectile) (Object) this;
+        if (applied && !self.world.isRemote && self.explosiveRadius == 0 && target instanceof EntityLivingBase) {
+            RangedBuffStore.apply(self, (EntityLivingBase) target);
+        }
         return applied;
     }
 

@@ -143,6 +143,11 @@ public class SubGuiMeleeBuffs extends SubGuiInterface
         Map<String, int[]> chosen = MeleeBuffStore.get(this.melee);
 
         List<String> availableList = new ArrayList<String>();
+        if (!chosen.containsKey(MeleeBuffStore.FIRE_KEY)) {
+            String fireDisplay = I18n.format("cnpcplus.melee.fire");
+            this.availableNames.put(fireDisplay, MeleeBuffStore.FIRE_KEY);
+            availableList.add(fireDisplay);
+        }
         for (Potion potion : Potion.REGISTRY) {
             String registry = MeleeBuffStore.nameOf(potion);
             if (registry == null) continue;
@@ -159,6 +164,16 @@ public class SubGuiMeleeBuffs extends SubGuiInterface
 
         List<String> selectedList = new ArrayList<String>();
         for (Map.Entry<String, int[]> entry : chosen.entrySet()) {
+            if (MeleeBuffStore.isFire(entry.getKey())) {
+                String fireBase = I18n.format("cnpcplus.melee.fire");
+                String fireDisplay = fireBase + " (" + entry.getValue()[1] + "s)";
+                if (this.selectedNames.containsKey(fireDisplay)) {
+                    fireDisplay = fireDisplay + " [" + entry.getKey() + "]";
+                }
+                this.selectedNames.put(fireDisplay, entry.getKey());
+                selectedList.add(fireDisplay);
+                continue;
+            }
             Potion potion = MeleeBuffStore.resolve(entry.getKey());
             String base = potion != null
                     ? cnpcplus$displayName(potion, entry.getKey())

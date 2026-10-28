@@ -8,6 +8,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.registries.ForgeRegistry;
 import net.minecraftforge.registries.IForgeRegistry;
+import net.minecraftforge.registries.IForgeRegistryEntry;
 import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 
@@ -108,16 +109,11 @@ public final class RecipeServices {
             removeMethod.setAccessible(true);
         } catch (Throwable ignored) {}
         try {
-            // package-private: int add(int id, V value, String owner)
-            addMethod = ForgeRegistry.class.getDeclaredMethod("add", int.class, Object.class, String.class);
+            // V extends IForgeRegistryEntry<V>，擦除后既不是 Object 也不是 IRecipe。
+            addMethod = ForgeRegistry.class.getDeclaredMethod("add", int.class, IForgeRegistryEntry.class, String.class);
             addMethod.setAccessible(true);
         } catch (Throwable t) {
-            try {
-                addMethod = ForgeRegistry.class.getDeclaredMethod("add", int.class, IRecipe.class, String.class);
-                addMethod.setAccessible(true);
-            } catch (Throwable t2) {
-                CnpcPlus.LOGGER.error("[RecipeServices] no add: " + t2);
-            }
+            CnpcPlus.LOGGER.error("[RecipeServices] no add: " + t);
         }
     }
 
