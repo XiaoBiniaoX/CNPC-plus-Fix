@@ -101,6 +101,8 @@ public final class TransportData {
         int size = source.hasKey("TextSize", 99) ? source.getInteger("TextSize") : -1;
         tag.setInteger("TextSize", size <= 0 ? -1 : Math.max(6, Math.min(48, size)));
         tag.setInteger(NAME_STAMP, Math.max(0, source.getInteger(NAME_STAMP)));
+        // -1 = 没被拖动过，客户端按名字 A-Z 排；拖动后写 0..n-1，随 transport.dat 落盘。
+        tag.setInteger("Order", source.hasKey("Order", 99) ? integer(source, "Order", -1, -1, 100000) : -1);
         return tag;
     }
     public static NBTTagCompound cleanPanel(NBTTagCompound source) {

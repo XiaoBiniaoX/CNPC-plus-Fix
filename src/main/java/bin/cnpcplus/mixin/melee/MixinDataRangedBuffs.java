@@ -18,11 +18,13 @@ public abstract class MixinDataRangedBuffs {
     private void cnpcplus$readBuffs(NBTTagCompound compound, CallbackInfo ci) {
         RangedBuffStore.read((DataRanged) (Object) this, compound);
         FxStore.read(this, compound, FxStore.PROJECTILE);
+        FxStore.readFollow(this, compound);
     }
 
     @Inject(method = "writeToNBT", at = @At("RETURN"))
     private void cnpcplus$writeBuffs(NBTTagCompound compound, CallbackInfoReturnable<NBTTagCompound> cir) {
         RangedBuffStore.write((DataRanged) (Object) this, cir.getReturnValue());
         FxStore.write(this, cir.getReturnValue(), FxStore.PROJECTILE);
+        FxStore.writeFollow(this, cir.getReturnValue());
     }
 }

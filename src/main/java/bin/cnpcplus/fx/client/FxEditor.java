@@ -2,6 +2,7 @@ package bin.cnpcplus.fx.client;
 
 import bin.cnpcplus.common.ISubGuiWheel;
 import bin.cnpcplus.fx.FxConfig;
+import bin.cnpcplus.fx.FxPresets;
 import bin.cnpcplus.fx.FxShape;
 import bin.cnpcplus.fx.ShapeType;
 import net.minecraft.client.gui.GuiButton;
@@ -29,6 +30,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
@@ -105,6 +107,11 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
 
     private final Consumer<List<FxConfig>> sink;
     private final List<FxConfig> edit;
+    /** 投掷物编辑器才有：跟随开关的读取/写回；其它入口传 null，面板不出现。 */
+    private final BooleanSupplier follow;
+    private final Consumer<Boolean> followSink;
+    /** 跟随开关的本地状态：和形状一样，点"完成"才写回，取消不影响原设置。 */
+    private boolean followValue;
     private final List<EnumParticleTypes> particles = new ArrayList<>();
     private final double[][] previews = new double[ShapeType.values().length][];
     private String particle;
@@ -112,7 +119,16 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
     private int leftWidth, rightX, rightWidth, cellWidth, visibleParticles;
 
     public FxEditor(Consumer<List<FxConfig>> sink, List<FxConfig> current) {
+        this(sink, current, null, null);
+    }
+
+    /** 投掷物入口：多一个"粒子跟随投掷物"开关和图案预设。 */
+    public FxEditor(Consumer<List<FxConfig>> sink, List<FxConfig> current,
+                    BooleanSupplier follow, Consumer<Boolean> followSink) {
         this.sink = sink;
+        this.follow = follow;
+        this.followSink = followSink;
+        this.followValue = follow != null && follow.getAsBoolean();
         this.edit = FxConfig.copy(current);
         this.drawDefaultBackground = false;
         this.closeOnEsc = true;
@@ -131,7 +147,7 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
         this.rightX = this.guiLeft + leftWidth + 10;
         this.rightWidth = this.xSize - leftWidth - 10;
         this.cellWidth = (rightWidth - 8) / 5;
-        this.visibleParticles = Math.max(1, (this.ySize - 23) / ROW);
+        this.visibleParticles = Math.max(1, listHeight() / ROW);
         if (particle == null && !particles.isEmpty()) particle = FxConfig.id(particles.get(0));
         for (int i = 0; i < LABELS.length; i++) {
             GuiNpcTextField field = new GuiNpcTextField(100 + i, this, this.getFontRenderer(), 0, 0,
@@ -147,6 +163,14 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
         this.addButton(new GuiNpcButton(24, rightX + rightWidth - 65, this.guiTop + 108, 18, 16, "<"));
         this.addButton(new GuiNpcButton(25, rightX + rightWidth - 45, this.guiTop + 108, 18, 16, ">"));
         this.addButton(new GuiNpcButton(26, rightX + 4, this.guiTop + this.ySize - 44, rightWidth - 8, 16, ""));
+        if (follow != null) {
+            // 投掷物专属：跟随开关放在左列底部（不挤压参数区），预设占右列一行。
+            this.addButton(new GuiNpcButton(30, this.guiLeft + 4, this.guiTop + this.ySize - 22, leftWidth - 8, 18, ""));
+            int presetWidth = (rightWidth - 11) / 4;
+            for (int i = 0; i < FxPresets.KEYS.length; i++) this.addButton(new GuiNpcButton(31 + i,
+                    rightX + 4 + i * (presetWidth + 1), this.guiTop + this.ySize - 66, presetWidth, 16,
+                    FxPresets.langKey(i)));
+        }
         clampScrolls();
         refresh();
     }
@@ -185,6 +209,9 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
         for (int i = 0; i < LABELS.length; i++) this.getTextField(100 + i).setText(shape == null ? "" : Double.toString(shape.values[i]));
         this.getButton(26).setDisplayText(shape != null && shape.inset ? "cnpcplus.fx.inset" : "cnpcplus.fx.outset");
         this.getButton(26).enabled = shape != null;
+        if (follow != null && this.getButton(30) != null) {
+            this.getButton(30).setDisplayText(followValue ? "cnpcplus.fx.follow.on" : "cnpcplus.fx.follow.off");
+        }
         clampScrolls();
         positionFields();
     }
@@ -232,7 +259,7 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
     protected void actionPerformed(GuiButton button) {
         flush();
         FxConfig config = config();
-        if (button.id == 20) { sink.accept(FxConfig.copy(edit)); this.close(); }
+        if (button.id == 20) { sink.accept(FxConfig.copy(edit)); if (followSink != null) followSink.accept(followValue); this.close(); }
         else if (button.id == 21) this.close();
         else if (button.id == 22 && shape() != null) {
             config.shapes.remove(shapeIndex);
@@ -242,7 +269,22 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
         else if ((button.id == 24 || button.id == 25) && config != null && !config.shapes.isEmpty()) {
             shapeIndex = Math.floorMod(shapeIndex + (button.id == 24 ? -1 : 1), config.shapes.size());
         } else if (button.id == 26 && shape() != null) shape().inset = !shape().inset;
+        else if (button.id == 30 && follow != null) followValue = !followValue;
+        else if (button.id >= 31 && button.id <= 34) applyPreset(button.id - 31);
         refresh();
+    }
+
+    /**
+     * 预设一键铺好形状（会覆盖当前粒子的形状），并顺手打开跟随——
+     * 这几个图案就是为了"跟着投掷物飞"设计的，不打开跟随时只是原地播。
+     */
+    private void applyPreset(int index) {
+        FxConfig config = configOrCreate();
+        if (config == null) return;
+        config.shapes.clear();
+        config.shapes.addAll(FxPresets.build(index));
+        shapeIndex = 0;
+        followValue = true;
     }
 
     // ---- 几何：绘制与命中检测共用同一套计算，避免画出去了点不到 ----
@@ -250,11 +292,13 @@ public final class FxEditor extends SubGuiInterface implements ITextfieldListene
     private int listTrackX() { return this.guiLeft + leftWidth - 7; }
     /** 列表从标题下沿 guiTop+18 开始，18px 一行，正好给 16x16 图标留 1px 上下留白。 */
     private int listTop() { return this.guiTop + 18; }
-    private int listHeight() { return this.ySize - 23; }
+    /** 投掷物模式下底部多一个跟随开关，列表让出 22px。 */
+    private int listHeight() { return this.ySize - 23 - (follow != null ? 22 : 0); }
     private int galleryTop() { return this.guiTop + 86; }
     private int galleryHeight() { return 7; }
     private int paramTop() { return this.guiTop + 128; }
-    private int paramHeight() { return this.ySize - 50 - 128; }
+    /** 预设行占掉底部一条，参数区相应缩短（滚动条仍然可用）。 */
+    private int paramHeight() { return this.ySize - (follow != null ? 70 : 50) - 128; }
     private int galleryMax() { return Math.max(0, (ShapeType.values().length + 1) / 2 - 5); }
     private int paramRows() { return Math.max(1, paramHeight() / 18); }
 

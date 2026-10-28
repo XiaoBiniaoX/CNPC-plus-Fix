@@ -10,7 +10,10 @@ import java.util.WeakHashMap;
 public final class FxStore {
     public static final String DEATH = "CNPCPlusDeathFx";
     public static final String PROJECTILE = "CNPCPlusProjectileFx";
+    /** 投掷物独有：粒子是否吸附在投掷物身上（跟着它飞），而不是在原地炸开。 */
+    public static final String PROJECTILE_FOLLOW = "CNPCPlusProjectileFollow";
     private static final Map<Object, List<FxConfig>> DATA = new WeakHashMap<>();
+    private static final Map<Object, Boolean> FOLLOW = new WeakHashMap<>();
 
     private FxStore() { }
 
@@ -25,6 +28,13 @@ public final class FxStore {
         else DATA.put(owner, Collections.unmodifiableList(copy));
     }
 
+    public static synchronized boolean follow(Object owner) { return Boolean.TRUE.equals(FOLLOW.get(owner)); }
+
+    public static synchronized void follow(Object owner, boolean value) {
+        if (value) FOLLOW.put(owner, Boolean.TRUE);
+        else FOLLOW.remove(owner);
+    }
+
     public static void read(Object owner, NBTTagCompound tag, String key) {
         put(owner, FxConfig.read(tag.getTagList(key, 10)));
     }
@@ -33,5 +43,14 @@ public final class FxStore {
         List<FxConfig> list = get(owner);
         if (list.isEmpty()) tag.removeTag(key);
         else tag.setTag(key, FxConfig.write(list));
+    }
+
+    public static void readFollow(Object owner, NBTTagCompound tag) {
+        follow(owner, tag.getBoolean(PROJECTILE_FOLLOW));
+    }
+
+    public static void writeFollow(Object owner, NBTTagCompound tag) {
+        if (follow(owner)) tag.setBoolean(PROJECTILE_FOLLOW, true);
+        else tag.removeTag(PROJECTILE_FOLLOW);
     }
 }

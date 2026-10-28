@@ -1,5 +1,6 @@
 package bin.cnpcplus.fx;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.event.world.WorldEvent;
@@ -28,11 +29,14 @@ public final class FxEngine {
     }
 
     private static final class Instance {
+        /** 非 null 时粒子跟着这个实体走（投掷物跟随），null 表示固定在 x/y/z。 */
+        final Entity owner;
         final double x, y, z;
         final long start;
         final List<Layer> layers = new ArrayList<>();
         int duration = 1, layer, point, totalPoints;
-        Instance(double x, double y, double z, long now, List<FxConfig> configs) {
+        Instance(Entity owner, double x, double y, double z, long now, List<FxConfig> configs) {
+            this.owner = owner;
             this.x = x; this.y = y; this.z = z; this.start = now;
             for (FxConfig config : FxConfig.copy(configs)) {
                 EnumParticleTypes type = FxConfig.resolve(config.particleId);
@@ -45,13 +49,28 @@ public final class FxEngine {
                 }
             }
         }
+        double px() { return owner != null && !owner.isDead ? owner.posX : x; }
+        double py() { return owner != null && !owner.isDead ? owner.posY : y; }
+        double pz() { return owner != null && !owner.isDead ? owner.posZ : z; }
     }
 
     public static void spawn(WorldServer world, double x, double y, double z, List<FxConfig> configs) {
         if (configs == null || configs.isEmpty()) return;
         List<Instance> queue = QUEUES.computeIfAbsent(world, ignored -> new ArrayList<>());
         if (queue.size() >= 32) return;
-        Instance instance = new Instance(x, y, z, world.getTotalWorldTime(), configs);
+        Instance instance = new Instance(null, x, y, z, world.getTotalWorldTime(), configs);
+        if (!instance.layers.isEmpty()) queue.add(instance);
+    }
+
+    /**
+     * 投掷物跟随：粒子点集每 tick 以实体当前位置为原点重新发射。
+     * 与 {@link #spawn} 的静态爆点共用同一套形状与预算，只是基准点跟着实体走。
+     */
+    public static void spawnFollow(WorldServer world, Entity owner, List<FxConfig> configs) {
+        if (owner == null || owner.isDead || configs == null || configs.isEmpty()) return;
+        List<Instance> queue = QUEUES.computeIfAbsent(world, ignored -> new ArrayList<>());
+        if (queue.size() >= 32) return;
+        Instance instance = new Instance(owner, owner.posX, owner.posY, owner.posZ, world.getTotalWorldTime(), configs);
         if (!instance.layers.isEmpty()) queue.add(instance);
     }
 
@@ -64,6 +83,8 @@ public final class FxEngine {
         int budget = 1024;
         for (Iterator<Instance> it = queue.iterator(); it.hasNext();) {
             Instance instance = it.next();
+            // 跟随实例：投掷物落地/被移除后立刻停，不留一圈悬空粒子。
+            if (instance.owner != null && (instance.owner.isDead || instance.owner.world != world)) { it.remove(); continue; }
             long age = world.getTotalWorldTime() - instance.start;
             if (age < 0 || age >= instance.duration) { it.remove(); continue; }
             if (budget > 0) budget -= drive(world, instance, age, Math.min(256, budget));
@@ -74,12 +95,13 @@ public final class FxEngine {
 
     private static int drive(WorldServer world, Instance instance, long age, int budget) {
         int sent = 0, visited = 0;
+        double baseX = instance.px(), baseY = instance.py(), baseZ = instance.pz();
         while (sent < budget && visited < instance.totalPoints) {
             Layer layer = instance.layers.get(instance.layer);
             int size = layer.points.length / 2;
             if (age < layer.shape.duration()) {
                 double[] point = layer.shape.transform(layer.points[instance.point * 2], layer.points[instance.point * 2 + 1], age);
-                world.spawnParticle(layer.particle, instance.x + point[0], instance.y + point[1], instance.z + point[2],
+                world.spawnParticle(layer.particle, baseX + point[0], baseY + point[1], baseZ + point[2],
                         1, 0.0D, 0.0D, 0.0D, 0.0D, new int[0]);
                 sent++;
                 instance.point++;

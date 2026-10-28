@@ -66,6 +66,9 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
     private float scale;
     private int originX, originY;
     private boolean ready, syncing, dirty, diskDirty, closed, draggingScroll, draggingImage, draggingSidebar;
+    /** 拖动排序：按下行 → 移动超过阈值才进入 rowDrag，松手才写 Order。 */
+    private boolean rowDrag;
+    private int rowPressId = -1, rowPressY;
     private int dragX, dragY, originalImageX, originalImageY;
     private long lastChange, lastClickTime;
     private int lastClickId = -1;
@@ -127,7 +130,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                     importPath.isEmpty() ? lastImportDir : importPath);
             path.setMaxStringLength(512); this.addTextField(path);
             this.addButton(new GuiNpcButton(60, this.width - 78, 4, 74, 18, "gui.save"));
-            for (int id : new int[]{70, 71, 72, 73, 80, 81, 82, 83, 84, 92}) this.addButton(new GuiNpcButton(id, 0, 0, 40, 18, ""));
+            for (int id : new int[]{70, 71, 72, 73, 80, 81, 82, 83, 84, 89, 90, 92}) this.addButton(new GuiNpcButton(id, 0, 0, 40, 18, ""));
         }
         syncWidgets();
         if (!ready) request();
@@ -161,7 +164,55 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         filtered.clear();
         for (Map.Entry<Integer, NBTTagCompound> entry : entries.entrySet()) if (!entry.getValue().getBoolean("Delete")
                 && Pinyin.matches(search, entry.getValue().getString("Name"))) filtered.add(entry.getKey());
+        filtered.sort(this::compareEntries);
         offset = Math.max(0, Math.min(Math.max(0, filtered.size() - 5), offset));
+    }
+
+    /**
+     * 默认按名字 A-Z；只要玩家拖过一次，服务端就会给所有点位写入 Order，
+     * 之后按 Order 排。没有 Order 的新点位排在有序点位之后（仍按 A-Z）。
+     */
+    private int compareEntries(int left, int right) {
+        NBTTagCompound a = entries.get(left), b = entries.get(right);
+        if (a == null || b == null) return Integer.compare(left, right);
+        int orderA = a.getInteger("Order"), orderB = b.getInteger("Order");
+        if (orderA != orderB) {
+            if (orderA < 0) return 1;
+            if (orderB < 0) return -1;
+            return Integer.compare(orderA, orderB);
+        }
+        int name = a.getString("Name").compareToIgnoreCase(b.getString("Name"));
+        return name != 0 ? name : Integer.compare(left, right);
+    }
+
+    /** 拖动结束后把当前可见顺序写成 Order：0..n-1，一次提交整张表。 */
+    private void commitOrder() {
+        int order = 0;
+        for (int id : filtered) {
+            NBTTagCompound entry = entries.get(id);
+            if (entry == null) continue;
+            entry.setInteger("Order", order++);
+            dirtyEntries.add(id);
+        }
+        if (order == 0) return;
+        dirty = true; diskDirty = true; lastChange = 0;
+        hint = I18n.format("cnpcplus.transport.order_saved");
+        applyFilter(); syncWidgets();
+    }
+
+    /** 拖动中的实时预览：先动 filtered，松手才写 NBT。搜索状态下顺序不可见，直接禁用。 */
+    private void dragRow(int y) {
+        if (!editor || rowPressId < 0 || !search.isEmpty()) return;
+        if (!rowDrag && Math.abs(y - rowPressY) < 6) return;
+        rowDrag = true;
+        int dy = (int) ((y - originY) / scale);
+        int target = Math.max(0, Math.min(filtered.size() - 1, offset + Math.floorDiv(dy - 98, 70)));
+        int from = filtered.indexOf(rowPressId);
+        if (from < 0 || from == target) return;
+        filtered.remove(from);
+        filtered.add(target, rowPressId);
+        if (target < offset) offset = target;
+        else if (target >= offset + 5) offset = target - 4;
     }
     private void changed(boolean entry) {
         if (!ready || syncing) return;
@@ -297,8 +348,11 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         button(83, 4, 102, width - 16, iconMode == 0 ? "cnpcplus.transport.icon.normal" : "cnpcplus.transport.icon.selected", element == 4);
         button(84, 4, 124, width - 16, "cnpcplus.transport.mode." + selectedMeta().getInteger("ImageMode"), image);
         String[] styles = {"B", "U", "I", "gui.reset"};
-        for (int i = 0; i < 4; i++) button(70 + i, 4 + i * (width - 16) / 4, 210, (width - 20) / 4, styles[i], text);
-        button(92, 4, 278, width - 16, "cnpcplus.transport.delete", element == 0 && selected != current.getInteger("Id"));
+        // 先"应用/清除颜色"，再样式，最后调色板：顺序固定，滚动时一起移动。
+        for (int i = 0; i < 4; i++) button(70 + i, 4 + i * (width - 16) / 4, 228, (width - 20) / 4, styles[i], text);
+        button(90, 4, 206, half, "cnpcplus.transport.apply_color", text);
+        button(89, half + 10, 206, half, "cnpcplus.transport.clear_color", text);
+        button(92, 4, 312, width - 16, "cnpcplus.transport.delete", element == 0 && selected != current.getInteger("Id"));
     }
 
     @Override public void textUpdate(String text) {
@@ -337,7 +391,9 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                 if (previous < 0) previous = panel.getInteger("RowColor");
                 if (value == previous) return;
                 if (element == 0) selectedMeta().setInteger("TextColor", value); else panel.setInteger(prefix() + "Color", value);
-                changed(element == 0); format(value, 0, false);
+                // 只改"基础颜色"；要刷到具体文字上请框选后用"应用颜色"，
+                // 免得在输入框里改个默认色就把整段已上色的文本覆盖掉。
+                changed(element == 0);
             } else if (field == getTextField(66)) {
                 // 这里现在同时接受内置图标名和"相对资源路径"：
                 //   portal            → 内置图标（icons.txt 里的一格）
@@ -398,13 +454,60 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         GuiNpcTextField path = getTextField(68);
         if (path != null && path.enabled) unFocused(path);
     }
+    /**
+     * 仿 IBE 的文本编辑器：所有上色/样式只作用于**框选**范围。
+     * 以前没有选区就当成"整段"，点一下色块整段变色，是"扎手"的主要来源。
+     */
+    private int[] selection(int length) {
+        if (area == null) return null;
+        int start = Math.max(0, Math.min(length, area.getSelectionBeforeText().length()));
+        int end = Math.max(start, Math.min(length, length - area.getSelectionAfterText().length()));
+        return end > start ? new int[]{start, end} : null;
+    }
+
     private void format(int color, int flags, boolean reset) {
         if (!textElement() || area == null) return;
+        // 键盘输入不会回调 textUpdate，先把文本框现状写回 NBT，否则选区下标是按旧正文算的。
+        syncText();
         String text = contentTag().getString(contentKey());
-        int start = Math.min(text.length(), area.getSelectionBeforeText().length());
-        int end = Math.max(start, text.length() - area.getSelectionAfterText().length());
-        contentTag().setString(spansKey(), TransportText.apply(contentTag().getString(spansKey()), text.length(), start, end, color, flags, reset));
+        int[] range = selection(text.length());
+        if (range == null) {
+            // 只有"重置"保留整段语义（玩家点重置就是想把这一项恢复默认）；
+            // 上色/加粗必须先框选，避免一次点击把整段改掉。
+            if (!reset || text.isEmpty()) { hint = I18n.format("cnpcplus.transport.select_first"); return; }
+            range = new int[]{0, text.length()};
+        }
+        String spans = contentTag().getString(spansKey());
+        String value = reset ? TransportText.style(spans, text.length(), range[0], range[1], 0, true)
+                : color >= 0 ? TransportText.color(spans, text.length(), range[0], range[1], color)
+                : TransportText.style(spans, text.length(), range[0], range[1], flags, false);
+        if (value.equals(spans)) return;
+        contentTag().setString(spansKey(), value);
         changed(element != 3);
+    }
+
+    /** 清除选区颜色，其余位置的颜色保持不变（IBE 的 removeColorFormatting）。 */
+    private void clearColor() {
+        if (!textElement() || area == null) return;
+        syncText();
+        String text = contentTag().getString(contentKey());
+        int[] range = selection(text.length());
+        if (range == null) { hint = I18n.format("cnpcplus.transport.select_first"); return; }
+        String spans = contentTag().getString(spansKey());
+        String value = TransportText.clear(spans, text.length(), range[0], range[1]);
+        if (value.equals(spans)) { hint = I18n.format("cnpcplus.transport.color_cleared"); return; }
+        contentTag().setString(spansKey(), value);
+        changed(element != 3);
+        hint = I18n.format("cnpcplus.transport.color_cleared");
+    }
+
+    /** 把 RGB 输入框里的颜色刷到选区；输入框本身只决定"基础颜色"。 */
+    private void applyColorField() {
+        GuiNpcTextField field = getTextField(65);
+        if (field == null) return;
+        try {
+            format(Integer.parseInt(field.getText().replace("#", "").trim(), 16) & 0xFFFFFF, 0, false);
+        } catch (NumberFormatException ignored) { hint = I18n.format("cnpcplus.transport.color_invalid"); }
     }
 
     @Override public void buttonEvent(GuiButton button) {
@@ -412,6 +515,8 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         if (button.id == 60) { flushFields(); sendSave(true); hint = I18n.format("cnpcplus.transport.saving"); }
         if (button.id == 80) { flushFields(); element = (element + 1) % 8; sidebarScroll = 0; syncWidgets(); }
         if (button.id >= 70 && button.id <= 73) format(-1, button.id == 70 ? 1 : button.id == 71 ? 2 : 4, button.id == 73);
+        if (button.id == 89) clearColor();
+        if (button.id == 90) applyColorField();
         if (button.id == 81) chooseImage();
         if (button.id == 82) { imageTag().setString(imageKey(), ""); changed(element == 4 || element == 7); syncWidgets(); }
         if (button.id == 83) { iconMode = 1 - iconMode; syncWidgets(); }
@@ -504,7 +609,12 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         for (int row = 0; row < 5 && row + offset < filtered.size(); row++) {
             int id = filtered.get(row + offset), y = 98 + row * 70;
             NBTTagCompound entry = meta(id);
-            TransportAssets.draw(id == selected ? "row_bg.png" : "row_normal.png", 86, y, 372, 64);
+            boolean lifted = rowDrag && id == rowPressId;
+            TransportAssets.draw(id == selected || lifted ? "row_bg.png" : "row_normal.png", 86, y, 372, 64);
+            if (editor) {
+                // 左侧小“把手”：提示这一行可以拖动排序。
+                for (int line = 0; line < 3; line++) drawRect(77, y + 28 + line * 3, 83, y + 29 + line * 3, lifted ? 0xFFFFFFFF : 0xFF888888);
+            }
             String key = id == selected && !entry.getString("IconSel").isEmpty() ? entry.getString("IconSel") : entry.getString("Icon");
             int iconSize = 40 * entry.getInteger("IconSize") / 100;
             icon(key, 94 + (40 - iconSize) / 2, y + 12 + (40 - iconSize) / 2, iconSize, "default_icon.png");
@@ -594,14 +704,25 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
 
     private void drawSidebar() {
         this.getFontRenderer().drawString(I18n.format("cnpcplus.transport.edit"), 5, 8, 0xFFFFFF);
+        if (editor && search.isEmpty()) this.getFontRenderer().drawString(I18n.format("cnpcplus.transport.order_hint"), 5, 19, 0x999999);
         int y = -sidebarScroll;
         if (textElement()) {
             label("cnpcplus.transport.size", 4, 144 + y); label("X", 4, 166 + y); label("Y", (sidebarWidth() - 18) / 2 + 14, 166 + y);
             label("RGB", 4, 188 + y);
+            label("cnpcplus.transport.palette", 4, 250 + y);
             for (int i = 0; i < PALETTE.length; i++) {
-                int px = 6 + (i % 8) * 18, py = 238 + (i / 8) * 18 + y;
-                if (py >= 26 && py + 14 < this.height - 24) drawRect(px, py, px + 14, py + 14, 0xFF000000 | PALETTE[i]);
+                int px = 6 + (i % 8) * 18, py = 254 + (i / 8) * 18 + y;
+                if (py >= 26 && py + 14 < this.height - 24) {
+                    drawRect(px, py, px + 14, py + 14, 0xFF000000 | PALETTE[i]);
+                    drawRect(px, py, px + 14, py + 1, 0xFF000000);
+                    drawRect(px, py + 13, px + 14, py + 14, 0xFF000000);
+                }
             }
+            int[] range = selection(contentTag().getString(contentKey()).length());
+            String selectedText = range == null ? I18n.format("cnpcplus.transport.select_hint")
+                    : I18n.format("cnpcplus.transport.selection", range[1] - range[0]);
+            if (292 + y >= 26 && 302 + y < this.height - 24)
+                this.getFontRenderer().drawString(this.getFontRenderer().trimStringToWidth(selectedText, sidebarWidth() - 10), 5, 292 + y, 0xBBBBBB);
         } else {
             label("cnpcplus.transport.percent", 4, (element == 7 ? 156 : 134) + y);
             if (element == 7) {
@@ -628,7 +749,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         }
     }
     private void label(String key, int x, int y) { if (y >= 26 && y + 10 < this.height - 24) this.getFontRenderer().drawString(I18n.format(key), x, y, 0xDDDDDD); }
-    private int sidebarHeight() { return textElement() ? 304 : element == 7 ? 224 : 160 + (TransportAssets.ICONS.size() + Math.max(1, (sidebarWidth() - 12) / 30) - 1) / Math.max(1, (sidebarWidth() - 12) / 30) * 30; }
+    private int sidebarHeight() { return textElement() ? 336 : element == 7 ? 224 : 160 + (TransportAssets.ICONS.size() + Math.max(1, (sidebarWidth() - 12) / 30) - 1) / Math.max(1, (sidebarWidth() - 12) / 30) * 30; }
 
     @Override public void mouseClicked(int x, int y, int button) throws IOException {
         if (!ready) { super.mouseClicked(x, y, button); return; }
@@ -637,8 +758,9 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                 draggingSidebar = true; sidebarAt(y); return;
             }
             int logicalY = y + sidebarScroll;
-            if (button == 0 && textElement() && logicalY >= 238 && logicalY < 272 && x >= 6 && x < 150) {
-                int index = (logicalY - 238) / 18 * 8 + (x - 6) / 18;
+            // 调色板 16 格 = 2 行（254/272），点到行外一律忽略。
+            if (button == 0 && textElement() && logicalY >= 254 && logicalY < 254 + ((PALETTE.length + 7) / 8) * 18 && x >= 6 && x < 150) {
+                int index = (logicalY - 254) / 18 * 8 + (x - 6) / 18;
                 if (index < PALETTE.length) { format(PALETTE[index], 0, false); return; }
             }
             if (button == 0 && element >= 4 && element <= 6 && logicalY >= 154 && y >= 26 && y < this.height - 24) {
@@ -652,7 +774,8 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         int dx = (int) ((x - originX) / scale), dy = (int) ((y - originY) / scale);
         if (button == 0 && ready && (!editor || x >= sidebarWidth())) {
             if (dx >= 458 && dx <= 478 && dy >= 96 && dy <= 436) { draggingScroll = true; scrollAt(dy); return; }
-            if (dx >= 86 && dx < 458 && dy >= 98 && dy < 442) {
+            // 编辑器里行左侧还画了拖动手柄（77..83），命中区一起放宽到 74，免得按在手柄上没反应。
+            if (dx >= (editor ? 74 : 86) && dx < 458 && dy >= 98 && dy < 442) {
                 int row = (dy - 98) / 70, index = offset + row;
                 if (row < 5 && index < filtered.size()) {
                     flushFields(); int id = filtered.get(index); long now = System.currentTimeMillis();
@@ -661,7 +784,11 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                         CraftingViewNetwork.CHANNEL.sendToServer(new PacketTransportMeta(npcId, PacketTransportMeta.TRAVEL, tag)); close(); return;
                     }
                     selected = id; lastClickId = id; lastClickTime = now;
-                    if (editor) { element = dx < 142 ? 4 : 0; sidebarScroll = 0; syncWidgets(); }
+                    if (editor) {
+                        // 记录按下点：鼠标纵向移动超过阈值就进入拖动排序，松手才写 Order。
+                        rowPressId = id; rowPressY = y; rowDrag = false;
+                        element = dx < 142 ? 4 : 0; sidebarScroll = 0; syncWidgets();
+                    }
                     return;
                 }
             }
@@ -687,7 +814,8 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         positionWidgets();
     }
     @Override protected void mouseClickMove(int x, int y, int button, long time) {
-        if (draggingSidebar) sidebarAt(y);
+        if (rowPressId >= 0) dragRow(y);
+        else if (draggingSidebar) sidebarAt(y);
         else if (draggingScroll) scrollAt((int) ((y - originY) / scale));
         else if (draggingImage && editor) {
             selectedMeta().setInteger("ImgX", Math.max(-2000, Math.min(2000, originalImageX + (int) ((x - originX) / scale) - dragX)));
@@ -695,7 +823,11 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
             changed(true); syncWidgets();
         } else super.mouseClickMove(x, y, button, time);
     }
-    @Override protected void mouseReleased(int x, int y, int button) { draggingScroll = false; draggingImage = false; draggingSidebar = false; super.mouseReleased(x, y, button); }
+    @Override protected void mouseReleased(int x, int y, int button) {
+        if (rowDrag) commitOrder();
+        rowDrag = false; rowPressId = -1;
+        draggingScroll = false; draggingImage = false; draggingSidebar = false; super.mouseReleased(x, y, button);
+    }
     @Override public void handleMouseInput() throws IOException {
         super.handleMouseInput(); int wheel = Mouse.getEventDWheel(); if (wheel == 0) return;
         int x = Mouse.getEventX() * this.width / this.mc.displayWidth, y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;

@@ -29,12 +29,14 @@ public abstract class MixinEntityProjectileBuffs {
     private void cnpcplus$snapshotRangedBuffs(DataRanged ranged, CallbackInfo ci) {
         RangedBuffStore.snapshot(ranged, (EntityProjectile) (Object) this);
         FxStore.put(this, FxStore.get(ranged));
+        FxStore.follow(this, FxStore.follow(ranged));
     }
 
     @Inject(method = "func_70014_b", at = @At("TAIL"), require = 1)
     private void cnpcplus$writeRangedBuffs(NBTTagCompound tag, CallbackInfo ci) {
         RangedBuffStore.write(this, tag);
         FxStore.write(this, tag, FxStore.PROJECTILE);
+        FxStore.writeFollow(this, tag);
         tag.setBoolean("CNPCPlusTrailStopped", this.cnpcplus$trailStopped);
     }
 
@@ -42,6 +44,7 @@ public abstract class MixinEntityProjectileBuffs {
     private void cnpcplus$readRangedBuffs(NBTTagCompound tag, CallbackInfo ci) {
         RangedBuffStore.read(this, tag);
         FxStore.read(this, tag, FxStore.PROJECTILE);
+        FxStore.readFollow(this, tag);
         this.cnpcplus$trailStopped = tag.getBoolean("CNPCPlusTrailStopped");
     }
 
@@ -53,7 +56,8 @@ public abstract class MixinEntityProjectileBuffs {
         if (now < this.cnpcplus$nextTrailTick || FxStore.get(self).isEmpty()) return;
         int duration = 1;
         for (FxConfig config : FxStore.get(self)) for (FxShape shape : config.shapes) duration = Math.max(duration, shape.duration());
-        FxEngine.spawn((WorldServer) self.world, self.posX, self.posY, self.posZ, FxStore.get(self));
+        if (FxStore.follow(self)) FxEngine.spawnFollow((WorldServer) self.world, self, FxStore.get(self));
+        else FxEngine.spawn((WorldServer) self.world, self.posX, self.posY, self.posZ, FxStore.get(self));
         this.cnpcplus$nextTrailTick = now + duration;
     }
 

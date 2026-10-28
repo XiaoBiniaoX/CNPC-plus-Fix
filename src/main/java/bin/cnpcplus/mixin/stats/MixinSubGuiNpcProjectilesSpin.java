@@ -79,7 +79,9 @@ public abstract class MixinSubGuiNpcProjectilesSpin extends SubGuiInterface {
     @Inject(method = "func_146284_a", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$openRangedEffects(GuiButton button, CallbackInfo ci) {
         if (button.id == 5) {
-            this.setSubGui(new FxEditor(list -> FxStore.put(this.stats, list), FxStore.get(this.stats)));
+            DataRanged stats = this.stats;
+            this.setSubGui(new FxEditor(list -> FxStore.put(stats, list), FxStore.get(stats),
+                    () -> FxStore.follow(stats), value -> FxStore.follow(stats, value)));
             ((GuiNpcButton) button).setDisplayText("cnpcplus.fx.edit");
             ci.cancel();
             return;

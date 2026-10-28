@@ -23,10 +23,29 @@ public final class TransportText {
         return styles;
     }
     /** 文本长度变化后把样式裁到新长度：否则删掉的字数会把旧颜色留给之后新输入的字。 */
-    public static String trim(String raw, int length) { return apply(raw, length, 0, 0, -1, 0, false); }
+    public static String trim(String raw, int length) {
+        int size = Math.max(0, length);
+        return serialize(styles(raw, size), size);
+    }
+    /** 给选区上色（IBE 的 addColorFormatting）：只改颜色，不动粗体/斜体。 */
+    public static String color(String raw, int length, int start, int end, int rgb) {
+        return apply(raw, length, start, end, rgb & 0xFFFFFF, 0, false);
+    }
+    /** 清除选区颜色（IBE 的 removeColorFormatting）：把这段从颜色区间里挖掉，其余颜色保留。 */
+    public static String clear(String raw, int length, int start, int end) {
+        start = Math.max(0, Math.min(length, start)); end = Math.max(start, Math.min(length, end));
+        if (start >= end) return raw;
+        int[][] styles = styles(raw, length);
+        for (int i = start; i < end; i++) styles[0][i] = -1;
+        return serialize(styles, length);
+    }
+    /** 切换选区样式；reset=true 时把选区恢复成默认（颜色 + 全部样式）。 */
+    public static String style(String raw, int length, int start, int end, int flag, boolean reset) {
+        return apply(raw, length, start, end, -1, flag, reset);
+    }
     public static String apply(String raw, int length, int start, int end, int color, int flag, boolean reset) {
         start = Math.max(0, Math.min(length, start)); end = Math.max(start, Math.min(length, end));
-        if (start == end) { start = 0; end = length; }
+        if (start >= end) return raw;
         int[][] styles = styles(raw, length);
         boolean remove = flag != 0;
         for (int i = start; i < end; i++) remove &= (styles[1][i] & flag) == flag;
@@ -37,6 +56,11 @@ public final class TransportText {
                 if (flag != 0) styles[1][i] = remove ? styles[1][i] & ~flag : styles[1][i] | flag;
             }
         }
+        return serialize(styles, length);
+    }
+
+    /** 逐字符样式重新压成区间串；相邻同值自动合并，越界区间自然消失。 */
+    private static String serialize(int[][] styles, int length) {
         StringBuilder result = new StringBuilder();
         for (int from = 0; from < length;) {
             int to = from + 1;
