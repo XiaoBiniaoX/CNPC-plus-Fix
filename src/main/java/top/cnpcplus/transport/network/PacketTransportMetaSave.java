@@ -12,6 +12,7 @@ import top.cnpcplus.transport.TransportKeys;
 import top.cnpcplus.transport.TransportPanelMeta;
 import top.cnpcplus.transport.TransportPanelStyle;
 import top.cnpcplus.transport.TransportVisualMeta;
+import top.cnpcplus.transport.TransportOrder;
 
 import java.util.function.Supplier;
 
@@ -71,7 +72,14 @@ public class PacketTransportMetaSave {
                     cur = new CompoundTag();
                     style.cnpcplus$setPanel(cur);
                 }
-                TransportPanelStyle.merge(cur, this.panel);
+                CompoundTag incoming = this.panel.copy();
+                if (incoming.contains(TransportOrder.KEY)) {
+                    int[] ids = incoming.getIntArray(TransportOrder.KEY);
+                    if (ids.length > 4096) incoming.remove(TransportOrder.KEY);
+                    else incoming.putIntArray(TransportOrder.KEY, java.util.Arrays.stream(ids)
+                            .filter(own.category.locations::containsKey).distinct().toArray());
+                }
+                TransportPanelStyle.merge(cur, incoming);
             }
 
             java.util.Set<Integer> liveIds = TransportNpcLookup.liveTransportIds(player);

@@ -20,7 +20,7 @@ import java.util.Map;
  * 弹射物粒子尾迹跟踪器（234 派发「尾迹类型则复用我们的粒子框架，
  * 将掉落物对象变更为投掷物而已」）。
  *
- * <h3>语义：周期钉地 burst 拖尾</h3>
+ * <h3>默认：周期钉地 burst 拖尾（旧存档不变）</h3>
  * 发射时登记（快照已由 {@code MixinEntityProjectileBuffs} 在
  * {@code getStatProperties} 处拷好），<b>立即在弹射物当前位置 spawn 第一组形状</b>；
  * 之后每 {@code cycleLen} tick（=配置里最长形状 duration）在弹射物<b>当时的位置</b>
@@ -28,11 +28,10 @@ import java.util.Map;
  * 形状本身留在世界坐标（与掉落物合成特效同语义），不跟随实体旋转/俯仰
  * （{@code ShapeType.sample} 只有 XZ 平面，见规划「开放项 4」）。
  *
- * <h3>为什么不改引擎</h3>
- * {@link DropFxEngine#spawn} 只要 ServerLevel+坐标+配置，天然可复用；
- * 本类只负责「什么时候、在哪个坐标、再叫一次 spawn」，引擎的实例上限、
- * 点预算、生命周期全部继续生效（同屏 32 实例/1024 点每 tick 自动节流）。
- * 因此独立 {@code @SubscribeEvent}，引擎类零改动。
+ * <h3>可选：粒子跟随投掷物</h3>
+ * 开启时只登记一个{@link DropFxEngine#spawnFollowing}实例，由引擎按实体实时位置
+ * 持续生成，并按各形状时长循环；已生成粒子不被搬移。两种模式均复用引擎的实例上限、
+ * 点预算及ServerStopped清理，不随实体旋转/俯仰。
  *
  * <h3>上限与清理</h3>
  * 同时跟踪 ≤ {@link #MAX_TRACKED}（防 50 张弓齐射把地图灌满，超限丢弃+debug）；
@@ -55,11 +54,13 @@ public final class ProjectileFxTracker {
         final List<DropFxConfig> fxs;
         final long cycleLen;
         long lastSpawnTick;
+        final boolean follow;
 
-        Track(List<DropFxConfig> fxs, long cycleLen, long lastSpawnTick) {
+        Track(List<DropFxConfig> fxs, long cycleLen, long lastSpawnTick, boolean follow) {
             this.fxs = fxs;
             this.cycleLen = cycleLen;
             this.lastSpawnTick = lastSpawnTick;
+            this.follow = follow;
         }
     }
 
@@ -69,6 +70,10 @@ public final class ProjectileFxTracker {
      * 与原版 int 字段发射时拷贝语义一致）。
      */
     public static void track(Entity projectile, List<DropFxConfig> fxs) {
+        track(projectile, fxs, false);
+    }
+
+    public static void track(Entity projectile, List<DropFxConfig> fxs, boolean follow) {
         if (projectile == null || fxs == null || fxs.isEmpty()) return;
         if (!(projectile.level() instanceof ServerLevel level)) return;
         synchronized (TRACKED) {
@@ -79,10 +84,10 @@ public final class ProjectileFxTracker {
             }
             long now = level.getGameTime();
             TRACKED.put(projectile, new Track(
-                    deepCopy(fxs), cycleOf(fxs), now));
+                    deepCopy(fxs), cycleOf(fxs), now, follow));
         }
-        DropFxEngine.spawn(level,
-                projectile.getX(), projectile.getY(), projectile.getZ(), fxs);
+        if (follow) DropFxEngine.spawnFollowing(level, projectile, fxs);
+        else DropFxEngine.spawn(level, projectile.getX(), projectile.getY(), projectile.getZ(), fxs);
     }
 
     @SubscribeEvent
@@ -101,6 +106,7 @@ public final class ProjectileFxTracker {
                     continue;
                 }
                 Track t = entry.getValue();
+                if (e.level() != level || t.follow) continue; // 跟随实例由引擎循环，不逐tick新建
                 if (now - t.lastSpawnTick < t.cycleLen) continue;
                 if (!(e.level() instanceof ServerLevel el)) {
                     it.remove();

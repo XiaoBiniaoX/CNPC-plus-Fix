@@ -26,6 +26,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.transport.TransportKeys;
+import top.cnpcplus.transport.TransportOrder;
 import top.cnpcplus.transport.client.GuiTransportRowButton;
 import top.cnpcplus.transport.client.ITransportPanelUI;
 import top.cnpcplus.transport.client.TransportAssets;
@@ -138,12 +139,15 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         }
 
         this.cnpcplus$applyFilter();
+        TransportClientCache.setMetaListener(this::cnpcplus$applyFilter);
         TransportClientCache.requestMeta(self.npc.getId());
     }
 
     @Unique
     private void cnpcplus$applyFilter() {
         this.cnpcplus$filtered.clear();
+        this.cnpcplus$all.sort(TransportOrder.comparator(TransportClientCache.panel(),
+                TransportClientCache::meta, name -> name));
         String q = top.cnpcplus.transport.client.Pinyin.normalizeQuery(this.cnpcplus$search);
         for (String name : this.cnpcplus$all) {
             if (q.isEmpty()
@@ -520,6 +524,12 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
     @Override
     public void setGuiData(CompoundTag compound) {
         TransportClientCache.acceptMeta(compound);
+        this.cnpcplus$applyFilter();
+    }
+
+    @Inject(method = "save", at = @At("HEAD"), remap = false)
+    private void cnpcplus$clearListener(CallbackInfo ci) {
+        TransportClientCache.setMetaListener(null);
     }
 
     @Override

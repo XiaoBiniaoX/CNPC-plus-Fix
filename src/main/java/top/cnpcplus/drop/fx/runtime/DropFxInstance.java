@@ -6,6 +6,8 @@ import top.cnpcplus.drop.fx.ShapePreset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * 一次合成的特效实例（233d）：合成触发时由 {@link DropFxEngine.spawn} 创建，
@@ -21,12 +23,20 @@ public final class DropFxInstance {
     public final long startTick;
     /** 本次实例的最大时长（所有形状 duration 的最大值，提前算好省遍历）。 */
     public final int maxDuration;
+    /** null=原周期钉地；非null=同一实例循环、实时实体位置生成。 */
+    public final Entity anchor;
 
     public DropFxInstance(double cx, double cy, double cz,
                           List<DropFxConfig> sourceFxs, long startTick) {
+        this(cx, cy, cz, sourceFxs, startTick, null);
+    }
+
+    public DropFxInstance(double cx, double cy, double cz,
+                          List<DropFxConfig> sourceFxs, long startTick, Entity anchor) {
         this.cx = cx;
         this.cy = cy;
         this.cz = cz;
+        this.anchor = anchor;
         List<DropFxConfig> snap = new ArrayList<>(sourceFxs.size());
         int maxDur = 0;
         for (DropFxConfig c : sourceFxs) {
@@ -40,5 +50,13 @@ public final class DropFxInstance {
         this.fxs = Collections.unmodifiableList(snap);
         this.startTick = startTick;
         this.maxDuration = Math.max(1, maxDur);
+    }
+
+    public Vec3 center() {
+        return this.anchor == null ? new Vec3(this.cx, this.cy, this.cz) : this.anchor.position();
+    }
+
+    public long shapeAge(long age, ShapePreset shape) {
+        return this.anchor == null ? age : age % Math.max(1, shape.durationTicks);
     }
 }

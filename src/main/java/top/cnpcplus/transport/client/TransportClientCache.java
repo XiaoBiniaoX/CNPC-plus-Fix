@@ -78,9 +78,10 @@ public final class TransportClientCache {
         target.clear();
         for (String key : entries.getAllKeys()) {
             CompoundTag m = entries.getCompound(key);
+            if (!m.contains(TransportKeys.NAME)) m.putString(TransportKeys.NAME, key);
             // 241n：把正文里遗留的旧格式码自动转成样式区间（正文保持干净）
             top.cnpcplus.transport.TransportSpans.cleanLegacy(m);
-            target.put(key, m);
+            target.put(editor ? String.valueOf(m.getInt("Id")) : key, m);
         }
         // 页签文本同样清理
         top.cnpcplus.transport.TransportSpans.cleanLegacy(panel);
@@ -149,6 +150,15 @@ public final class TransportClientCache {
     /** 241l：编辑页条目（独立缓存）。 */
     public static CompoundTag editMeta(String name) { return name == null ? null : EDIT_META.get(name); }
     public static Map<String, CompoundTag> allEditMeta() { return EDIT_META; }
+
+    /** 新编辑会话不沿用其它NPC/分类的旧面板；resize不调用。 */
+    public static void beginEditor() {
+        EDIT_META.clear();
+        panel = new CompoundTag();
+        metaListener = null;
+        savedAck = false;
+        imageAckOk = false;
+    }
 
     public static boolean hasImage(String key) {
         String safe = TransportKeys.sanitize(key);

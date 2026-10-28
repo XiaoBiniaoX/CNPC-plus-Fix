@@ -2,6 +2,7 @@ package top.cnpcplus.transport;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 
 /**
  * 任务241q：文本样式区间（颜色/粗体/下划线/斜体）。
@@ -18,6 +19,7 @@ public final class TransportSpans {
     public static final int FLAG_BOLD = 1;
     public static final int FLAG_UNDERLINE = 2;
     public static final int FLAG_ITALIC = 4;
+    public static final int CLEAR_COLOR = -2;
 
     private TransportSpans() {}
 
@@ -67,44 +69,57 @@ public final class TransportSpans {
     /**
      * 在 [start,end) 上应用样式。
      *
-     * @param rgb   >=0 覆盖颜色；-1 = 不改颜色
+     * @param rgb   >=0 覆盖颜色；-1 = 不改颜色；CLEAR_COLOR = 清颜色但保留格式
      * @param flags 要置位的标志（0 = 不改）
      * @param toggle true = 切换该标志（原来有就去掉）
      */
     public static String apply(String raw, int start, int end, int rgb, int flags, boolean toggle) {
+        start = Math.max(0, start);
         if (end <= start) return raw == null ? "" : raw;
         List<Span> spans = parse(raw);
-        // 已有区间在本次范围上的部分：颜色被覆盖的先拆掉
-        List<Span> next = new ArrayList<>();
+        TreeSet<Integer> edges = new TreeSet<>();
+        edges.add(0);
+        edges.add(start);
+        edges.add(end);
         for (Span s : spans) {
-            if (s.end <= start || s.start >= end) {
-                next.add(s);
-                continue;
-            }
-            if (rgb >= 0) {
-                if (s.start < start) next.add(new Span(s.start, start, s.rgb, s.flags));
-                if (s.end > end) next.add(new Span(end, s.end, s.rgb, s.flags));
-                if (s.flags != 0) {
-                    next.add(new Span(Math.max(s.start, start), Math.min(s.end, end), rgb, s.flags));
-                }
-            } else {
-                next.add(s);
+            edges.add(Math.max(0, s.start));
+            edges.add(Math.max(0, s.end));
+        }
+        boolean removeFlag = toggle && flags != 0;
+        for (int edge : edges) {
+            if (edge >= start && edge < end && (flagsAt(spans, edge) & flags) != flags) {
+                removeFlag = false;
+                break;
             }
         }
-        int newFlags = flags;
-        if (toggle) {
-            // 该范围内是否已全部带该标志 → 若是则取消
-            boolean all = true;
-            boolean any = false;
-            for (Span s : next) {
-                if (s.start < end && s.end > start) {
-                    any = true;
-                    if ((s.flags & flags) == 0) { all = false; break; }
+        // ponytail: 边界数很少，复用查询做O(n²)规范化；大量区间再改扫描线。
+        List<Span> next = new ArrayList<>();
+        Integer prev = null;
+        for (int edge : edges) {
+            if (prev != null && edge > prev) {
+                int color = colorAt(spans, prev, -1);
+                int format = flagsAt(spans, prev);
+                if (prev >= start && prev < end) {
+                    if (toggle && flags == 0) { // 全部格式重置
+                        color = -1;
+                        format = 0;
+                    } else {
+                        if (rgb >= 0) color = rgb & 0xFFFFFF;
+                        else if (rgb == CLEAR_COLOR) color = -1;
+                        format = removeFlag ? format & ~flags : format | flags;
+                    }
+                }
+                if (color >= 0 || format != 0) {
+                    Span last = next.isEmpty() ? null : next.get(next.size() - 1);
+                    if (last != null && last.end == prev && last.rgb == color && last.flags == format) {
+                        last.end = edge;
+                    } else {
+                        next.add(new Span(prev, edge, color, format));
+                    }
                 }
             }
-            if (all && any) newFlags = 0;
+            prev = edge;
         }
-        next.add(new Span(start, end, rgb, newFlags));
         return serialize(next);
     }
 
@@ -220,12 +235,7 @@ public final class TransportSpans {
     public static String merge(String a, String b) {
         if (a == null || a.isEmpty()) return b == null ? "" : b;
         if (b == null || b.isEmpty()) return a;
-        List<Span> list = new ArrayList<>(parse(a));
-        for (Span s : parse(b)) {
-            list.removeIf(x -> x.start < s.end && x.end > s.start && x.rgb >= 0);
-            list.add(s);
-        }
-        return serialize(list);
+        return a + ";" + b;
     }
 
     /** 取第 index 个字符的颜色（-1 = 用基础色）。 */

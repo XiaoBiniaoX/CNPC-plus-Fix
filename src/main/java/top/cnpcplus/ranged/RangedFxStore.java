@@ -31,11 +31,14 @@ public final class RangedFxStore {
 
     /** NBT 键（挂在 DataRanged 复合标签上，随 STATS 菜单包全量同步）。 */
     public static final String NBT_KEY = "CNPCPlusProjectileFx";
+    /** 独立布尔键，原ListTag格式不变；旧数据缺省关闭。 */
+    public static final String FOLLOW_KEY = "CNPCPlusProjectileFxFollow";
 
     /** sanitize 时给日志用的来源标识（替代掉落物侧的配方 id）。 */
     private static final String SOURCE = "NPC 弹射物特效";
 
     private static final Map<DataRanged, List<DropFxConfig>> FXS = new WeakHashMap<>();
+    private static final Map<DataRanged, Boolean> FOLLOW = new WeakHashMap<>();
     private static final Object LOCK = new Object();
 
     private RangedFxStore() {
@@ -64,6 +67,18 @@ public final class RangedFxStore {
         }
     }
 
+    public static boolean follows(DataRanged ranged) {
+        synchronized (LOCK) { return FOLLOW.getOrDefault(ranged, false); }
+    }
+
+    public static void setFollows(DataRanged ranged, boolean follow) {
+        if (ranged == null) return;
+        synchronized (LOCK) {
+            if (follow) FOLLOW.put(ranged, true);
+            else FOLLOW.remove(ranged);
+        }
+    }
+
     /** 整表替换（编辑器确定回写）。入表即裁剪，空表清键。 */
     public static void put(DataRanged ranged, List<DropFxConfig> fxs) {
         if (ranged == null) return;
@@ -87,6 +102,7 @@ public final class RangedFxStore {
         if (ranged == null) return;
         synchronized (LOCK) {
             FXS.remove(ranged);
+            FOLLOW.remove(ranged);
         }
     }
 
@@ -97,6 +113,8 @@ public final class RangedFxStore {
         if (compound == null) return;
         List<DropFxConfig> list = peek(ranged);
         synchronized (LOCK) {
+            if (follows(ranged)) compound.putBoolean(FOLLOW_KEY, true);
+            else compound.remove(FOLLOW_KEY);
             if (list == null || list.isEmpty()) {
                 compound.remove(NBT_KEY);
                 return;
@@ -119,6 +137,7 @@ public final class RangedFxStore {
         }
         DropFxCaps.sanitize(list, SOURCE);
         synchronized (LOCK) {
+            setFollows(ranged, compound.getBoolean(FOLLOW_KEY));
             if (list.isEmpty()) {
                 FXS.remove(ranged);
             } else {

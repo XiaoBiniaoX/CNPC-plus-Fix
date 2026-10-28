@@ -89,7 +89,7 @@ public abstract class MixinEntityProjectileBuffs {
             List<DropFxConfig> copy = new ArrayList<>(fxs.size());
             for (DropFxConfig c : fxs) copy.add(c.copy());
             this.cnpcplus$fxs = copy;
-            ProjectileFxTracker.track((EntityProjectile) (Object) this, copy);
+            ProjectileFxTracker.track((EntityProjectile) (Object) this, copy, RangedFxStore.follows(stats));
         }
     }
 

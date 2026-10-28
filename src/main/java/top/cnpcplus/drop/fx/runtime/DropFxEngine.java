@@ -4,6 +4,8 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -51,7 +53,16 @@ public final class DropFxEngine {
 
     /** 合成触发（DropCraftHandler.execute 主线程调用）：建实例快照入队。 */
     public static void spawn(ServerLevel level, double cx, double cy, double cz,
-                             List<DropFxConfig> fxs) {
+                              List<DropFxConfig> fxs) {
+        spawn(level, cx, cy, cz, fxs, null);
+    }
+
+    public static void spawnFollowing(ServerLevel level, Entity projectile, List<DropFxConfig> fxs) {
+        spawn(level, projectile.getX(), projectile.getY(), projectile.getZ(), fxs, projectile);
+    }
+
+    private static void spawn(ServerLevel level, double cx, double cy, double cz,
+                               List<DropFxConfig> fxs, Entity anchor) {
         if (fxs == null || fxs.isEmpty()) return;
         List<DropFxInstance> queue = queueOf(level);
         if (queue.size() >= DropFxCaps.MAX_INSTANCES_PER_LEVEL) {
@@ -59,7 +70,7 @@ public final class DropFxEngine {
                     DropFxCaps.MAX_INSTANCES_PER_LEVEL, cx, cy, cz);
             return;
         }
-        DropFxInstance inst = new DropFxInstance(cx, cy, cz, fxs, level.getGameTime());
+        DropFxInstance inst = new DropFxInstance(cx, cy, cz, fxs, level.getGameTime(), anchor);
         queue.add(inst);
         // 233d-UI8：明细 particleId:[TYPE,…]——「出来是圆形」决定性日志：
         // 合成那一刻实际播放的形状类型一目可见（与保存日志对读；UI9 降为 debug 默认不输出）
@@ -81,11 +92,12 @@ public final class DropFxEngine {
         Iterator<DropFxInstance> it = queue.iterator();
         while (it.hasNext()) {
             DropFxInstance inst = it.next();
-            if (now - inst.startTick >= inst.maxDuration) {
+            if (inst.anchor == null ? now - inst.startTick >= inst.maxDuration
+                    : inst.anchor.isRemoved() || inst.anchor.level() != level) {
                 it.remove();
                 continue;
             }
-            if (levelBudget <= 0) break; // 全局预算耗尽：本维度剩余实例顺延下 tick
+            if (levelBudget <= 0) continue; // 即使预算耗尽也清理已消亡的跟随实例
             int consumed = drive(level, inst, now - inst.startTick,
                     Math.min(DropFxCaps.POINT_BUDGET_PER_INSTANCE_TICK, levelBudget));
             levelBudget -= consumed;
@@ -95,6 +107,7 @@ public final class DropFxEngine {
     /** 驱动单实例一个 tick 的发送，返回本 tick 消耗的点数。 */
     private static int drive(ServerLevel level, DropFxInstance inst, long age, int budget) {
         int consumed = 0;
+        Vec3 center = inst.center();
         for (DropFxConfig cfg : inst.fxs) {
             if (budget <= 0) return consumed;
             ParticleType<?> type = ForgeRegistries.PARTICLE_TYPES.getValue(
@@ -102,16 +115,17 @@ public final class DropFxEngine {
             if (!(type instanceof ParticleOptions po)) continue; // 有数据型/未知 id：跳过
             for (ShapePreset shape : cfg.shapes) {
                 if (budget <= 0) return consumed;
-                if (age >= shape.durationTicks) continue;
+                long shapeAge = inst.shapeAge(age, shape);
+                if (shapeAge >= shape.durationTicks) continue;
                 double[] pts = DropFxSampler.points(shape);
                 // 235 三轴旋转（360°，哈基彬拍板进框架核心）：
                 // 相位 = rad(初始角) + rotSpeed*age（负速度自然反转），三轴串联顺序定为 X→Y→Z（欧拉定序）。
                 // 绕 X 转 (y,z)、绕 Y 转 (x,z)、绕 Z 转 (x,y) 各为二维公式嵌入；采样点 y 恒 0，
                 // 立起/翻滚的 y 位移由绕 X/Z 的旋转产生。三轴角全 0 时 cos=1/sin=0，
                 // 逐点退化为旧 XZ 单轴公式（y'=0）= 老档行为恒等。
-                double ax = Math.toRadians(shape.rotationX) + shape.rotSpeedX * age;
-                double ay = Math.toRadians(shape.rotation) + shape.rotSpeed * age;
-                double az = Math.toRadians(shape.rotationZ) + shape.rotSpeedZ * age;
+                double ax = Math.toRadians(shape.rotationX) + shape.rotSpeedX * shapeAge;
+                double ay = Math.toRadians(shape.rotation) + shape.rotSpeed * shapeAge;
+                double az = Math.toRadians(shape.rotationZ) + shape.rotSpeedZ * shapeAge;
                 double cx = Math.cos(ax), sx = Math.sin(ax);
                 double cy = Math.cos(ay), sy = Math.sin(ay);
                 double cz = Math.cos(az), sz = Math.sin(az);
@@ -128,9 +142,9 @@ public final class DropFxEngine {
                     // 绕 Z：转 (x,y)
                     double x3 = x2 * cz - y1 * sz;
                     double y3 = x2 * sz + y1 * cz;
-                    double x = inst.cx + shape.offsetX + x3;
-                    double z = inst.cz + shape.offsetZ + z2;
-                    double y = inst.cy + shape.offsetY + y3;
+                    double x = center.x + shape.offsetX + x3;
+                    double z = center.z + shape.offsetZ + z2;
+                    double y = center.y + shape.offsetY + y3;
                     level.sendParticles(po, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
                     budget--;
                     consumed++;

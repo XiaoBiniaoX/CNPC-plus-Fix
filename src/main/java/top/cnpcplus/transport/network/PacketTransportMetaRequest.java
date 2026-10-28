@@ -50,7 +50,7 @@ public class PacketTransportMetaRequest {
             if (this.editor) {
                 // 编辑页：本组全部传送点
                 for (TransportLocation loc : own.category.locations.values()) {
-                    visible.putIfAbsent(loc.name, loc);
+                    visible.putIfAbsent(String.valueOf(loc.id), loc);
                 }
             } else {
                 // 玩家页：默认 + 玩家已解锁
@@ -87,10 +87,11 @@ public class PacketTransportMetaRequest {
         ctx.get().setPacketHandled(true);
     }
 
-    static CompoundTag metaOf(TransportLocation loc) {
+    public static CompoundTag metaOf(TransportLocation loc) {
         CompoundTag t = new CompoundTag();
         TransportVisualMeta m = (TransportVisualMeta) (Object) loc;
         t.putInt("Id", loc.id);
+        t.putString(TransportKeys.NAME, loc.name);
         t.putString("Icon", m.cnpcplus$getIcon());
         t.putString("IconSel", m.cnpcplus$getIconSel());
         t.putString("Image", m.cnpcplus$getImage());

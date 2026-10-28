@@ -167,6 +167,9 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
     private final Consumer<List<DropFxConfig>> sink;
+    /** 仅投掷物入口传入，掉落/死亡编辑页不出现跟随选项。 */
+    private final Consumer<Boolean> followSink;
+    private boolean followProjectile;
     private final List<DropFxConfig> editCopy = new ArrayList<>();
     private final List<String> particleIds = new ArrayList<>();
 
@@ -183,7 +186,14 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     private Button nextShapeBtn;
 
     public SubGuiDropFx(Consumer<List<DropFxConfig>> sink, List<DropFxConfig> currentFxs) {
+        this(sink, currentFxs, false, null);
+    }
+
+    public SubGuiDropFx(Consumer<List<DropFxConfig>> sink, List<DropFxConfig> currentFxs,
+                        boolean followProjectile, Consumer<Boolean> followSink) {
         this.sink = sink;
+        this.followSink = followSink;
+        this.followProjectile = followProjectile;
         for (DropFxConfig c : currentFxs) this.editCopy.add(c.copy());
         // 236 拍板「重复的同一个预设不该执行」：打开即卫生（载入链已 sanitize，这里兜
         // 写回直传等路径）——同 id 合并 + 同 type 去重，用户看到的计数即执行的现实。
@@ -288,6 +298,12 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         this.addRenderableWidget(Button.builder(
                         Component.translatable("cnpcplus.dropfx.delparticle"), b -> this.deleteParticle())
                 .bounds(gl + 346, gt + 218, 52, 20).build());
+        if (this.followSink != null) {
+            this.addRenderableWidget(Button.builder(this.followLabel(), b -> {
+                this.followProjectile = !this.followProjectile;
+                b.setMessage(this.followLabel());
+            }).bounds(gl + 6, gt + 218, 192, 20).build());
+        }
 
         this.refreshFieldsFromShape();
         this.updateFieldEnabled();
@@ -304,6 +320,11 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         list.setRenderBackground(false);
         list.setRenderTopAndBottom(false);
         list.setRenderSelection(false);
+    }
+
+    private Component followLabel() {
+        return Component.translatable("cnpcplus.projectile.fxFollow",
+                Component.translatable(this.followProjectile ? "gui.yes" : "gui.no"));
     }
 
     /**
@@ -596,6 +617,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
             result.add(c.copy());
         }
         this.sink.accept(result);
+        if (this.followSink != null) this.followSink.accept(this.followProjectile);
     }
 
     // ===== 渲染：三块独立灰板 + 局部变黑列表区 + 组件 + 联动 =====
@@ -607,6 +629,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
         // 三块独立原版灰板（233d-UI7 宽度 420→400：左 196 / 右 196，窄窗口不再裁按钮）
         panel(g, gl + 2, gt + 2, 196, 204);
+        if (this.followSink != null) panel(g, gl + 2, gt + 212, 196, 36);
         panel(g, gl + 202, gt + 2, 196, 100);
         panel(g, gl + 202, gt + 106, 196, 142);
 

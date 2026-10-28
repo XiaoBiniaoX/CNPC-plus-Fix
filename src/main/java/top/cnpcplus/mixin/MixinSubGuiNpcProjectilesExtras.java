@@ -151,7 +151,8 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
             ci.cancel();
         } else if (button.id == BTN_FX) {
             self.setSubGui(new SubGuiDropFx(
-                    this::cnpcplus$applyFx, RangedFxStore.get(this.stats)));
+                    this::cnpcplus$applyFx, RangedFxStore.get(this.stats), RangedFxStore.follows(this.stats),
+                    follow -> RangedFxStore.setFollows(this.stats, follow)));
             ci.cancel();
         }
     }

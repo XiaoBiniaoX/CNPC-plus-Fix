@@ -169,5 +169,6 @@ public final class TransportPanelStyle {
         putIconPct(target, TAB_ICON_SIZE, tabIconSize(src));
         putIconPct(target, CUR_ICON_SIZE, curIconSize(src));
         target.putString(TAB_SPANS, src.contains(TAB_SPANS) ? src.getString(TAB_SPANS) : "");
+        if (src.contains(TransportOrder.KEY)) target.putIntArray(TransportOrder.KEY, src.getIntArray(TransportOrder.KEY));
     }
 }
