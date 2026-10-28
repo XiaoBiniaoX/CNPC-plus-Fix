@@ -1,6 +1,7 @@
 package bin.cnpcplus.transport.client;
 
 import bin.cnpcplus.CnpcPlus;
+import bin.cnpcplus.common.ISubGuiWheel;
 import bin.cnpcplus.craftingview.network.CraftingViewNetwork;
 import bin.cnpcplus.transport.PacketTransportImage;
 import bin.cnpcplus.transport.PacketTransportMeta;
@@ -44,7 +45,7 @@ import java.util.Vector;
 
 /** 952×535 设计空间复用参考贴图；编辑模式在左侧显示可滚动的元素检查器。 */
 @Mod.EventBusSubscriber(modid = CnpcPlus.MODID, value = Side.CLIENT)
-public final class TransportScreen extends SubGuiInterface implements IGuiData, IScrollData, ITextChangeListener, ITextfieldListener {
+public final class TransportScreen extends SubGuiInterface implements IGuiData, IScrollData, ITextChangeListener, ITextfieldListener, ISubGuiWheel {
     private static TransportScreen active;
     private static final int[] PALETTE = {0xFFFFFF, 0xE0E0E0, 0xCCCCCC, 0x999999, 0x666666, 0x333333, 0x000000, 0xFFD700,
             0xFF5555, 0xFF7F50, 0xFFAA00, 0xFFFF55, 0xAAFF55, 0x55FF55, 0x55FFFF, 0xFF55FF};
@@ -595,6 +596,9 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
     }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        // 子界面收不到 mouseClickMove/mouseReleased（CNPC 父界面只转发点击），
+        // 所以拖动必须每帧自己看左键状态，否则按下去永远不动。
+        pollMouse(mouseX, mouseY);
         this.drawDefaultBackground();
         if (editor) { drawRect(0, 0, sidebarWidth(), this.height, 0xE0202020); positionWidgets(); }
         GlStateManager.pushMatrix(); GlStateManager.translate(originX, originY, 0); GlStateManager.scale(scale, scale, 1);
@@ -813,15 +817,36 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         sidebarScroll = Math.max(0, Math.min(maximum, (y - 26) * maximum / Math.max(1, this.height - 50)));
         positionWidgets();
     }
+    /**
+     * 子界面收不到 `mouseClickMove` / `mouseReleased`：
+     * `GuiNPCInterface` 只转发了点击（`func_73864_a`），`GuiScreen.func_146273_a` 是空方法，
+     * 而且只在 `mc.currentScreen`（父界面）上被调用。所以在 drawScreen 里每帧轮询左键，
+     * 与 `FxEditor.pollDrag` 同一套做法；player 模式（真屏幕）两条路都走，取值是幂等的。
+     */
+    private void pollMouse(int mouseX, int mouseY) {
+        if (!Mouse.isButtonDown(0)) {
+            if (rowDrag) commitOrder();
+            rowDrag = false; rowPressId = -1;
+            draggingScroll = false; draggingImage = false; draggingSidebar = false;
+            return;
+        }
+        if (rowPressId >= 0) dragRow(mouseY);
+        else if (draggingSidebar) sidebarAt(mouseY);
+        else if (draggingScroll) scrollAt((int) ((mouseY - originY) / scale));
+        else if (draggingImage && editor) dragImage(mouseX, mouseY);
+    }
+
+    private void dragImage(int mouseX, int mouseY) {
+        selectedMeta().setInteger("ImgX", Math.max(-2000, Math.min(2000, originalImageX + (int) ((mouseX - originX) / scale) - dragX)));
+        selectedMeta().setInteger("ImgY", Math.max(-2000, Math.min(2000, originalImageY + (int) ((mouseY - originY) / scale) - dragY)));
+        changed(true); syncWidgets();
+    }
     @Override protected void mouseClickMove(int x, int y, int button, long time) {
         if (rowPressId >= 0) dragRow(y);
         else if (draggingSidebar) sidebarAt(y);
         else if (draggingScroll) scrollAt((int) ((y - originY) / scale));
-        else if (draggingImage && editor) {
-            selectedMeta().setInteger("ImgX", Math.max(-2000, Math.min(2000, originalImageX + (int) ((x - originX) / scale) - dragX)));
-            selectedMeta().setInteger("ImgY", Math.max(-2000, Math.min(2000, originalImageY + (int) ((y - originY) / scale) - dragY)));
-            changed(true); syncWidgets();
-        } else super.mouseClickMove(x, y, button, time);
+        else if (draggingImage && editor) dragImage(x, y);
+        else super.mouseClickMove(x, y, button, time);
     }
     @Override protected void mouseReleased(int x, int y, int button) {
         if (rowDrag) commitOrder();
@@ -829,8 +854,17 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         draggingScroll = false; draggingImage = false; draggingSidebar = false; super.mouseReleased(x, y, button);
     }
     @Override public void handleMouseInput() throws IOException {
-        super.handleMouseInput(); int wheel = Mouse.getEventDWheel(); if (wheel == 0) return;
-        int x = Mouse.getEventX() * this.width / this.mc.displayWidth, y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+        super.handleMouseInput();
+        // 真屏幕（player 模式）走这里；子界面（编辑器）由 MixinGuiScreenSubGuiWheel 转发到 cnpcplus$wheel。
+        wheel(Mouse.getEventX() * this.width / this.mc.displayWidth,
+                this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1, Mouse.getEventDWheel());
+    }
+    @Override public void cnpcplus$wheel(int delta, int eventX, int eventY) {
+        wheel(eventX * this.width / this.mc.displayWidth,
+                this.height - eventY * this.height / this.mc.displayHeight - 1, delta);
+    }
+    private void wheel(int x, int y, int wheel) {
+        if (wheel == 0) return;
         if (editor && x < sidebarWidth()) {
             sidebarScroll = Math.max(0, Math.min(Math.max(0, sidebarHeight() - (this.height - 50)), sidebarScroll + (wheel > 0 ? -18 : 18))); positionWidgets(); return;
         }
