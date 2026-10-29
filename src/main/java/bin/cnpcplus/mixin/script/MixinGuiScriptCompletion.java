@@ -7,12 +7,30 @@ import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.controllers.IScriptHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.lwjgl.input.Keyboard;
 
 @Mixin(value = GuiScriptInterface.class, remap = false)
 public abstract class MixinGuiScriptCompletion extends GuiNPCInterface {
     @Shadow private int activeTab;
     @Shadow public IScriptHandler handler;
+    @Unique private Boolean cnpcplus$previousKeyRepeat;
+
+    @Inject(method = "func_73866_w_()V", at = @At("HEAD"), require = 1)
+    private void cnpcplus$enableKeyRepeat(CallbackInfo ci) {
+        if (cnpcplus$previousKeyRepeat == null) cnpcplus$previousKeyRepeat = Keyboard.areRepeatEventsEnabled();
+        Keyboard.enableRepeatEvents(true);
+    }
+
+    @Override public void func_146281_b() {
+        if (cnpcplus$previousKeyRepeat != null) {
+            Keyboard.enableRepeatEvents(cnpcplus$previousKeyRepeat);
+            cnpcplus$previousKeyRepeat = null;
+        }
+        super.func_146281_b();
+    }
 
     @Redirect(method = "func_73866_w_()V", at = @At(value = "NEW", target = "noppes/npcs/client/gui/util/GuiTextArea"), require = 2)
     private GuiTextArea cnpcplus$scriptEditor(int id, int x, int y, int width, int height, String text) {

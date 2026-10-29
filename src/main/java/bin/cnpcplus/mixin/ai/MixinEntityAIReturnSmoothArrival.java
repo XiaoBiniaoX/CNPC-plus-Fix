@@ -1,6 +1,7 @@
 package bin.cnpcplus.mixin.ai;
 
 import bin.cnpcplus.config.CnpcPlusConfig;
+import bin.cnpcplus.ai.CombatReturnState;
 import net.minecraft.pathfinding.PathNavigate;
 import noppes.npcs.ai.EntityAIReturn;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -93,6 +94,17 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     @Shadow(remap = false) private int stuckTicks;
     @Shadow(remap = false) private int stuckCount;
     @Shadow(remap = false) private int totalTicks;
+    @Shadow(remap = false) private boolean wasAttacked;
+    @Shadow(remap = false) private double[] preAttackPos;
+
+    @Inject(method = "func_75250_a()Z", at = @At("HEAD"), require = 1)
+    private void cnpcplus$useCombatStartPosition(CallbackInfoReturnable<Boolean> cir) {
+        double[] home = CombatReturnState.destination(npc);
+        if (home != null) {
+            this.wasAttacked = true;
+            this.preAttackPos = home;
+        }
+    }
 
     /** 路径节点容差大于精确回位容差；最后 1.5 格使用 MoveHelper 继续行走。 */
     @Inject(method = "func_75246_d()V", at = @At("HEAD"), cancellable = true, require = 1)

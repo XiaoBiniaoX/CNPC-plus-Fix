@@ -1,13 +1,16 @@
 package bin.cnpcplus.mixin.perf;
 
 import bin.cnpcplus.config.CnpcPlusConfig;
+import bin.cnpcplus.ai.CombatReturnState;
 import net.minecraft.entity.EntityLivingBase;
 import noppes.npcs.ai.CombatHandler;
+import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -64,10 +67,35 @@ import java.util.Map;
  * 只用 {@code java.util} 与 MC 实体类型，无客户端引用。
  */
 @Mixin(value = CombatHandler.class, remap = false)
-public class MixinCombatHandlerPrune {
+public abstract class MixinCombatHandlerPrune {
 
     /** CombatHandler 自有的 private 字段，@Shadow 可正常解析。 */
     @Shadow private Map<EntityLivingBase, Float> aggressors;
+    @Shadow private EntityNPCInterface npc;
+    @Shadow public abstract boolean isValidTarget(EntityLivingBase target);
+
+    @Inject(method = "start()V", at = @At("TAIL"), require = 1)
+    private void cnpcplus$rememberCombatHome(CallbackInfo ci) {
+        CombatReturnState.begin(npc);
+    }
+
+    /** Invalid targets must be checked even before the NPC has taken any damage. */
+    @Inject(method = "checkTarget()Z", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$resolveLostTarget(CallbackInfoReturnable<Boolean> cir) {
+        EntityLivingBase current = npc.getAttackTarget();
+        if (current == null || isValidTarget(current)) return;
+        EntityLivingBase replacement = null;
+        float damage = -1.0F;
+        for (Map.Entry<EntityLivingBase, Float> entry : aggressors.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > damage && isValidTarget(entry.getKey())) {
+                replacement = entry.getKey();
+                damage = entry.getValue();
+            }
+        }
+        // Use native setAttackTarget/EntityAIClearTarget: preserve target and targetLost script hooks.
+        if (replacement != null) npc.setAttackTarget(replacement);
+        cir.setReturnValue(replacement == null);
+    }
 
     /**
      * 在原版每 10 tick 的仇恨遍历之后，顺带清掉不可能再回来的条目。

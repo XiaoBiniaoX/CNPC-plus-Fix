@@ -1,5 +1,6 @@
 package bin.cnpcplus.mixin.stats;
 
+import bin.cnpcplus.ai.CombatReturnState;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.nbt.NBTTagCompound;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -20,6 +21,7 @@ public abstract class MixinEntityNPCInterfaceStatsSync {
     @Redirect(method = "func_70636_d", at = @At(value = "FIELD",
             target = "Lnoppes/npcs/entity/data/DataStats;healthRegen:I", ordinal = 0), require = 1)
     private int cnpcplus$allowFractionalHealthRegen(noppes.npcs.entity.data.DataStats stats) {
+        if (CombatReturnState.isReturning((EntityNPCInterface) (Object) this)) return 0;
         return ((IDataStatsFloatAccess) stats).cnpcplus$getHealthRegenFloat() > 0.0f ? 1 : 0;
     }
 
