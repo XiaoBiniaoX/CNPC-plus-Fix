@@ -262,3 +262,8 @@ nameRenderDistance=NPC名字渲染距离（格，0=原版约22.6）
 nameTitleDistance=NPC称号行渲染距离（格，0=不显示称号）
 playerdata=玩家数据
 playerDataAutoSaveSeconds=CNPC玩家数据自动存档间隔（秒，0=关闭）
+cnpcplus.script.completion_help=Ctrl+Space 补全 | ↑↓选择 | Tab确认 | Esc收起 | F4错误行
+cnpcplus.script.completion_js=API补全支持 JavaScript；运行错误仍可查看
+cnpcplus.script.error_line=最近运行错误：第 %s 行（F4定位，悬停查看）
+cnpcplus.script.error_stale=脚本已修改：旧错误不再标红，请保存并重新运行
+cnpcplus.script.error_external=外链脚本错误或无准确行号：悬停查看，详情见控制台

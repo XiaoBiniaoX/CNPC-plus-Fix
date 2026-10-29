@@ -262,3 +262,8 @@ nameRenderDistance=NPC name render distance (blocks, 0 = original ~22.6)
 nameTitleDistance=NPC title line render distance (blocks, 0 = hide titles)
 playerdata=Player Data
 playerDataAutoSaveSeconds=CNPC player data autosave interval (seconds, 0 = off)
+cnpcplus.script.completion_help=Ctrl+Space: API | Up/Down: select | Tab: accept | Esc: dismiss | F4: error
+cnpcplus.script.completion_js=API completion supports JavaScript; runtime errors remain available
+cnpcplus.script.error_line=Last runtime error: line %s (F4 to locate, hover for details)
+cnpcplus.script.error_stale=Script changed: old error highlighting hidden; save and run again
+cnpcplus.script.error_external=Linked script error or unknown line: hover, see console for details
