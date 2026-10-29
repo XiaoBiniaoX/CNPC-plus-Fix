@@ -1,28 +1,29 @@
 package top.cnpcplus.drop.network;
 
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
+import bin.cnpcplus.CnpcPlus;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import top.cnpcplus.drop.DropRecipeData;
 import top.cnpcplus.drop.DropRecipeRegistry;
 import top.cnpcplus.drop.ContainerDropRecipes;
 
-import java.util.function.Supplier;
-
 /** 客户端→服务端：选中某个配方，服务端把五个配方槽位内容填充进当前打开的编辑容器（232 照抄铁砧 Select）。 */
-public class PacketDropSelect {
+public record PacketDropSelect(int id) implements CustomPacketPayload {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
-    private final int id;
+    public static final Type<PacketDropSelect> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "drop_select"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketDropSelect> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> buf.writeVarInt(packet.id), buf -> new PacketDropSelect(buf.readVarInt()));
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
-    public PacketDropSelect(int id) { this.id = id; }
-
-    public void encode(FriendlyByteBuf buf) { buf.writeInt(this.id); }
-
-    public static PacketDropSelect decode(FriendlyByteBuf buf) { return new PacketDropSelect(buf.readInt()); }
-
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            var player = ctx.get().getSender();
+    public static void handle(PacketDropSelect packet, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) return;
             // 权限校验（纵深防御）：编辑容器只能由同样校验权限的 PacketOpenDropGui 打开，
             // 但不能依赖那一处 —— 本包会往容器里写物品，必须自己也把住权限。
             if (player == null || !player.hasPermissions(2)) {
@@ -31,12 +32,12 @@ public class PacketDropSelect {
                 return;
             }
             if (!(player.containerMenu instanceof ContainerDropRecipes c)) {
-                LOGGER.debug("[drop] Select拒绝: 未打开编辑容器 id={} player={}", this.id,
+                LOGGER.debug("[drop] Select拒绝: 未打开编辑容器 id={} player={}", packet.id,
                         player.getGameProfile().getName());
                 return;
             }
-            c.selectedId = this.id;
-            DropRecipeData d = DropRecipeRegistry.get(this.id);
+            c.selectedId = packet.id;
+            DropRecipeData d = DropRecipeRegistry.get(packet.id);
             // 覆盖前分流（228 物品复制修复同款）：预览副本槽=吞（归还=每点一次条目白送）；
             // 玩家真物品槽=归还（防销毁——真实物品不能静默吃掉）。
             for (int i = 0; i < 5; i++) {
@@ -54,6 +55,5 @@ public class PacketDropSelect {
             for (int i = 0; i < 5; i++) c.slotPreview[i] = (d != null);
             c.broadcastChanges();
         });
-        ctx.get().setPacketHandled(true);
     }
 }

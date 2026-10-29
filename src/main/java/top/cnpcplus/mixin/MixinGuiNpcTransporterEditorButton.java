@@ -26,7 +26,7 @@ public abstract class MixinGuiNpcTransporterEditorButton {
     @Unique private String cnpcplus$pendingName = "";
     @Unique private int cnpcplus$pendingId = -1;
 
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), remap = false)
     private void cnpcplus$addEditorButton(CallbackInfo ci) {
         GuiNpcTransporter self = (GuiNpcTransporter) (Object) this;
         GuiButtonNop edit = new GuiButtonNop(self, 50,
@@ -52,7 +52,7 @@ public abstract class MixinGuiNpcTransporterEditorButton {
         if (button.id != 50) return;
         ci.cancel();
         GuiNpcTransporter self = (GuiNpcTransporter) (Object) this;
-        if (this.location == null || this.location.id < 0) return;
+        if (this.location == null || this.location.id < 0 || self.npc == null) return;
         GuiTextFieldNop name = self.getTextField(0);
         if (name != null && !name.getValue().trim().isEmpty()) this.location.name = name.getValue().trim();
         self.setSubGui(new GuiTransporterVisualEditor(this.location, self.npc.getId()));

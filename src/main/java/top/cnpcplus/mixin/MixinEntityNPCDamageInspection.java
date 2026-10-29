@@ -16,12 +16,12 @@ public abstract class MixinEntityNPCDamageInspection {
         DamageInspectionController.install((EntityNPCInterface) (Object) this);
     }
 
-    @Inject(method = "m_6475_", at = @At("HEAD"), remap = false)
+    @Inject(method = "actuallyHurt", at = @At("HEAD"), remap = false)
     private void cnpcplus$inspectUnseenDamage(DamageSource source, float amount, CallbackInfo ci) {
         DamageInspectionController.onHurt((EntityNPCInterface) (Object) this, source, amount);
     }
 
-    @Inject(method = "m_142687_", at = @At("HEAD"), remap = false)
+    @Inject(method = "remove", at = @At("HEAD"), remap = false)
     private void cnpcplus$removeInspectionGoal(net.minecraft.world.entity.Entity.RemovalReason reason, CallbackInfo ci) {
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
         if (reason == net.minecraft.world.entity.Entity.RemovalReason.DISCARDED
@@ -31,7 +31,7 @@ public abstract class MixinEntityNPCDamageInspection {
         }
     }
 
-    @Inject(method = "m_7378_", at = @At("RETURN"), remap = false)
+    @Inject(method = "readAdditionalSaveData", at = @At("RETURN"), remap = false)
     private void cnpcplus$ensureInspectionGoalOnLoad(CompoundTag tag, CallbackInfo ci) {
         DamageInspectionController.install((EntityNPCInterface) (Object) this);
     }

@@ -5,13 +5,14 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import noppes.npcs.client.renderer.RenderCustomNpc;
 import noppes.npcs.client.renderer.RenderNPCInterface;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import top.cnpcplus.stats.HideDelayStore;
@@ -49,7 +50,7 @@ public abstract class MixinRenderCustomNpcSimpleRenderHide {
     @Redirect(
             method = "render(Lnoppes/npcs/entity/EntityCustomNpc;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/renderer/entity/EntityRenderer;m_7392_(Lnet/minecraft/world/entity/Entity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"),
+                    target = "Lnet/minecraft/client/renderer/entity/EntityRenderer;render(Lnet/minecraft/world/entity/Entity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"),
             require = 1,
             remap = false
     )
@@ -62,19 +63,20 @@ public abstract class MixinRenderCustomNpcSimpleRenderHide {
     @Redirect(
             method = "render(Lnoppes/npcs/entity/EntityCustomNpc;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
             at = @At(value = "INVOKE",
-                    target = "Lnoppes/npcs/client/renderer/RenderCustomNpc;renderNameTag(Lnoppes/npcs/entity/EntityNPCInterface;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"),
+                    target = "Lnoppes/npcs/client/renderer/RenderCustomNpc;renderNameTag(Lnoppes/npcs/entity/EntityNPCInterface;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V"),
             require = 1,
             remap = false
     )
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private void cnpcplus$hideSimpleCorpseNameTag(RenderCustomNpc<?, ?> self, EntityNPCInterface npcArg, Component text, PoseStack matrixStack, MultiBufferSource buffer, int packedLight) {
+    private void cnpcplus$hideSimpleCorpseNameTag(RenderCustomNpc<?, ?> self, EntityNPCInterface npcArg, Component text, PoseStack matrixStack, MultiBufferSource buffer, int packedLight, float partialTick) {
         if (this.cnpcplus$isCorpseHidden()) return;
         // renderNameTag 声明在父类 RenderNPCInterface：@Shadow 指向目标类会失配、
         // 整份 mixin 被静默丢弃（238b 教训）——改走接收者强转原始类型直调。
-        ((RenderNPCInterface) self).renderNameTag(npcArg, text, matrixStack, buffer, packedLight);
+        ((RenderNPCInterface) self).renderNameTag(npcArg, text, matrixStack, buffer, packedLight, partialTick);
     }
 
     /** 与渲染门同源判据 + 延迟 store。隐藏从 deathTime >= delay 起（与渲染门 ModifyConstant 同边界）。 */
+    @Unique
     private boolean cnpcplus$isCorpseHidden() {
         EntityNPCInterface npc = this.npc;
         if (npc == null) return false;

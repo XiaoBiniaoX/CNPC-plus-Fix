@@ -1,45 +1,47 @@
 package top.cnpcplus.drop.network;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
+import bin.cnpcplus.CnpcPlus;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import top.cnpcplus.drop.DropRecipeData;
 import top.cnpcplus.drop.DropRecipeRegistry;
 import top.cnpcplus.drop.ContainerDropRecipes;
-
-import java.util.function.Supplier;
 
 /**
  * 客户端→服务端：保存（新建/修改）自定义掉落物配方（阶段232 从 PacketAnvilSave 复制改五槽）。
  * 物品槽位以服务端容器（当前打开的 ContainerDropRecipes）为准，客户端 NBT 只带 id/name/nameOnly。
  * 保存后立即 syncToPlayers 全员广播（配方不进 RecipeManager——DropCraftHandler 直查 Registry）。
  */
-public class PacketDropSave {
+public record PacketDropSave(CompoundTag data) implements CustomPacketPayload {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
-    private final CompoundTag data;
+    public static final Type<PacketDropSave> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "drop_save"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketDropSave> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> buf.writeNbt(packet.data), buf -> new PacketDropSave(buf.readNbt()));
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
-    public PacketDropSave(CompoundTag data) { this.data = data; }
-
-    public void encode(FriendlyByteBuf buf) { buf.writeNbt(this.data); }
-
-    public static PacketDropSave decode(FriendlyByteBuf buf) { return new PacketDropSave(buf.readNbt()); }
-
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            var sender = ctx.get().getSender();
-            if (sender == null || !sender.hasPermissions(2)) {
+    public static void handle(PacketDropSave packet, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sender) || !sender.hasPermissions(2)) {
                 LOGGER.debug("[drop] Save拒绝: 无发送者或权限不足 player={}",
-                        sender == null ? "?" : sender.getGameProfile().getName());
+                        context.player() == null ? "?" : context.player().getGameProfile().getName());
                 return;
             }
-            if (this.data == null) {
+            if (packet.data == null) {
                 LOGGER.debug("[drop] Save拒绝: NBT为空");
                 return;
             }
-            DropRecipeData d = DropRecipeData.fromNBT(this.data);
+            DropRecipeData d = DropRecipeData.fromMetadataNBT(packet.data);
             // 名称长度设上限：它会落盘并被 S→C 同步包重新广播，而 S→C 自定义载荷上限是 1MB。
             if (d.name != null && d.name.length() > 64) d.name = d.name.substring(0, 64);
+            if (d.soundId.length() > 256) d.soundId = d.soundId.substring(0, 256);
+            if (d.dim.length() > 256) d.dim = d.dim.substring(0, 256);
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             if (!(sender.containerMenu instanceof ContainerDropRecipes c)) {
                 LOGGER.debug("[drop] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
@@ -60,7 +62,9 @@ public class PacketDropSave {
                         d.filledInputCount(), !d.result.isEmpty());
                 return;
             }
-            boolean ok = d.id >= 0 ? DropRecipeRegistry.update(d) : (DropRecipeRegistry.create(d) != null);
+            var registries = sender.server.registryAccess();
+            boolean ok = d.id >= 0 ? DropRecipeRegistry.update(registries, d)
+                    : DropRecipeRegistry.create(registries, d) != null;
             if (!ok) {
                 LOGGER.debug("[drop] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
@@ -76,6 +80,5 @@ public class PacketDropSave {
             // 一人创建全服可用：全员同步编辑列表（配方生效在 DropCraftHandler 直查 Registry）
             DropRecipeRegistry.syncToPlayers(sender.server);
         });
-        ctx.get().setPacketHandled(true);
     }
 }

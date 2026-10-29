@@ -1,14 +1,22 @@
 package top.cnpcplus.transport.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.PacketDistributor;
 import top.cnpcplus.transport.TransportImageIO;
 import top.cnpcplus.transport.TransportKeys;
 
-import java.util.function.Supplier;
-
 /** 客户端→服务端：按文件键请求传送点图片字节。 */
-public class PacketTransportImageRequest {
+public class PacketTransportImageRequest implements CustomPacketPayload {
+    public static final Type<PacketTransportImageRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "transport_image_request"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketTransportImageRequest> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> packet.encode(buf), PacketTransportImageRequest::decode);
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     private final String key;
 
     public PacketTransportImageRequest(String key) { this.key = key; }
@@ -19,10 +27,9 @@ public class PacketTransportImageRequest {
         return new PacketTransportImageRequest(buf.readUtf(64));
     }
 
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            var sender = ctx.get().getSender();
-            if (sender == null) return;
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sender)) return;
             String safe = TransportKeys.sanitize(this.key);
             if (safe.isEmpty()) return;
             byte[] data = TransportImageIO.read(safe);
@@ -33,12 +40,9 @@ public class PacketTransportImageRequest {
                 for (int off = 0; off < data.length; off += chunk, seq++) {
                     int len = Math.min(chunk, data.length - off);
                     byte[] part = java.util.Arrays.copyOfRange(data, off, off + len);
-                    TransportPacketHandler.CHANNEL.send(
-                            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                            new PacketTransportImageResponse(safe, seq, off + len >= data.length, part));
+                    PacketDistributor.sendToPlayer(sender, new PacketTransportImageResponse(safe, seq, off + len >= data.length, part));
                 }
             }
         });
-        ctx.get().setPacketHandled(true);
     }
 }

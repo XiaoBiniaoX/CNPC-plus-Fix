@@ -30,7 +30,7 @@ public final class TransportAssets {
     public static final ResourceLocation INTRO_PANEL = rl("intro_panel.png");
     public static final ResourceLocation DEFAULT_ICON = rl("default_icon.png");
 
-    public static final ResourceLocation ICON_DIR = new ResourceLocation("cnpcplus", TEX + "icons/");
+    public static final ResourceLocation ICON_DIR = ResourceLocation.fromNamespaceAndPath("cnpcplus", TEX + "icons/");
 
     public static final int ROW_TEX_W = 372, ROW_TEX_H = 64;
     public static final int ICON_TEX = 256;
@@ -38,7 +38,7 @@ public final class TransportAssets {
     public static final int DEFAULT_ICON_TEX = 32;
 
     private static ResourceLocation rl(String path) {
-        return new ResourceLocation("cnpcplus", TEX + path);
+        return ResourceLocation.fromNamespaceAndPath("cnpcplus", TEX + path);
     }
 
     /** 图标 RL：cnpcplus:textures/gui/transporter/icons/&lt;name&gt;.png */
@@ -53,7 +53,7 @@ public final class TransportAssets {
             }
         }
         if (sb.length() == 0) return DEFAULT_ICON;
-        return new ResourceLocation("cnpcplus", TEX + "icons/" + sb + ".png");
+        return ResourceLocation.fromNamespaceAndPath("cnpcplus", TEX + "icons/" + sb + ".png");
     }
 
     private static List<String> iconNames;

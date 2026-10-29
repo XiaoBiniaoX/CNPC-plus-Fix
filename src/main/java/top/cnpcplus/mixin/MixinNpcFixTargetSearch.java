@@ -34,7 +34,7 @@ public abstract class MixinNpcFixTargetSearch {
         return mob instanceof EntityNPCInterface npc ? npc : null;
     }
 
-    @Inject(method = "m_8036_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "canUse", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$skipImpossibleSearch(CallbackInfoReturnable<Boolean> cir) {
         if (!NpcAiOptimizerAccess.enabled()) return;
         EntityNPCInterface npc = cnpcplus$testNpc();

@@ -28,7 +28,7 @@ import java.util.List;
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public class MixinEntityNPCDieFx {
 
-    @Inject(method = "m_6667_", at = @At("RETURN"), remap = false)
+    @Inject(method = "die", at = @At("RETURN"), remap = false)
     private void cnpcplus$deathFx(DamageSource source, CallbackInfo ci) {
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
         if (!(npc.level() instanceof ServerLevel level)) return;

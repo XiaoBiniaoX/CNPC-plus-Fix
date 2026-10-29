@@ -1,13 +1,16 @@
 package top.cnpcplus.villagertrade.network;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import bin.cnpcplus.CnpcPlus;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * 关面板时把编辑期背包改动（对比开面板快照的 diff）提交给服务端。
@@ -16,7 +19,12 @@ import java.util.function.Supplier;
  * （"复制物品失效"根因，阶段223）。单机信任模型；专用服 handle 端硬守卫拒绝，
  * 防止此包变成客户端任意改背包的作弊通道。
  */
-public class PacketEditInventoryCommit {
+public class PacketEditInventoryCommit implements CustomPacketPayload {
+    public static final Type<PacketEditInventoryCommit> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "villager_edit_inventory"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketEditInventoryCommit> STREAM_CODEC =
+            StreamCodec.of((buf, packet) -> packet.encode(buf), PacketEditInventoryCommit::decode);
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     /** index: 0..35=主背包, 36..39=盔甲, 40=副手（vanilla Inventory 布局） */
     private final List<Entry> changes;
 
@@ -26,27 +34,30 @@ public class PacketEditInventoryCommit {
 
     public record Entry(int index, ItemStack stack) {}
 
-    public void encode(FriendlyByteBuf buf) {
+    public void encode(RegistryFriendlyByteBuf buf) {
+        if (this.changes.size() > 41) throw new IllegalArgumentException("Too many inventory changes");
         buf.writeVarInt(this.changes.size());
         for (Entry e : this.changes) {
             buf.writeVarInt(e.index());
-            buf.writeItem(e.stack());
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, e.stack());
         }
     }
 
-    public static PacketEditInventoryCommit decode(FriendlyByteBuf buf) {
+    public static PacketEditInventoryCommit decode(RegistryFriendlyByteBuf buf) {
         int n = buf.readVarInt();
-        List<Entry> list = new ArrayList<>(Math.min(n, 64));
+        if (n < 0 || n > 41) throw new IllegalArgumentException("Invalid inventory change count: " + n);
+        List<Entry> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            list.add(new Entry(buf.readVarInt(), buf.readItem()));
+            int index = buf.readVarInt();
+            if (index < 0 || index > 40) throw new IllegalArgumentException("Invalid inventory slot: " + index);
+            list.add(new Entry(index, ItemStack.OPTIONAL_STREAM_CODEC.decode(buf)));
         }
         return new PacketEditInventoryCommit(list);
     }
 
-    public static void handle(PacketEditInventoryCommit msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+    public static void handle(PacketEditInventoryCommit msg, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player) || !player.hasPermissions(2)) return;
             // 单机（含 LAN 主机，integrated server）才接受；专用服拒绝
             if (player.level().getServer() == null || player.level().getServer().isDedicatedServer()) {
                 // 233d-UI9 日志清理：println→debug（默认不输出，只留 error 级）
@@ -72,6 +83,5 @@ public class PacketEditInventoryCommit {
             }
             player.inventoryMenu.broadcastChanges();
         });
-        ctx.get().setPacketHandled(true);
     }
 }

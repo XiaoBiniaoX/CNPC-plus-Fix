@@ -2,7 +2,7 @@ package bin.cnpcplus.melee.client;
 
 import bin.cnpcplus.melee.MeleeBuff;
 import bin.cnpcplus.melee.MeleeBuffUtil;
-import bin.cnpcplus.melee.MeleeBuffsAccess;
+import bin.cnpcplus.melee.BuffTable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import noppes.npcs.entity.data.DataMelee;
@@ -54,7 +54,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
     private static final int BTN_CLEAR = 14;
     private static final int BTN_DONE = 66;
 
-    private final DataMelee stats;
+    private final BuffTable table;
 
     private GuiCustomScrollNop available;
     private GuiCustomScrollNop chosen;
@@ -68,7 +68,11 @@ public class SubGuiMeleeBuffs extends GuiBasic
     private int seconds = 5;
 
     public SubGuiMeleeBuffs(DataMelee stats) {
-        this.stats = stats;
+        this(MeleeBuffUtil.tableFor(stats));
+    }
+
+    public SubGuiMeleeBuffs(BuffTable table) {
+        this.table = table;
         this.setBackground("menubg.png");
         this.imageWidth = 420;
         this.imageHeight = 240;
@@ -76,7 +80,9 @@ public class SubGuiMeleeBuffs extends GuiBasic
     }
 
     private List<MeleeBuff> buffs() {
-        return ((MeleeBuffsAccess) this.stats).cnpcplus$getMeleeBuffs();
+        List<MeleeBuff> result = new ArrayList<>();
+        this.table.get().forEach((id, value) -> result.add(new MeleeBuff(id, value[0], value[1])));
+        return result;
     }
 
     @Override
@@ -87,7 +93,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
                 this.guiLeft + 4, this.guiTop + 6));
 
         // 等级：0 = I 级，与原版 MobEffectInstance 的 amplifier 语义一致。
-        this.addLabel(new GuiLabel(1, I18n.get("cnpcplus.melee.amp"),
+        this.addLabel(new GuiLabel(1, "stats.amplify",
                 this.guiLeft + 150, this.guiTop + 11));
         GuiTextFieldNop ampField = new GuiTextFieldNop(FIELD_AMP, this,
                 this.guiLeft + 210, this.guiTop + 6, 40, 18, "" + this.amplifier);
@@ -96,7 +102,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         ampField.setMinMaxDefault(0, MeleeBuff.MAX_AMP, 0);
 
         // 时长单位是秒，与原版近战那个「时间」框一致（施加时才 ×20 变 tick）。
-        this.addLabel(new GuiLabel(2, I18n.get("cnpcplus.melee.duration"),
+        this.addLabel(new GuiLabel(2, "gui.time",
                 this.guiLeft + 262, this.guiTop + 11));
         GuiTextFieldNop timeField = new GuiTextFieldNop(FIELD_SECONDS, this,
                 this.guiLeft + 310, this.guiTop + 6, 50, 18, "" + this.seconds);
@@ -111,7 +117,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         this.available.guiLeft = this.guiLeft + 4;
         this.available.guiTop = this.guiTop + 40;
         this.addScroll(this.available);
-        this.addLabel(new GuiLabel(11, I18n.get("cnpcplus.melee.availableBuffs"),
+        this.addLabel(new GuiLabel(11, "beacon.availableEffects",
                 this.guiLeft + 4, this.guiTop + 30));
 
         if (this.chosen == null) {
@@ -121,7 +127,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         this.chosen.guiLeft = this.guiLeft + 226;
         this.chosen.guiTop = this.guiTop + 40;
         this.addScroll(this.chosen);
-        this.addLabel(new GuiLabel(12, I18n.get("cnpcplus.melee.chosenBuffs"),
+        this.addLabel(new GuiLabel(12, "beacon.currentEffects",
                 this.guiLeft + 226, this.guiTop + 30));
 
         cnpcplus$rebuildLists();
@@ -164,7 +170,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
         for (MeleeBuff b : current) {
             if (b == null || b.effectId == null) continue;
             String display = cnpcplus$displayName(b.effectId)
-                    + " " + I18n.get("enchantment.level." + (b.amp + 1))
+                    + (MeleeBuff.FIRE.equals(b.effectId) ? "" : " " + I18n.get("enchantment.level." + (b.amp + 1)))
                     + " (" + b.seconds + "s)";
             if (this.chosenNames.containsKey(display)) {
                 display = display + " [" + b.effectId + "]";
@@ -192,27 +198,11 @@ public class SubGuiMeleeBuffs extends GuiBasic
 
     /** 加入或覆盖一条。同一效果只保留一条，覆盖时保持原位置。 */
     private void cnpcplus$put(String id) {
-        List<MeleeBuff> list = buffs();
-        for (int i = 0; i < list.size(); i++) {
-            MeleeBuff b = list.get(i);
-            if (b != null && id.equals(b.effectId)) {
-                list.set(i, new MeleeBuff(id, this.amplifier, this.seconds));
-                return;
-            }
-        }
-        if (list.size() >= MeleeBuff.MAX_ENTRIES) return;
-        list.add(new MeleeBuff(id, this.amplifier, this.seconds));
+        this.table.put(id, this.amplifier, this.seconds);
     }
 
     private void cnpcplus$remove(String id) {
-        List<MeleeBuff> list = buffs();
-        for (int i = 0; i < list.size(); i++) {
-            MeleeBuff b = list.get(i);
-            if (b != null && id.equals(b.effectId)) {
-                list.remove(i);
-                return;
-            }
-        }
+        this.table.remove(id);
     }
 
     @Override
@@ -234,7 +224,7 @@ public class SubGuiMeleeBuffs extends GuiBasic
             }
             cnpcplus$refresh();
         } else if (button.id == BTN_CLEAR) {
-            buffs().clear();
+            this.table.clear();
             cnpcplus$refresh();
         } else if (button.id == BTN_DONE) {
             this.close();
@@ -242,8 +232,8 @@ public class SubGuiMeleeBuffs extends GuiBasic
     }
 
     private void cnpcplus$refresh() {
-        this.available.clearSelection();
-        this.chosen.clearSelection();
+        this.available.setSelectedIndex(-1);
+        this.chosen.setSelectedIndex(-1);
         this.init();
     }
 

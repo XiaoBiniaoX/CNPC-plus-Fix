@@ -1,21 +1,21 @@
 package top.cnpcplus.config;
 
-import net.minecraftforge.common.ForgeConfigSpec;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 /** Safe subset of npcfix-main; target filtering remains vanilla/CNPC-compatible by default. */
 public final class NpcAiOptimizerConfig {
-    public static final ForgeConfigSpec SPEC;
-    public static final ForgeConfigSpec.BooleanValue ENABLED;
-    public static final ForgeConfigSpec.IntValue TARGET_SEARCH_INTERVAL_TICKS;
-    public static final ForgeConfigSpec.BooleanValue STAGGER_TARGET_SEARCHES;
-    public static final ForgeConfigSpec.IntValue MAX_EFFECTIVE_AGGRO_RANGE;
-    public static final ForgeConfigSpec.BooleanValue UPDATE_EVENT_WHEN_SCRIPTS_DISABLED;
-    public static final ForgeConfigSpec.IntValue UPDATE_EVENT_INTERVAL_TICKS;
-    public static final ForgeConfigSpec.BooleanValue COLLIDE_SCAN_WHEN_SCRIPTS_DISABLED;
-    public static final ForgeConfigSpec.IntValue COLLIDE_SCAN_INTERVAL_TICKS;
+    public static final ModConfigSpec SPEC;
+    public static final ModConfigSpec.BooleanValue ENABLED;
+    public static final ModConfigSpec.IntValue TARGET_SEARCH_INTERVAL_TICKS;
+    public static final ModConfigSpec.BooleanValue STAGGER_TARGET_SEARCHES;
+    public static final ModConfigSpec.IntValue MAX_EFFECTIVE_AGGRO_RANGE;
+    public static final ModConfigSpec.BooleanValue UPDATE_EVENT_WHEN_SCRIPTS_DISABLED;
+    public static final ModConfigSpec.IntValue UPDATE_EVENT_INTERVAL_TICKS;
+    public static final ModConfigSpec.BooleanValue COLLIDE_SCAN_WHEN_SCRIPTS_DISABLED;
+    public static final ModConfigSpec.IntValue COLLIDE_SCAN_INTERVAL_TICKS;
 
     static {
-        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
+        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         builder.push("npcfix_ai");
         ENABLED = builder.comment("启用 NPC AI 性能优化；关闭后恢复原始频率。").define("enabled", true);
         TARGET_SEARCH_INTERVAL_TICKS = builder.comment("已停用：仅保留旧配置兼容，不再限制索敌启动频率。").defineInRange("target_search_interval_ticks", 20, 4, 200);

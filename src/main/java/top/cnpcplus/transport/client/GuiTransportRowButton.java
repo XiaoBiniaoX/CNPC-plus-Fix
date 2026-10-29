@@ -21,7 +21,7 @@ public class GuiTransportRowButton extends GuiButtonNop {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (!this.shown || !this.visible) return;
         ITransportPanelUI panel = (ITransportPanelUI) this.gui;
         boolean selected = this.entryName != null && this.entryName.equals(panel.cnpcplus$getSelected());

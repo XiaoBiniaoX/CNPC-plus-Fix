@@ -9,8 +9,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.Merchant;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
-import top.cnpcplus.mixin.MerchantMenuAccessor;
-import top.cnpcplus.mixin.MerchantContainerAccessor;
+import bin.cnpcplus.mixin.villagertrade.MerchantMenuAccessor;
+import bin.cnpcplus.mixin.villagertrade.MerchantContainerAccessor;
+import top.cnpcplus.roles.TradeData;
+import java.util.Optional;
 
 public class EditableMerchantMenu extends MerchantMenu {
 
@@ -79,7 +81,9 @@ public class EditableMerchantMenu extends MerchantMenu {
                 ItemStack costA = container.getItem(0).copy();
                 ItemStack costB = container.getItem(1).copy();
                 ItemStack result = container.getItem(2).copy();
-                MerchantOffer newOffer = new MerchantOffer(costA, costB, result, old.getMaxUses(), old.getXp(), old.getPriceMultiplier());
+                MerchantOffer newOffer = new MerchantOffer(TradeData.cost(costA),
+                        costB.isEmpty() ? Optional.empty() : Optional.of(TradeData.cost(costB)),
+                        result, old.getMaxUses(), old.getXp(), old.getPriceMultiplier());
                 offers.set(idx, newOffer);
                 if (onChange != null) onChange.run();
             } else {

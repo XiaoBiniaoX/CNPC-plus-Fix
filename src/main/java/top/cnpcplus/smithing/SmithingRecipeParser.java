@@ -1,6 +1,7 @@
 package top.cnpcplus.smithing;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.crafting.RecipeHolder;
 
 /**
  * 锻造配方解析器：把「源数据 SmithingRecipeData」解析成 Minecraft 能用的 CustomSmithingRecipe。
@@ -15,19 +16,19 @@ public final class SmithingRecipeParser {
     private SmithingRecipeParser() {}
 
     /** 结果非空且至少一个输入非空才成配方；返回 null 表示该源数据不可注册（由调用方跳过）。 */
-    public static CustomSmithingRecipe parse(SmithingRecipeData data) {
+    public static RecipeHolder<CustomSmithingRecipe> parse(SmithingRecipeData data) {
         if (data == null) return null;
         if (data.result == null || data.result.isEmpty()) return null;
         boolean anyInput = (data.template != null && !data.template.isEmpty())
                 || (data.base != null && !data.base.isEmpty())
                 || (data.addition != null && !data.addition.isEmpty());
         if (!anyInput) return null;
-        return new CustomSmithingRecipe(
-                new ResourceLocation("cnpcplus", "smithing/" + data.id),
+        return new RecipeHolder<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "smithing/" + data.id),
+                new CustomSmithingRecipe(
                 data.template == null ? net.minecraft.world.item.ItemStack.EMPTY : data.template.copy(),
                 data.base == null ? net.minecraft.world.item.ItemStack.EMPTY : data.base.copy(),
                 data.addition == null ? net.minecraft.world.item.ItemStack.EMPTY : data.addition.copy(),
                 data.result.copy(),
-                data.nameOnly);
+                data.nameOnly));
     }
 }

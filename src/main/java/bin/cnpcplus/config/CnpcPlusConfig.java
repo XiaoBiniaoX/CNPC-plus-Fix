@@ -189,5 +189,17 @@ public class CnpcPlusConfig {
             )
             .defineInRange("playerAutoSaveSeconds", 300, 0, 3600);
 
+    public static final ModConfigSpec.IntValue MAX_HIRED_NPCS = BUILDER
+            .comment("玩家最多可雇佣的随从数量；默认30。")
+            .defineInRange("MaxHiredNpcs", 30, 1, 10000);
+
+    public static final ModConfigSpec.ConfigValue<String> HIRE_LIMIT_MESSAGE = BUILDER
+            .comment("达到雇佣随从上限时显示的提示。")
+            .define("HireLimitMessage", "你雇佣的人过多");
+
+    public static final ModConfigSpec.BooleanValue INTERACT_ITEM_PRIORITY = BUILDER
+            .comment("对准NPC时优先使用弓/食物等有使用动作的物品；潜行仍与NPC交互。")
+            .define("InteractItemPriority", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

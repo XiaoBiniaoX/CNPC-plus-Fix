@@ -48,7 +48,9 @@ final class DynamicParticleIcon {
             Minecraft mc = Minecraft.getInstance();
             ParticleEngine engine = mc.particleEngine;
             if (engine == null) return false;
-            Object setObj = engine.spriteSets.get(new ResourceLocation(particleId));
+            ResourceLocation id = ResourceLocation.tryParse(particleId);
+            if (id == null) return false;
+            Object setObj = ((ParticleEngineSpriteAccess) engine).cnpcplus$getSpriteSets().get(id);
             if (!(setObj instanceof SpriteSet set)) return false;
             TextureAtlasSprite sprite = set.get(0, 1);
             if (sprite == null) return false;

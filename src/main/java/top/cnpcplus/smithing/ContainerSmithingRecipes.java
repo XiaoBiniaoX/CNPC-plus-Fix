@@ -35,7 +35,7 @@ public class ContainerSmithingRecipes extends AbstractContainerMenu {
     }
 
     public ContainerSmithingRecipes(int containerId, Inventory playerInventory, int selectedId) {
-        super(SmithingMenus.SMITHING_RECIPES.get(), containerId);
+        super(SmithingMenus.TYPE, containerId);
         this.selectedId = selectedId;
         // 槽位填充不在构造里做：由 PacketSmithingSelect 服务端权威填入（打开时=空槽，
         // GUI 首开自动选中后发 Select；构造填会绕开「先归还槽内物品」的防销毁逻辑）。

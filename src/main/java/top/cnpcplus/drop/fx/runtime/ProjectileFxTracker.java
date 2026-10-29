@@ -2,9 +2,9 @@ package top.cnpcplus.drop.fx.runtime;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.bus.api.SubscribeEvent;
 import org.slf4j.Logger;
 import top.cnpcplus.drop.fx.DropFxCaps;
 import top.cnpcplus.drop.fx.DropFxConfig;
@@ -92,9 +92,8 @@ public final class ProjectileFxTracker {
     }
 
     @SubscribeEvent
-    public static void onLevelTick(TickEvent.LevelTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        if (!(event.level instanceof ServerLevel level)) return;
+    public static void onLevelTick(LevelTickEvent.Post event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
         synchronized (TRACKED) {
             if (TRACKED.isEmpty()) return; // O(1) 短路：无尾迹弹射物=零开销
             long now = level.getGameTime();

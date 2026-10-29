@@ -95,7 +95,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         return Math.max(1, Math.round(designH * this.cnpcplus$scale));
     }
 
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), require = 1, remap = false)
     private void cnpcplus$rebuild(CallbackInfo ci) {
         GuiTransportSelection self = (GuiTransportSelection) (Object) this;
 
@@ -179,13 +179,13 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         }
     }
 
-    @Inject(method = "m_88315_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void cnpcplus$render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         ci.cancel();
         GuiTransportSelection self = (GuiTransportSelection) (Object) this;
 
         if (this.drawDefaultBackground) {
-            this.renderBackground(graphics);
+            this.renderBackground(graphics, mouseX, mouseY, partialTick);
         }
 
         var pose = graphics.pose();
@@ -413,7 +413,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         graphics.disableScissor();
     }
 
-    @Inject(method = "m_6375_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void cnpcplus$mouseClick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         if (button != 0) return;
         int total = this.cnpcplus$filtered.size();
@@ -435,30 +435,31 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         cir.setReturnValue(true);
     }
 
-    @Inject(method = "m_7979_", at = @At("HEAD"), cancellable = true, remap = false)
-    private void cnpcplus$mouseDrag(double x, double y, int button, double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
-        if (!this.cnpcplus$dragging || button != 0) return;
+    @Override
+    public boolean mouseDragged(double x, double y, int button, double dragX, double dragY) {
+        if (!this.cnpcplus$dragging || button != 0) return super.mouseDragged(x, y, button, dragX, dragY);
         int total = this.cnpcplus$filtered.size();
         int maxOff = Math.max(0, total - TransportLayout.ROW_VISIBLE);
-        if (maxOff <= 0) return;
+        if (maxOff <= 0) return true;
         int trackH = this.cnpcplus$sh(TransportLayout.SCROLL_TRACK_H);
         double dy = y - this.cnpcplus$dragStartMouseY;
         int delta = (int) Math.round(dy / Math.max(1, trackH) * maxOff);
         this.cnpcplus$offset = Math.max(0, Math.min(maxOff, this.cnpcplus$dragStartOffset + delta));
         this.cnpcplus$refreshRows();
-        cir.setReturnValue(true);
-    }
-
-    @Inject(method = "m_6348_", at = @At("HEAD"), cancellable = true, remap = false)
-    private void cnpcplus$mouseRelease(double x, double y, int button, CallbackInfoReturnable<Boolean> cir) {
-        if (this.cnpcplus$dragging) {
-            this.cnpcplus$dragging = false;
-            cir.setReturnValue(true);
-        }
+        return true;
     }
 
     @Override
-    public boolean m_6050_(double mouseX, double mouseY, double delta) {
+    public boolean mouseReleased(double x, double y, int button) {
+        if (this.cnpcplus$dragging) {
+            this.cnpcplus$dragging = false;
+            return true;
+        }
+        return super.mouseReleased(x, y, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double delta) {
         if (delta == 0.0D) return false;
         int lx = this.cnpcplus$sx(TransportLayout.LIST_X);
         int ly = this.cnpcplus$sy(TransportLayout.LIST_Y);
@@ -501,13 +502,17 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         }
     }
 
-    public void setData(Vector<String> list, Map<String, Integer> data) {
+    @Inject(method = "setData", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$setData(Vector<String> list, Map<String, Integer> data, CallbackInfo ci) {
         this.cnpcplus$all.clear();
         if (list != null) this.cnpcplus$all.addAll(list);
         this.cnpcplus$applyFilter();
+        ci.cancel();
     }
 
-    public void setSelected(String selected) {
+    @Inject(method = "setSelected", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$selectData(String selected, CallbackInfo ci) {
+        ci.cancel();
         if (selected != null && this.cnpcplus$all.contains(selected)) {
             this.cnpcplus$selected = selected;
             int idx = this.cnpcplus$filtered.indexOf(selected);

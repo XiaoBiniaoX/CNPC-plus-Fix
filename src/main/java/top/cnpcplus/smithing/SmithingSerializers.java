@@ -1,11 +1,11 @@
 package top.cnpcplus.smithing;
 
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
-import top.cnpcplus.CnpcPlus;
+import net.minecraft.core.registries.Registries;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import bin.cnpcplus.CnpcPlus;
 
 /**
  * 锻造配方序列化器注册（227）。
@@ -18,12 +18,12 @@ import top.cnpcplus.CnpcPlus;
 public class SmithingSerializers {
 
     public static final DeferredRegister<RecipeSerializer<?>> SERIALIZERS =
-            DeferredRegister.create(ForgeRegistries.RECIPE_SERIALIZERS, CnpcPlus.MOD_ID);
+            DeferredRegister.create(Registries.RECIPE_SERIALIZER, CnpcPlus.MODID);
 
-    public static final RegistryObject<RecipeSerializer<?>> SMITHING_TRANSFORM =
+    public static final DeferredHolder<RecipeSerializer<?>, CustomSmithingRecipe.Serializer> SMITHING_TRANSFORM =
             SERIALIZERS.register("smithing_transform", CustomSmithingRecipe.Serializer::new);
 
-    public static void register() {
-        SERIALIZERS.register(FMLJavaModLoadingContext.get().getModEventBus());
+    public static void register(IEventBus modBus) {
+        SERIALIZERS.register(modBus);
     }
 }

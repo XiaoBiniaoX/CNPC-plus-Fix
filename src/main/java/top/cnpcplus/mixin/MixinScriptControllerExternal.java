@@ -15,7 +15,8 @@ public class MixinScriptControllerExternal {
 
     @Shadow public Map<String, String> scripts;
 
-    @Inject(method = "loadCategories", at = @At("RETURN"))
+    // 既有全局加载器使用默认 order=1000；来源外置脚本最后覆盖同名条目。
+    @Inject(method = "loadCategories", at = @At("RETURN"), order = 1100)
     private void cnpcplus$loadExternalScripts(CallbackInfo ci) {
         Map<String, String> external = ExternalScriptStore.loadAll();
         if (external.isEmpty()) return;

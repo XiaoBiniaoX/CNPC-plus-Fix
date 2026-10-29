@@ -20,6 +20,6 @@ public final class NpcAiOptimizerAccess {
             || Math.floorMod(entity.level().getGameTime() + entity.getId(), interval) == 0L;
     }
     public static boolean scriptsEnabled(EntityNPCInterface npc) { return npc != null && npc.script != null && npc.script.getEnabled(); }
-    private static boolean safeBool(net.minecraftforge.common.ForgeConfigSpec.BooleanValue value, boolean fallback) { try { return value.get(); } catch (Throwable t) { return fallback; } }
-    private static int safeInt(net.minecraftforge.common.ForgeConfigSpec.IntValue value, int fallback) { try { return value.get(); } catch (Throwable t) { return fallback; } }
+    private static boolean safeBool(net.neoforged.neoforge.common.ModConfigSpec.BooleanValue value, boolean fallback) { return top.cnpcplus.config.ServerConfigAccess.bool(value, fallback); }
+    private static int safeInt(net.neoforged.neoforge.common.ModConfigSpec.IntValue value, int fallback) { return top.cnpcplus.config.ServerConfigAccess.integer(value, fallback); }
 }

@@ -8,6 +8,9 @@ import net.minecraft.world.effect.MobEffect;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import noppes.npcs.entity.data.DataMelee;
 
 /**
  * 药水效果注册表的读写工具。
@@ -45,7 +48,7 @@ public final class MeleeBuffUtil {
 
     /** 效果的翻译键。点燃没有注册表项，用原版火焰的翻译键。 */
     public static String descriptionIdOf(String name) {
-        if (MeleeBuff.FIRE.equals(name)) return "block.minecraft.fire";
+        if (MeleeBuff.FIRE.equals(name)) return "cnpcplus.melee.fire";
         Holder<MobEffect> holder = holderOf(name);
         if (holder == null) return name;
         return holder.value().getDescriptionId();
@@ -54,11 +57,36 @@ public final class MeleeBuffUtil {
     /** 全部可选效果的注册名，含点燃哨兵值，用于界面左侧「可用」列表。 */
     public static List<String> allEffectIds() {
         List<String> ids = new ArrayList<>();
+        // 1.20.1终版的「火」固定排最前。
+        ids.add(MeleeBuff.FIRE);
         for (ResourceLocation rl : BuiltInRegistries.MOB_EFFECT.keySet()) {
             ids.add(rl.toString());
         }
-        // 点燃不是药水效果，但原版界面把它作为最后一项提供，这里保持一致。
-        ids.add(MeleeBuff.FIRE);
         return ids;
+    }
+
+    public static BuffTable tableFor(DataMelee melee) {
+        MeleeBuffsAccess access = (MeleeBuffsAccess) melee;
+        return new BuffTable() {
+            @Override public Map<String, int[]> get() {
+                Map<String, int[]> result = new LinkedHashMap<>();
+                for (MeleeBuff buff : access.cnpcplus$getMeleeBuffs()) {
+                    if (buff != null) result.put(buff.effectId, new int[]{buff.amp, buff.seconds});
+                }
+                return result;
+            }
+            @Override public void put(String id, int amplifier, int seconds) {
+                List<MeleeBuff> buffs = access.cnpcplus$getMeleeBuffs();
+                for (int i = 0; i < buffs.size(); i++) {
+                    if (id.equals(buffs.get(i).effectId)) {
+                        buffs.set(i, new MeleeBuff(id, amplifier, seconds));
+                        return;
+                    }
+                }
+                if (buffs.size() < MeleeBuff.MAX_ENTRIES) buffs.add(new MeleeBuff(id, amplifier, seconds));
+            }
+            @Override public void remove(String id) { access.cnpcplus$getMeleeBuffs().removeIf(b -> id.equals(b.effectId)); }
+            @Override public void clear() { access.cnpcplus$getMeleeBuffs().clear(); }
+        };
     }
 }

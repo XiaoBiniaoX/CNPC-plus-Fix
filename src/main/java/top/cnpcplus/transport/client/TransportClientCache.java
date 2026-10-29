@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import top.cnpcplus.transport.TransportKeys;
 import top.cnpcplus.transport.network.PacketTransportImageRequest;
 import top.cnpcplus.transport.network.PacketTransportMetaRequest;
-import top.cnpcplus.transport.network.TransportPacketHandler;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.io.ByteArrayInputStream;
 import java.util.Map;
@@ -134,12 +134,12 @@ public final class TransportClientCache {
         long last = IMAGE_REQUESTED.getOrDefault(safe, 0L);
         if (now - last < 3000L) return;
         IMAGE_REQUESTED.put(safe, now);
-        TransportPacketHandler.CHANNEL.sendToServer(new PacketTransportImageRequest(safe));
+        PacketDistributor.sendToServer(new PacketTransportImageRequest(safe));
     }
 
     public static void requestMeta(int npcId) { requestMeta(npcId, false); }
     public static void requestMeta(int npcId, boolean editor) {
-        TransportPacketHandler.CHANNEL.sendToServer(new PacketTransportMetaRequest(npcId, editor));
+        PacketDistributor.sendToServer(new PacketTransportMetaRequest(npcId, editor));
     }
 
     public static CompoundTag root() { return root; }
@@ -168,7 +168,7 @@ public final class TransportClientCache {
     public static ResourceLocation imageId(String key) {
         String safe = TransportKeys.sanitize(key);
         return safe.isEmpty() ? null
-                : new ResourceLocation("cnpcplus", "transport/img_" + safe.hashCode());
+                : ResourceLocation.fromNamespaceAndPath("cnpcplus", "transport/img_" + safe.hashCode());
     }
 
     /** 241z：源图像素尺寸（按文件键查 → 换算成贴图 id 查）。 */
@@ -182,6 +182,7 @@ public final class TransportClientCache {
     }
 
     public static void clear() {
+        top.cnpcplus.transport.network.PacketTransportImageResponse.clear();
         META.clear();
         EDIT_META.clear();
         for (DynamicTexture t : IMAGES.values()) {
@@ -193,5 +194,8 @@ public final class TransportClientCache {
         root = null;
         currentName = "";
         panel = new CompoundTag();
+        metaListener = null;
+        savedAck = false;
+        imageAckOk = false;
     }
 }

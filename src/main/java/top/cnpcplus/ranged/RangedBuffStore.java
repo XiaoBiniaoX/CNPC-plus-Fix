@@ -4,8 +4,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import noppes.npcs.entity.data.DataRanged;
-import top.cnpcplus.melee.BuffTable;
-import top.cnpcplus.melee.MeleeBuffStore;
+import bin.cnpcplus.melee.BuffTable;
+import bin.cnpcplus.melee.MeleeBuff;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -68,10 +68,10 @@ public final class RangedBuffStore {
         if (ranged == null || registryName == null || registryName.isEmpty()) return;
         Map<String, int[]> map = get(ranged);
         synchronized (LOCK) {
-            if (!map.containsKey(registryName) && map.size() >= MeleeBuffStore.MAX_ENTRIES) return;
+            if (!map.containsKey(registryName) && map.size() >= MeleeBuff.MAX_ENTRIES) return;
             map.put(registryName, new int[]{
-                    MeleeBuffStore.clampAmplifier(amplifier),
-                    MeleeBuffStore.clampSeconds(seconds)
+                    MeleeBuff.clampAmp(amplifier),
+                    MeleeBuff.clampSeconds(seconds)
             });
         }
     }
@@ -133,8 +133,8 @@ public final class RangedBuffStore {
                 if (entry.getKey() == null || entry.getValue() == null) continue;
                 CompoundTag tag = new CompoundTag();
                 tag.putString("Effect", entry.getKey());
-                tag.putInt("Amp", MeleeBuffStore.clampAmplifier(entry.getValue()[0]));
-                tag.putInt("Seconds", MeleeBuffStore.clampSeconds(entry.getValue()[1]));
+                tag.putInt("Amp", MeleeBuff.clampAmp(entry.getValue()[0]));
+                tag.putInt("Seconds", MeleeBuff.clampSeconds(entry.getValue()[1]));
                 list.add(tag);
             }
             compound.put(NBT_KEY, list);
@@ -149,13 +149,13 @@ public final class RangedBuffStore {
             map.clear();
             if (!compound.contains(NBT_KEY, Tag.TAG_LIST)) return;
             ListTag list = compound.getList(NBT_KEY, Tag.TAG_COMPOUND);
-            for (int i = 0; i < list.size() && map.size() < MeleeBuffStore.MAX_ENTRIES; i++) {
+            for (int i = 0; i < list.size() && map.size() < MeleeBuff.MAX_ENTRIES; i++) {
                 CompoundTag tag = list.getCompound(i);
                 String name = tag.getString("Effect");
                 if (name == null || name.isEmpty()) continue;
                 map.put(name, new int[]{
-                        MeleeBuffStore.clampAmplifier(tag.getInt("Amp")),
-                        MeleeBuffStore.clampSeconds(tag.getInt("Seconds"))
+                        MeleeBuff.clampAmp(tag.getInt("Amp")),
+                        MeleeBuff.clampSeconds(tag.getInt("Seconds"))
                 });
             }
         }

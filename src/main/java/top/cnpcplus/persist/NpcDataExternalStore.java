@@ -95,7 +95,8 @@ public final class NpcDataExternalStore {
         UUID id = parseId(tag.getString(idKey));
         if (id == null) id = owner;
         State state = readState(id);
-        boolean legacy = hasData(tag);
+        boolean legacy = false;
+        for (String key : dataKeys) legacy |= tag.contains(key, Tag.TAG_LIST);
 
         try {
             if (state != null && !owner.equals(state.owner)) {
@@ -105,7 +106,7 @@ public final class NpcDataExternalStore {
                 state = readState(id);
             }
 
-            if (state != null && verifyData(state)) {
+            if (!legacy && state != null && verifyData(state)) {
                 ACTIVE.put(npc, state);
                 attachData(tag, state.data);
                 tag.putString(idKey, state.id.toString());
@@ -113,7 +114,7 @@ public final class NpcDataExternalStore {
                 return true;
             }
 
-            if (!legacy) return false;
+            if (!legacy || (state == null && !hasData(tag))) return false;
 
             State migrated = new State();
             migrated.id = id;
@@ -140,14 +141,18 @@ public final class NpcDataExternalStore {
     public synchronized void saveNpc(EntityNPCInterface npc, CompoundTag tag) {
         if (npc == null || tag == null || npc.level() == null || npc.level().isClientSide) return;
         UUID owner = npc.getUUID();
+        State state = ACTIVE.get(npc);
         UUID id = parseId(tag.getString(idKey));
-        if (id == null) id = owner;
+        if (id == null) id = state != null && owner.equals(state.owner) ? state.id : owner;
         CompoundTag data = extractData(tag);
         File file = stateFile(id);
-        State state = ACTIVE.get(npc);
         if (state != null && (!owner.equals(state.owner) || !id.equals(state.id))) state = null;
         if (state == null) state = readState(id);
-        if (state != null && !owner.equals(state.owner)) state = null;
+        if (state != null && !owner.equals(state.owner)) {
+            id = UUID.randomUUID();
+            file = stateFile(id);
+            state = null;
+        }
 
         try {
             if (!hasData(data)) {
@@ -171,24 +176,20 @@ public final class NpcDataExternalStore {
                 return;
             }
 
-            if (state == null) {
-                state = new State();
-                state.id = id;
-                state.owner = owner;
-            }
+            // 失败前不污染已提交缓存，保留清空/重试所需的可信加载状态。
+            state = new State();
+            state.id = id;
+            state.owner = owner;
             state.data = data;
             state.migration = COPYING;
             writeState(state);
             if (!verifyData(state)) throw new IOException("data save verification failed");
             state.migration = EXTERNAL_ACTIVE;
             writeState(state);
-            tag.putString(idKey, state.id.toString());
-            tag.putInt(stateKey, CLEANUP_PENDING);
-            stripData(tag);
             state.migration = CLEANED;
-            tag.putInt(stateKey, CLEANED);
             writeState(state);
-            ACTIVE.put(npc, state);
+            adopt(npc, tag, state);
+            stripData(tag);
         } catch (Exception e) {
             LOGGER.error("[{}] save failed; NBT retained for {}", logTag, owner, e);
         }

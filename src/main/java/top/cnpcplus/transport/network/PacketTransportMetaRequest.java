@@ -3,7 +3,12 @@ package top.cnpcplus.transport.network;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.controllers.data.PlayerData;
 import noppes.npcs.controllers.data.PlayerTransportData;
 import noppes.npcs.controllers.data.TransportLocation;
@@ -14,13 +19,15 @@ import top.cnpcplus.transport.TransportKeys;
 import top.cnpcplus.transport.TransportPanelMeta;
 import top.cnpcplus.transport.TransportVisualMeta;
 
-import java.util.function.Supplier;
-
 /**
  * 客户端→服务端：请求当前 NPC 可见传送点的扩展元数据 + 当前位置。
  * 服务端按 getScrollData 同口径计算可见列表，只回传这些条目。
  */
-public class PacketTransportMetaRequest {
+public class PacketTransportMetaRequest implements CustomPacketPayload {
+    public static final Type<PacketTransportMetaRequest> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "transport_meta_request"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketTransportMetaRequest> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> packet.encode(buf), PacketTransportMetaRequest::decode);
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     private final int npcId;
     private final boolean editor;
 
@@ -33,14 +40,14 @@ public class PacketTransportMetaRequest {
         return new PacketTransportMetaRequest(buf.readVarInt(), buf.readBoolean());
     }
 
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) return;
             if (player.server == null || player.server.overworld() == null) return;
             EntityNPCInterface npc = TransportNpcLookup.find(player, this.npcId);
             if (npc == null) return;
-            if (npc.role.getType() != 4) return;
+            if (!(npc.role instanceof RoleTransporter)) return;
+            if (this.editor && !TransportNpcLookup.canEdit(player, npc)) return;
             RoleTransporter role = (RoleTransporter) npc.role;
             TransportLocation own = role.getLocation();
             if (own == null || own.category == null) return;
@@ -80,11 +87,8 @@ public class PacketTransportMetaRequest {
                 panel = style.cnpcplus$panel().copy();
             }
             out.put("Panel", panel);
-            TransportPacketHandler.CHANNEL.send(
-                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-                    new PacketTransportMetaResponse(out, this.editor));
+            PacketDistributor.sendToPlayer(player, new PacketTransportMetaResponse(out, this.editor));
         });
-        ctx.get().setPacketHandled(true);
     }
 
     public static CompoundTag metaOf(TransportLocation loc) {

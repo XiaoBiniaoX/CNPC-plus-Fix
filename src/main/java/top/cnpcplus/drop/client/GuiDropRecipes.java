@@ -9,7 +9,7 @@ import net.minecraft.world.item.Items;
 import top.cnpcplus.drop.DropLayout;
 import top.cnpcplus.drop.DropRecipeData;
 import top.cnpcplus.drop.ContainerDropRecipes;
-import top.cnpcplus.drop.network.DropPacketHandler;
+import net.neoforged.neoforge.network.PacketDistributor;
 import top.cnpcplus.drop.network.PacketDropRemove;
 import top.cnpcplus.drop.network.PacketDropRequestList;
 import top.cnpcplus.drop.network.PacketDropSave;
@@ -23,7 +23,7 @@ import noppes.npcs.shared.client.gui.components.GuiCustomScrollNop;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ICustomScrollListener;
 import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
-import top.cnpcplus.smelting.client.GuiIconToggleButton;
+import bin.cnpcplus.smelting.client.GuiIconToggleButton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,10 +41,10 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         implements ICustomScrollListener {
 
     private static final ResourceLocation SLOT_TEX =
-            new ResourceLocation("customnpcs", "textures/gui/slot.png");
+            ResourceLocation.fromNamespaceAndPath("customnpcs", "textures/gui/slot.png");
     /** arrow 透明裁片（231b 从 anvil.png 导出，直接复用）。 */
     private static final ResourceLocation ARROW_TEX =
-            new ResourceLocation("cnpcplus", "textures/gui/anvil_arrow.png");
+            ResourceLocation.fromNamespaceAndPath("cnpcplus", "textures/gui/anvil_arrow.png");
 
     private GuiCustomScrollNop scroll;
     private final ContainerDropRecipes container;
@@ -106,13 +106,13 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         // 只在首次（缓存为空）向服务端要一次全量列表，收到后 Sync 会回调 refreshFromServer。
         boolean cacheEmpty = DropClientData.get().isEmpty();
         if (cacheEmpty) {
-            DropPacketHandler.CHANNEL.sendToServer(new PacketDropRequestList());
+            PacketDistributor.sendToServer(new PacketDropRequestList());
         }
     }
 
     @Override
-    public void m_7856_() {
-        super.m_7856_();
+    public void init() {
+        super.init();
         // 界面整体偏移：guiLeft/guiTop 与 vanilla leftPos/topPos 一起按居中基准+偏移重算，
         // 不用 += 累加（m_7856_ 被二次调用时会叠加跑偏——熔炼版已实证）。
         this.guiLeft = (this.width - this.imageWidth) / 2 + DropLayout.guiOffsetX();
@@ -225,7 +225,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             // 首开自动选中第一条：同时让服务端把该配方填进五槽（新容器此时必为空槽，
             // 填入即「列表选中项=槽内展示」状态一致；服务端会先归还槽内原有物品，不会销毁）。
             if (this.selectedId >= 0) {
-                DropPacketHandler.CHANNEL.sendToServer(new PacketDropSelect(this.selectedId));
+                PacketDistributor.sendToServer(new PacketDropSelect(this.selectedId));
             }
         }
     }
@@ -265,7 +265,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             // 「添加配方」= 清空表单 + 清空五个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketDropSelect(-1) 查不到配方时把五槽设为 EMPTY 并归还物品），
             // 客户端不自己 setItem，避免与点击包的 stateId 对不上导致物品显示错乱。
-            DropPacketHandler.CHANNEL.sendToServer(new PacketDropSelect(-1));
+            PacketDistributor.sendToServer(new PacketDropSelect(-1));
             this.selectedId = -1;
             this.draft = true;
             this.nameOnly = false;
@@ -275,10 +275,10 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             this.fxFinal.clear();
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
-            this.m_7856_();
+            this.init();
         } else if (button.id == BTN_REMOVE) {
             if (this.selectedId >= 0) {
-                DropPacketHandler.CHANNEL.sendToServer(new PacketDropRemove(this.selectedId));
+                PacketDistributor.sendToServer(new PacketDropRemove(this.selectedId));
                 this.selectedId = -1;
                 this.draft = false;
                 this.nameOnly = false;
@@ -290,7 +290,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         } else if (button.id == BTN_NAMEONLY) {
             // 233a 开关翻转：GuiIconToggleButton 的显示态在 m_7856_ 里按字段重建
             this.nameOnly = !this.nameOnly;
-            this.m_7856_();
+            this.init();
         } else if (button.id == BTN_SOUND) {
             // 233c：复用 CNPC 音效选择子界面；结果在 subGuiClosed 里读 selectedResource
             this.setSubGui(new GuiSoundSelection(this.soundId == null ? "" : this.soundId));
@@ -332,6 +332,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         }
         // 五槽物品刻意不带进包里：服务端只认它自己容器里的 ItemStack（见 PacketDropSave），
         // 客户端发过去的会被直接丢弃（C→S 32767 上限，潜影盒大 NBT 会撞线）。
+        if (d.name.length() > 64) d.name = d.name.substring(0, 64);
         this.selectedName = d.name;
         // 233d-UI6 打点：音效绑定是否随本次保存落盘（用户「绑定音效完全没有」排查）
         // 233d-UI8：fxs 由「数量」改「明细 particleId:[TYPE,…]」（客户端侧「出来是圆形」决定性日志）
@@ -339,7 +340,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
                 d.fxs.stream().map(fx -> fx.summary()).toList());
         LOGGER.debug("[drop] 配方保存 id={} name={} soundId={} fxs={} (音效未选=空串则合成不播)",
                 d.id, d.name, d.soundId, fxsDetail);
-        DropPacketHandler.CHANNEL.sendToServer(new PacketDropSave(d.toNBT(false)));
+        PacketDistributor.sendToServer(new PacketDropSave(d.toMetadataNBT()));
     }
 
     @Override
@@ -353,9 +354,9 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             }
         }
         if (this.selectedId >= 0) {
-            DropPacketHandler.CHANNEL.sendToServer(new PacketDropSelect(this.selectedId));
+            PacketDistributor.sendToServer(new PacketDropSelect(this.selectedId));
         }
-        this.m_7856_();
+        this.init();
     }
 
     /**
@@ -373,11 +374,11 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             }
             // 一律重建：GuiIconToggleButton 点击时 displayValue 已翻转，
             // 取消选择（selectedResource=null）不重建会残留错误边框色
-            this.m_7856_();
+            this.init();
         }
         // 粒子编辑器关闭：fxFinal 可能已改（确定写回），重建刷新绿/红框态
         if (subgui instanceof top.cnpcplus.drop.fx.client.SubGuiDropFx) {
-            this.m_7856_();
+            this.init();
         }
     }
 
@@ -396,7 +397,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
                 }
             }
         }
-        this.m_7856_();
+        this.init();
     }
 
     @Override
@@ -404,8 +405,8 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
     }
 
     @Override
-    protected void m_7286_(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
-        super.m_7286_(graphics, partialTicks, mouseX, mouseY);
+    protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
+        super.renderBg(graphics, partialTicks, mouseX, mouseY);
 
         // 五个槽位背景：直接读容器实际槽位真实坐标（-1 让 18x18 框套住 16x16 槽位）
         drawSlotBgAt(graphics, ContainerDropRecipes.SLOT_INDEX_INPUT_0);

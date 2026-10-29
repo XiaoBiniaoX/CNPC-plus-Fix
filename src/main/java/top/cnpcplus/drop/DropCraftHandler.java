@@ -4,10 +4,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.phys.AABB;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
-import net.minecraftforge.event.entity.item.ItemTossEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
+import net.neoforged.bus.api.SubscribeEvent;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
@@ -76,6 +76,7 @@ public final class DropCraftHandler {
 
     @SubscribeEvent
     public static void onEntityLeave(EntityLeaveLevelEvent event) {
+        if (event.getLevel().isClientSide()) return;
         if (!(event.getEntity() instanceof ItemEntity)) return;
         PENDING.remove(event.getEntity().getId());
         PLAYER_DROPPED.remove(event.getEntity().getId());
@@ -93,11 +94,9 @@ public final class DropCraftHandler {
     }
 
     @SubscribeEvent
-    public static void onLevelTick(TickEvent.LevelTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        if (event.level.isClientSide()) return;
+    public static void onLevelTick(LevelTickEvent.Post event) {
         if (PENDING.isEmpty()) return; // O(1) 短路：绝大多数 tick 无待查实体，零开销
-        if (!(event.level instanceof ServerLevel level)) return;
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
         // 快照遍历：tryCraft 内部实体增删不影响本轮迭代
         for (Map.Entry<Integer, net.minecraft.world.level.Level> en : List.copyOf(PENDING.entrySet())) {
             if (en.getValue() != level) continue; // 其他维度的 pending，本维度 tick 不处理
@@ -229,7 +228,7 @@ public final class DropCraftHandler {
         if (snd != null && !snd.isEmpty()) {
             try {
                 net.minecraft.resources.ResourceLocation rl =
-                        new net.minecraft.resources.ResourceLocation(snd);
+                        net.minecraft.resources.ResourceLocation.parse(snd);
                 net.minecraft.core.Holder<net.minecraft.sounds.SoundEvent> holder =
                         net.minecraft.core.Holder.direct(
                                 net.minecraft.sounds.SoundEvent.createVariableRangeEvent(rl));

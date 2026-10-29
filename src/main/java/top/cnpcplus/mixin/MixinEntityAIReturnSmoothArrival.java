@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import top.cnpcplus.config.CnpcPlusServerConfig;
+import bin.cnpcplus.config.CnpcPlusConfig;
 import top.cnpcplus.config.ServerConfigAccess;
 import top.cnpcplus.ai.ReturnHomeState;
 
@@ -67,9 +67,8 @@ import top.cnpcplus.ai.ReturnHomeState;
  *
  * <h3>命名方向（易错点）</h3>
  * {@code m_6034_} / {@code m_26573_} / {@code m_26571_} 都是 **MC 的成员**，
- * CNPC 发布 jar 已 reobf，所以在 {@code remap = false} 的 mixin 里 target 必须写 SRG 名。
- * 而 handler 方法体内直接调用 MC 成员则写开发名（mojmap），由 reobf 转换。
- * 两个方向相反，别混淆。
+     * 本目标 1.21.1 NeoForge 发布 jar 使用 Mojmap，remap=false 的注入 target
+     * 与 handler 方法体均使用官方名，不沿用 1.20.1 的 SRG 字符串。
  *
  * <h3>为什么不用 @Shadow 拿 npc 之外的东西</h3>
  * {@code endPosX/Y/Z}、{@code stuckTicks}、{@code stuckCount}、{@code npc} 都是
@@ -101,8 +100,8 @@ public abstract class MixinEntityAIReturnSmoothArrival {
      */
     @Unique
     private boolean cnpcplus$nearHome(EntityNPCInterface npc) {
-        if (npc == null || !ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) return false;
-        double tolerance = ServerConfigAccess.decimal(CnpcPlusServerConfig.ReturnHomeArrivalTolerance, 3.0);
+        if (npc == null || !ServerConfigAccess.bool(CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL, true)) return false;
+        double tolerance = ServerConfigAccess.decimal(CnpcPlusConfig.RETURN_START_ARRIVAL_TOLERANCE, 3.0);
         double dx = npc.getX() - this.endPosX;
         double dz = npc.getZ() - this.endPosZ;
         return dx * dx + dz * dz <= tolerance * tolerance;
@@ -117,19 +116,25 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         nav.moveTo(this.endPosX, this.endPosY, this.endPosZ, 1.0D);
     }
 
-    @Inject(method = "m_8037_", at = @At("HEAD"), remap = false)
+    @Inject(method = {"canUse", "canContinueToUse"}, at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$skipControlledMount(CallbackInfoReturnable<Boolean> cir) {
+        if (this.npc == null || this.npc.ais == null
+                || (this.npc.isVehicle() && this.npc.ais.mountControl)) cir.setReturnValue(false);
+    }
+
+    @Inject(method = "tick", at = @At("HEAD"), remap = false)
     private void cnpcplus$markReturnNavigationActive(CallbackInfo ci) {
         ReturnHomeState.start(this.npc);
     }
 
-    @Inject(method = "m_8041_", at = @At("HEAD"), remap = false)
+    @Inject(method = "stop", at = @At("HEAD"), remap = false)
     private void cnpcplus$clearReturnNavigationActive(CallbackInfo ci) {
         ReturnHomeState.end(this.npc);
     }
 
-    @Inject(method = "m_8037_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "tick", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$walkFinalReturnGap(CallbackInfo ci) {
-        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)
+        if (!ServerConfigAccess.bool(CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL, true)
                 || this.npc == null || this.npc.ais == null
                 || this.npc.isAttacking() || this.npc.isInteracting()
                 || this.npc.isKilled() || this.npc.isPassenger()) return;
@@ -149,21 +154,23 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         this.stuckCount = 0;
         double speed = Math.min(1.0D, Math.max(0.1D, Math.sqrt(distanceSqr) * 1.5D));
         this.npc.getMoveControl().setWantedPosition(this.endPosX, this.endPosY, this.endPosZ, speed);
+        // 取消原生 tick 会跳过其开头的计时；仅在这条取消路径补一刻。
+        this.totalTicks++;
         ci.cancel();
     }
 
     /** 两处瞬移。近起点则跳过，并清掉 stuck 计数避免下一刻又被判卡住。 */
-    @Redirect(method = "m_8037_",
+    @Redirect(method = "tick",
             at = @At(value = "INVOKE",
-                    target = "Lnoppes/npcs/entity/EntityNPCInterface;m_6034_(DDD)V"),
-            remap = false)
+                    target = "Lnoppes/npcs/entity/EntityNPCInterface;setPos(DDD)V"),
+            require = 2, remap = false)
     private void cnpcplus$smoothArrival(EntityNPCInterface npc, double x, double y, double z) {
         if (!cnpcplus$nearHome(npc)) {
             this.cnpcplus$suppressedTeleport = false;
             if (npc != null) npc.setPos(x, y, z);
             return;
         }
-        int timeoutTicks = ServerConfigAccess.integer(CnpcPlusServerConfig.ReturnHomeTimeoutSeconds, 30) * 20;
+        int timeoutTicks = ServerConfigAccess.integer(CnpcPlusConfig.RETURN_START_TIMEOUT_SECONDS, 30) * 20;
         if (this.totalTicks > timeoutTicks) {
             this.cnpcplus$suppressedTeleport = false;
             this.stuckTicks = 0;
@@ -178,10 +185,10 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     }
 
     /** 紧跟瞬移之后的 navigation.stop()。抑制过瞬移就换成重新寻路，否则照原样停。 */
-    @Redirect(method = "m_8037_",
+    @Redirect(method = "tick",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;m_26573_()V"),
-            remap = false)
+                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;stop()V"),
+            require = 2, remap = false)
     private void cnpcplus$keepWalking(PathNavigation nav) {
         if (this.cnpcplus$suppressedTeleport) {
             this.cnpcplus$suppressedTeleport = false;
@@ -206,14 +213,14 @@ public abstract class MixinEntityAIReturnSmoothArrival {
      * 近起点且路径走完时，不把 1.5 格以内剩余距离当作已到：重新寻路继续走；
      * 到达 ±0.2 后才让 canContinueToUse 正常结束。
      */
-    @Redirect(method = "m_8037_",
+    @Redirect(method = "tick",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;m_26571_()Z"),
+                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;isDone()Z"),
             remap = false)
     private boolean cnpcplus$notStuckNearHome(PathNavigation nav) {
         boolean done = nav != null && nav.isDone();
         if (!done) return false;
-        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) return true;
+        if (!ServerConfigAccess.bool(CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL, true)) return true;
         if (this.npc != null) {
             double dx = this.npc.getX() - this.endPosX;
             double dz = this.npc.getZ() - this.endPosZ;
@@ -244,9 +251,9 @@ public abstract class MixinEntityAIReturnSmoothArrival {
      * 结束；超距或关 config 照原版。m_8045_ 内 m_26571_ 唯一（字节码 offset 69；
      * :77 那处在 m_8037_，不冲突）。
      */
-    @Redirect(method = "m_8045_",
+    @Redirect(method = "canContinueToUse",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;m_26571_()Z"),
+                    target = "Lnet/minecraft/world/entity/ai/navigation/PathNavigation;isDone()Z"),
             remap = false)
     private boolean cnpcplus$keepGoingUntilArrived(PathNavigation nav) {
         boolean done = nav != null && nav.isDone();
@@ -262,19 +269,20 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         return true;
     }
 
-    @Inject(method = "m_8045_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "canContinueToUse", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$preventNearHomeEarlyExit(CallbackInfoReturnable<Boolean> cir) {
         if (this.npc == null || this.npc.ais == null) return;
-        if (!ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) return;
+        if (!ServerConfigAccess.bool(CnpcPlusConfig.RETURN_START_SMOOTH_ARRIVAL, true)) return;
         if (this.npc.isFollower() || this.npc.isKilled() || this.npc.isAttacking()
-                || this.npc.isInteracting() || this.npc.isPassenger()) {
+                || this.npc.isInteracting() || this.npc.isPassenger()
+                || (this.npc.isVehicle() && this.npc.ais.mountControl)) {
             cir.setReturnValue(false);
             return;
         }
         double dx = this.npc.getX() - this.endPosX;
         double dz = this.npc.getZ() - this.endPosZ;
         double distanceSqr = dx * dx + dz * dz;
-        int timeoutTicks = ServerConfigAccess.integer(CnpcPlusServerConfig.ReturnHomeTimeoutSeconds, 30) * 20;
+        int timeoutTicks = ServerConfigAccess.integer(CnpcPlusConfig.RETURN_START_TIMEOUT_SECONDS, 30) * 20;
         boolean timedOut = this.totalTicks > timeoutTicks;
         if (timedOut) {
             this.stuckTicks = 0;
@@ -302,13 +310,13 @@ public abstract class MixinEntityAIReturnSmoothArrival {
      *
      * 默认值与原版一致（30 秒 = 600 ticks），所以不改 config 就是原版行为。
      */
-    @ModifyConstant(method = {"m_8037_", "m_8045_"},
-            constant = @Constant(intValue = 600), remap = false)
+    @ModifyConstant(method = {"tick", "canContinueToUse"},
+            constant = @Constant(intValue = 600), require = 2, remap = false)
     private int cnpcplus$configurableTimeout(int original) {
-        return ServerConfigAccess.integer(CnpcPlusServerConfig.ReturnHomeTimeoutSeconds, 30) * 20;
+        return ServerConfigAccess.integer(CnpcPlusConfig.RETURN_START_TIMEOUT_SECONDS, 30) * 20;
     }
 
-    @Inject(method = "m_8041_", at = @At("RETURN"), remap = false)
+    @Inject(method = "stop", at = @At("RETURN"), remap = false)
     private void cnpcplus$restoreConfiguredAnimation(CallbackInfo ci) {
         if (this.npc == null || this.npc.ais == null
                 || this.npc.isAttacking() || this.npc.isInteracting() || this.npc.isKilled()) return;

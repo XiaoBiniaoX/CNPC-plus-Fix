@@ -1,6 +1,8 @@
 package top.cnpcplus.smithing;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
@@ -57,13 +59,15 @@ public final class SmithingRecipeRegistry {
      * 否则连服时客户端会去读自己本地的 smithing_recipes.dat，导致显示与服务端不一致。
      */
     private static boolean hasServer() {
-        return net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer() != null;
+        return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() != null;
     }
 
     private static Map<Integer, SmithingRecipeData> ensure() {
         synchronized (LOCK) {
             if (cache == null) {
-                cache = readDisk();
+                var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                if (server == null) return new LinkedHashMap<>();
+                cache = readDisk(server.registryAccess());
                 nextId = cache.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
             }
             return cache;
@@ -78,16 +82,16 @@ public final class SmithingRecipeRegistry {
         }
     }
 
-    private static Map<Integer, SmithingRecipeData> readDisk() {
+    private static Map<Integer, SmithingRecipeData> readDisk(HolderLookup.Provider registries) {
         Map<Integer, SmithingRecipeData> map = new LinkedHashMap<>();
         File f = file();
         if (!f.isFile()) return map;
         try (FileInputStream in = new FileInputStream(f)) {
-            CompoundTag root = NbtIo.readCompressed(in);
+            CompoundTag root = NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
             if (root == null) return map;
             ListTag list = root.getList("Data", Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {
-                SmithingRecipeData d = SmithingRecipeData.fromNBT(list.getCompound(i));
+                SmithingRecipeData d = SmithingRecipeData.fromNBT(registries, list.getCompound(i));
                 if (d == null || d.id < 0) continue;
                 map.put(d.id, d);
             }
@@ -101,20 +105,21 @@ public final class SmithingRecipeRegistry {
      * 落盘（调用方已在 LOCK 内、主线程）：NBT 根节点在主线程构造（数据快照，纯 NBT 对象），
      * 序列化+文件替换提交给安全异步单线程执行（纯 IO）。单线程保证多次快速保存按序写入。
      */
-    private static void writeDisk() {
+    private static void writeDisk(HolderLookup.Provider registries) {
         try {
-            CompoundTag root = buildRoot();
-            DISK_EXEC.execute(() -> writeRoot(root));
+            CompoundTag root = buildRoot(registries);
+            File target = file();
+            DISK_EXEC.execute(() -> writeRoot(root, target));
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("写入自定义锻造配方文件失败（构造阶段）", e);
         }
     }
 
     /** 主线程：从缓存构造 NBT 根（含 ItemStack.save，属纯数据但可能触碰 Forge caps —— 留主线程）。 */
-    private static CompoundTag buildRoot() {
+    private static CompoundTag buildRoot(HolderLookup.Provider registries) {
         ListTag list = new ListTag();
         for (SmithingRecipeData d : ensure().values()) {
-            list.add(d.toNBT());
+            list.add(d.toNBT(registries));
         }
         CompoundTag root = new CompoundTag();
         root.put("Data", list);
@@ -122,9 +127,8 @@ public final class SmithingRecipeRegistry {
     }
 
     /** 安全异步（cnpcplus-smithing-disk 线程）：只做 NbtIo 序列化与文件原子替换，不碰任何 MC 实例。 */
-    private static void writeRoot(CompoundTag root) {
+    private static void writeRoot(CompoundTag root, File f) {
         try {
-            File f = file();
             File parent = f.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             File tmp = new File(f.getParentFile(), FILE_NAME + ".tmp");
@@ -156,19 +160,19 @@ public final class SmithingRecipeRegistry {
     }
 
     /** 新建：分配 id 并保存，返回带 id 的数据。 */
-    public static SmithingRecipeData create(SmithingRecipeData data) {
+    public static SmithingRecipeData create(HolderLookup.Provider registries, SmithingRecipeData data) {
         if (data == null) return null;
         synchronized (LOCK) {
             Map<Integer, SmithingRecipeData> map = ensure();
             data.id = nextId++;
             map.put(data.id, data.copy());
-            writeDisk();
+            writeDisk(registries);
             return data;
         }
     }
 
     /** 修改已存在的配方；id 不存在则忽略。 */
-    public static boolean update(SmithingRecipeData data) {
+    public static boolean update(HolderLookup.Provider registries, SmithingRecipeData data) {
         if (data == null || data.id < 0) return false;
         synchronized (LOCK) {
             Map<Integer, SmithingRecipeData> map = ensure();
@@ -178,12 +182,12 @@ public final class SmithingRecipeRegistry {
                 return false;
             }
             map.put(data.id, data.copy());
-            writeDisk();
+            writeDisk(registries);
             return true;
         }
     }
 
-    public static boolean remove(int id) {
+    public static boolean remove(HolderLookup.Provider registries, int id) {
         synchronized (LOCK) {
             Map<Integer, SmithingRecipeData> map = ensure();
             if (map.remove(id) == null) {
@@ -191,7 +195,7 @@ public final class SmithingRecipeRegistry {
                         .debug("[smithing] Registry删除失败(不存在) id={}", id);
                 return false;
             }
-            writeDisk();
+            writeDisk(registries);
             return true;
         }
     }

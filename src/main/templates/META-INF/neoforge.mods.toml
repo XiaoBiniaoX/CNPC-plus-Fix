@@ -16,6 +16,9 @@ by Bin
 [[mixins]]
 config="cnpcplus.mixins.json"
 
+[[mixins]]
+config="cnpcplus-port.mixins.json"
+
 [[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"

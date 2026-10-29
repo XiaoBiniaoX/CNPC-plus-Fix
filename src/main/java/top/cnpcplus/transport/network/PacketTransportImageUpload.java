@@ -1,20 +1,26 @@
 package top.cnpcplus.transport.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.CustomNpcsPermissions;
-import noppes.npcs.packets.PacketServerBasic;
 import top.cnpcplus.transport.TransportImageIO;
 import top.cnpcplus.transport.TransportKeys;
 
-import java.util.function.Supplier;
-
 /**
  * 客户端→服务端：上传传送点图片。权限同 NPC_ADVANCED（编辑传送点即需此权限）。
- * 与 PacketServerBasic 分开是因为这是 cnpcplus 自有通道的包，直接走 SimpleChannel。
+ * 使用统一NeoForge payload通道，保留旧整图上传接口。
  */
-public class PacketTransportImageUpload {
+public class PacketTransportImageUpload implements CustomPacketPayload {
+    public static final Type<PacketTransportImageUpload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "transport_image_upload"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketTransportImageUpload> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> packet.encode(buf), PacketTransportImageUpload::decode);
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     private final String key;
     private final byte[] data;
 
@@ -32,37 +38,27 @@ public class PacketTransportImageUpload {
     public static PacketTransportImageUpload decode(FriendlyByteBuf buf) {
         String key = buf.readUtf(64);
         int len = buf.readVarInt();
-        if (len < 0 || len > TransportKeys.MAX_IMAGE_BYTES) {
-            byte[] skip = new byte[buf.readableBytes()];
-            buf.readBytes(skip);
-            return new PacketTransportImageUpload(key, new byte[0]);
-        }
+        if (len < 0 || len > TransportKeys.MAX_IMAGE_BYTES || len > buf.readableBytes())
+            throw new IllegalArgumentException("Invalid transport image length: " + len);
         byte[] data = new byte[len];
         buf.readBytes(data);
         return new PacketTransportImageUpload(key, data);
     }
 
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            var sender = ctx.get().getSender();
-            if (sender == null || !sender.hasPermissions(2)) return;
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sender)
+                    || !CustomNpcsPermissions.hasPermission(sender, CustomNpcsPermissions.NPC_ADVANCED)) return;
             String safe = TransportKeys.sanitize(this.key);
             if (safe.isEmpty() || this.data.length == 0) return;
             boolean ok = TransportImageIO.write(safe, this.data);
-            // 241r：回执 + 日志（之前"进游戏图片没了"完全无从查证）
-            noppes.npcs.shared.common.util.LogWriter.warn(
-                    "[cnpcplus] transport image upload key=" + safe + " bytes=" + this.data.length
-                            + " saved=" + ok);
             try {
                 net.minecraft.nbt.CompoundTag out = new net.minecraft.nbt.CompoundTag();
                 out.putBoolean("ImageSaved", ok);
                 out.putString("ImageKey", safe);
-                TransportPacketHandler.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                        new PacketTransportMetaResponse(out, true));
+                PacketDistributor.sendToPlayer(sender, new PacketTransportMetaResponse(out, true));
             } catch (Throwable ignored) {
             }
         });
-        ctx.get().setPacketHandled(true);
     }
 }

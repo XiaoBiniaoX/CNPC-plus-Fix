@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * 召唤师（job.spawner）职业页改版：隐藏原生 6 行槽位，改为 Tab 栏 + 左右双搜索滚动条目集 + 搬运按钮。
  *
- * <p>m_7856_ TAIL：把原生 6 行按钮/标签隐去（id 0-5 标题按钮、20-25 删除按钮、标签 0-5），
+ * <p>init TAIL：把原生 6 行按钮/标签隐去（id 0-5 标题按钮、20-25 删除按钮、标签 0-5），
  * 再叠新 UI——9 个 Tab（30-38）、双滚动（0/1）、搬运四个按钮（40-43）；
  * 右栏条目直接读 {@code job.data}（Map&lt;Integer,CloneSpawnData&gt;，1 基 key），只读
  * (tab,name) 缓冲，不触发 {@code getCompound()}（那会碰 ServerCloneController）。
@@ -53,7 +53,7 @@ public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
         return this.cnpcplus$tab >= 1 && this.cnpcplus$tab <= 9 ? this.cnpcplus$tab : 1;
     }
 
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), require = 1, remap = false)
     private void cnpcplus$buildLists(CallbackInfo ci) {
         GuiNpcSpawner self = (GuiNpcSpawner) (Object) this;
 
@@ -107,7 +107,7 @@ public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
 
         if (id >= 30 && id <= 38) {
             this.cnpcplus$tab = id - 29;
-            self.m_7856_();
+            self.init();
             ci.cancel();
             return;
         }

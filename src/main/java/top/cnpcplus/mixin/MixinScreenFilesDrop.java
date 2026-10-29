@@ -11,10 +11,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.transport.client.TransportDropHandler;
 
 /**
- * 任务241j：Screen.onFilesDrop 转发（源码 mojmap 名，经 refmap 映射到运行名）。
+ * 任务241j：Screen.onFilesDrop 转发（1.21.1运行时为mojmap名）。
  * 传送师编辑器是子页，本身收不到 vanilla 的文件拖放事件。
  */
-@Mixin(value = Screen.class, remap = true)
+@Mixin(value = Screen.class, remap = false)
 public abstract class MixinScreenFilesDrop {
 
     @Inject(method = "onFilesDrop", at = @At("HEAD"))

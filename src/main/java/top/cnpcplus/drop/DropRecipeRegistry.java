@@ -1,6 +1,12 @@
 package top.cnpcplus.drop;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.NbtAccounter;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
@@ -8,7 +14,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import noppes.npcs.CustomNpcs;
 import org.slf4j.LoggerFactory;
-import top.cnpcplus.drop.network.DropPacketHandler;
 import top.cnpcplus.drop.network.PacketDropSync;
 
 import java.io.File;
@@ -61,13 +66,15 @@ public final class DropRecipeRegistry {
      * 客户端（含连到远程服务器的客户端）一律拿空表，配方列表由 PacketDropSync 下发到 DropClientData。
      */
     private static boolean hasServer() {
-        return net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer() != null;
+        return net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() != null;
     }
 
     private static Map<Integer, DropRecipeData> ensure() {
         synchronized (LOCK) {
             if (cache == null) {
-                cache = readDisk();
+                var server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+                if (server == null) return new LinkedHashMap<>();
+                cache = readDisk(server.registryAccess());
                 nextId = cache.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
             }
             return cache;
@@ -82,16 +89,16 @@ public final class DropRecipeRegistry {
         }
     }
 
-    private static Map<Integer, DropRecipeData> readDisk() {
+    private static Map<Integer, DropRecipeData> readDisk(HolderLookup.Provider registries) {
         Map<Integer, DropRecipeData> map = new LinkedHashMap<>();
         File f = file();
         if (!f.isFile()) return map;
         try (FileInputStream in = new FileInputStream(f)) {
-            CompoundTag root = NbtIo.readCompressed(in);
+            CompoundTag root = NbtIo.readCompressed(in, NbtAccounter.unlimitedHeap());
             if (root == null) return map;
             ListTag list = root.getList("Data", Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {
-                DropRecipeData d = DropRecipeData.fromNBT(list.getCompound(i));
+                DropRecipeData d = DropRecipeData.fromNBT(registries, list.getCompound(i));
                 if (d == null || d.id < 0) continue;
                 map.put(d.id, d);
             }
@@ -107,20 +114,21 @@ public final class DropRecipeRegistry {
      * 落盘（调用方已在 LOCK 内、主线程）：NBT 根节点在主线程构造（数据快照，纯 NBT 对象），
      * 序列化+文件替换提交给安全异步单线程执行（纯 IO）。
      */
-    private static void writeDisk() {
+    private static void writeDisk(HolderLookup.Provider registries) {
         try {
-            CompoundTag root = buildRoot();
-            DISK_EXEC.execute(() -> writeRoot(root));
+            CompoundTag root = buildRoot(registries);
+            File target = file();
+            DISK_EXEC.execute(() -> writeRoot(root, target));
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("写入自定义掉落物配方文件失败（构造阶段）", e);
         }
     }
 
     /** 主线程：从缓存构造 NBT 根（含 ItemStack.save，属纯数据但可能触碰 Forge caps —— 留主线程）。 */
-    private static CompoundTag buildRoot() {
+    private static CompoundTag buildRoot(HolderLookup.Provider registries) {
         ListTag list = new ListTag();
         for (DropRecipeData d : ensure().values()) {
-            list.add(d.toNBT());
+            list.add(d.toNBT(registries));
         }
         CompoundTag root = new CompoundTag();
         root.put("Data", list);
@@ -128,9 +136,8 @@ public final class DropRecipeRegistry {
     }
 
     /** 安全异步（cnpcplus-drop-disk 线程）：只做 NbtIo 序列化与文件原子替换，不碰任何 MC 实例。 */
-    private static void writeRoot(CompoundTag root) {
+    private static void writeRoot(CompoundTag root, File f) {
         try {
-            File f = file();
             File parent = f.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             File tmp = new File(f.getParentFile(), FILE_NAME + ".tmp");
@@ -159,19 +166,19 @@ public final class DropRecipeRegistry {
     }
 
     /** 新建：分配 id 并保存，返回带 id 的数据。 */
-    public static DropRecipeData create(DropRecipeData data) {
+    public static DropRecipeData create(HolderLookup.Provider registries, DropRecipeData data) {
         if (data == null) return null;
         synchronized (LOCK) {
             Map<Integer, DropRecipeData> map = ensure();
             data.id = nextId++;
             map.put(data.id, data.copy());
-            writeDisk();
+            writeDisk(registries);
             return data;
         }
     }
 
     /** 修改已存在的配方；id 不存在则忽略。 */
-    public static boolean update(DropRecipeData data) {
+    public static boolean update(HolderLookup.Provider registries, DropRecipeData data) {
         if (data == null || data.id < 0) return false;
         synchronized (LOCK) {
             Map<Integer, DropRecipeData> map = ensure();
@@ -181,12 +188,12 @@ public final class DropRecipeRegistry {
                 return false;
             }
             map.put(data.id, data.copy());
-            writeDisk();
+            writeDisk(registries);
             return true;
         }
     }
 
-    public static boolean remove(int id) {
+    public static boolean remove(HolderLookup.Provider registries, int id) {
         synchronized (LOCK) {
             Map<Integer, DropRecipeData> map = ensure();
             if (map.remove(id) == null) {
@@ -194,7 +201,7 @@ public final class DropRecipeRegistry {
                         .debug("[drop] Registry删除失败(不存在) id={}", id);
                 return false;
             }
-            writeDisk();
+            writeDisk(registries);
             return true;
         }
     }
@@ -242,8 +249,20 @@ public final class DropRecipeRegistry {
     public static void syncToPlayers(MinecraftServer server, ServerPlayer target) {
         if (target == null || server == null) return;
         List<DropRecipeData> list = list();
-        DropPacketHandler.CHANNEL.send(
-                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> target),
-                new PacketDropSync(list));
+        PacketDistributor.sendToPlayer(target, new PacketDropSync(list));
+    }
+
+    @SubscribeEvent
+    public static void onDatapackSync(OnDatapackSyncEvent event) {
+        var server = event.getPlayerList().getServer();
+        if (event.getPlayer() == null) syncToPlayers(server);
+        else syncToPlayers(server, event.getPlayer());
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        awaitDiskPending();
+        clearCache();
+        DropCraftHandler.clearStatics();
     }
 }

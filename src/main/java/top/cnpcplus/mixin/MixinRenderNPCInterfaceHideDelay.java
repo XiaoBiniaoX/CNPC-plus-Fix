@@ -2,8 +2,8 @@ package top.cnpcplus.mixin;
 
 import net.minecraft.client.renderer.MultiBufferSource;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import noppes.npcs.client.renderer.RenderNPCInterface;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,9 +26,7 @@ import top.cnpcplus.stats.HideDelayStore;
  * 与压缩门（MixinEntityCustomNpcDimensions）、simpleRender 门（#1）同一边界：
  * 隐藏从 {@code deathTime >= delay} 起。
  *
- * <p>{@code f_20919_} 是 {@code deathTime} 的生产 SRG 名（本 mixin remap=false 直写，
- * 先例 MixinRenderCustomNpcNameTag 的 {@code m_237119_}）；handler 体内的
- * {@code npc.deathTime} 由 reobf 重映射（先例 MixinEntityNPCKilledBody:127）。
+    * <p>1.21.1 目标字节码使用 Mojmap deathTime；只替换当前 render 描述符内的首处读取。
  *
  * <p>{@code require = 1}：核心渲染门，注入失败必须崩出来而不是静默失效。
  */
@@ -39,7 +37,7 @@ public class MixinRenderNPCInterfaceHideDelay {
     @Redirect(
             method = "render(Lnoppes/npcs/entity/EntityNPCInterface;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
             at = @At(value = "FIELD",
-                    target = "Lnoppes/npcs/entity/EntityNPCInterface;f_20919_:I",
+                    target = "Lnoppes/npcs/entity/EntityNPCInterface;deathTime:I",
                     ordinal = 0),
             require = 1,
             remap = false

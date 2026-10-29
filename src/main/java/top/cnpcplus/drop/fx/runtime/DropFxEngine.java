@@ -6,10 +6,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.minecraft.core.registries.BuiltInRegistries;
 import org.slf4j.Logger;
 import top.cnpcplus.drop.fx.DropFxCaps;
 import top.cnpcplus.drop.fx.DropFxConfig;
@@ -81,9 +81,8 @@ public final class DropFxEngine {
     }
 
     @SubscribeEvent
-    public static void onLevelTick(TickEvent.LevelTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return;
-        if (!(event.level instanceof ServerLevel level)) return;
+    public static void onLevelTick(LevelTickEvent.Post event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
         List<DropFxInstance> queue = queueOf(level);
         if (queue.isEmpty()) return; // O(1) 短路：绝大多数 tick 无特效
 
@@ -110,8 +109,8 @@ public final class DropFxEngine {
         Vec3 center = inst.center();
         for (DropFxConfig cfg : inst.fxs) {
             if (budget <= 0) return consumed;
-            ParticleType<?> type = ForgeRegistries.PARTICLE_TYPES.getValue(
-                    new ResourceLocation(cfg.particleId));
+            ResourceLocation id = ResourceLocation.tryParse(cfg.particleId);
+            ParticleType<?> type = id == null ? null : BuiltInRegistries.PARTICLE_TYPE.get(id);
             if (!(type instanceof ParticleOptions po)) continue; // 有数据型/未知 id：跳过
             for (ShapePreset shape : cfg.shapes) {
                 if (budget <= 0) return consumed;

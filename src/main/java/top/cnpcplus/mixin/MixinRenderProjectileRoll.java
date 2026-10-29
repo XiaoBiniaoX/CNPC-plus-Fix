@@ -20,7 +20,7 @@ public class MixinRenderProjectileRoll {
                     + "Lnet/minecraft/client/renderer/MultiBufferSource;I)V";
 
     @Inject(method = RENDER_METHOD, at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;m_269128_(Lnet/minecraft/world/item/ItemStack;"
+            target = "Lnet/minecraft/client/renderer/entity/ItemRenderer;renderStatic(Lnet/minecraft/world/item/ItemStack;"
                     + "Lnet/minecraft/world/item/ItemDisplayContext;IILcom/mojang/blaze3d/vertex/PoseStack;"
                     + "Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/level/Level;I)V",
             ordinal = 0, shift = At.Shift.BEFORE), require = 1, remap = false)

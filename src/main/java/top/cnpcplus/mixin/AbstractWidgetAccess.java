@@ -4,7 +4,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(AbstractWidget.class)
+@Mixin(value = AbstractWidget.class, remap = false)
 public interface AbstractWidgetAccess {
 
     @Accessor("width")

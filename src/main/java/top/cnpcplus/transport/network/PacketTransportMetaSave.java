@@ -3,7 +3,12 @@ package top.cnpcplus.transport.network;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.PacketDistributor;
 import noppes.npcs.controllers.TransportController;
 import noppes.npcs.controllers.data.TransportLocation;
 import noppes.npcs.entity.EntityNPCInterface;
@@ -14,15 +19,17 @@ import top.cnpcplus.transport.TransportPanelStyle;
 import top.cnpcplus.transport.TransportVisualMeta;
 import top.cnpcplus.transport.TransportOrder;
 
-import java.util.function.Supplier;
-
 /**
  * 客户端→服务端：保存传送面板编辑结果（面板样式 + 各传送点可视化键）。
  * 权限同 NPC_ADVANCED；按名定位本组传送点，写回后（disk=true）saveCategories() 落盘。
  * 241n：编辑器每次改动都发本包（disk=false，内存即时生效→客户端不再"等一会儿"）；
  *      关闭编辑器时再发一次 disk=true 落盘；支持删除条目。
  */
-public class PacketTransportMetaSave {
+public class PacketTransportMetaSave implements CustomPacketPayload {
+    public static final Type<PacketTransportMetaSave> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "transport_meta_save"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketTransportMetaSave> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> packet.encode(buf), PacketTransportMetaSave::decode);
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     private final int npcId;
     private final CompoundTag panel;
     private final CompoundTag entries;
@@ -54,13 +61,13 @@ public class PacketTransportMetaSave {
         return new PacketTransportMetaSave(npcId, panel, entries, disk);
     }
 
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null || !player.hasPermissions(2)) return;
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) return;
             if (player.server == null || player.server.overworld() == null) return;
             EntityNPCInterface npc = TransportNpcLookup.find(player, this.npcId);
-            if (npc == null || npc.role.getType() != 4) return;
+            if (npc == null || !(npc.role instanceof RoleTransporter) || !TransportNpcLookup.canEdit(player, npc)) return;
+            if (this.entries.getAllKeys().size() > 4096) return;
             RoleTransporter role = (RoleTransporter) npc.role;
             TransportLocation own = role.getLocation();
             if (own == null || own.category == null) return;
@@ -139,23 +146,15 @@ public class PacketTransportMetaSave {
             if (this.disk) {
                 TransportController.getInstance().saveCategories();
             }
-            if (this.disk) {
-                noppes.npcs.shared.common.util.LogWriter.warn(
-                        "[cnpcplus] transport meta save npc=" + this.npcId
-                                + " entries=" + this.entries.getAllKeys().size() + " disk=true");
-            }
 
             // 241o：回执 —— 服务端把当前状态回传，客户端据此显示"已保存"并刷新（能看见有没有真的存进去）
             try {
                 CompoundTag out = new CompoundTag();
                 out.putBoolean("Saved", true);
-                TransportPacketHandler.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-                        new PacketTransportMetaResponse(out, true));
+                PacketDistributor.sendToPlayer(player, new PacketTransportMetaResponse(out, true));
             } catch (Throwable ignored) {
             }
         });
-        ctx.get().setPacketHandled(true);
     }
 
     private static String iconKey(String raw) {

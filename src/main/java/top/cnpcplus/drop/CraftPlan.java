@@ -69,6 +69,6 @@ public final class CraftPlan {
             return have.getItem() == need.getItem()
                     && have.getHoverName().getString().equals(need.getHoverName().getString());
         }
-        return ItemStack.isSameItemSameTags(have, need);
+        return ItemStack.isSameItemSameComponents(have, need);
     }
 }

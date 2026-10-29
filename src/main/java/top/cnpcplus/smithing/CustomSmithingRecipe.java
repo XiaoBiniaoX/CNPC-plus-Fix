@@ -1,11 +1,14 @@
 package top.cnpcplus.smithing;
 
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.Container;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.item.crafting.SmithingRecipeInput;
 import net.minecraft.world.item.crafting.SmithingTransformRecipe;
 import net.minecraft.world.level.Level;
 
@@ -21,7 +24,7 @@ import net.minecraft.world.level.Level;
  *   与严格匹配配套；本类 matches（NBT 级）负责「放进后会不会出结果」。
  * NBT 不符时物品能放进去但不产出，与原版行为对玩家自然（不会出现「槽都进不去」的困惑）。
  *
- * <p>序列化走本 mod 注册的 cnpcplus:smithing_transform：fromNetwork 用 writeItem/readItem
+ * <p>序列化走本 mod 注册的 cnpcplus:smithing_transform：用 OPTIONAL_STREAM_CODEC
  * 传输**完整 NBT** 的 4 个物品栈 + nameOnly 标志 → 客户端拿到的配方与服务端逐字节一致，
  * 两端 matches 结论一致（若沿用原版序列化器，网络传输会把 Ingredient 拆成 item 级、NBT 丢失，
  * 精确匹配只在服务端成立）。
@@ -35,9 +38,9 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
     private final ItemStack exactResult;
     private final boolean nameOnly;
 
-    public CustomSmithingRecipe(ResourceLocation id, ItemStack template, ItemStack base,
+    public CustomSmithingRecipe(ItemStack template, ItemStack base,
                                 ItemStack addition, ItemStack result, boolean nameOnly) {
-        super(id, Ingredient.of(template), Ingredient.of(base), Ingredient.of(addition), result);
+        super(Ingredient.of(template), Ingredient.of(base), Ingredient.of(addition), result);
         this.exactTemplate = template;
         this.exactBase = base;
         this.exactAddition = addition;
@@ -54,15 +57,23 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
      * 230 nameOnly=true → 每槽仅名字检查（校验物品id+物品名字，其余 NBT 字段不参与），空槽模式判定不变。
      */
     @Override
-    public boolean matches(Container container, Level level) {
+    public boolean matches(SmithingRecipeInput input, Level level) {
         if (this.nameOnly) {
-            return nameMatch(container.getItem(0), this.exactTemplate)
-                    && nameMatch(container.getItem(1), this.exactBase)
-                    && nameMatch(container.getItem(2), this.exactAddition);
+            return nameMatch(input.template(), this.exactTemplate)
+                    && nameMatch(input.base(), this.exactBase)
+                    && nameMatch(input.addition(), this.exactAddition);
         }
-        return ItemStack.isSameItemSameTags(container.getItem(0), this.exactTemplate)
-                && ItemStack.isSameItemSameTags(container.getItem(1), this.exactBase)
-                && ItemStack.isSameItemSameTags(container.getItem(2), this.exactAddition);
+        return ItemStack.isSameItemSameComponents(input.template(), this.exactTemplate)
+                && ItemStack.isSameItemSameComponents(input.base(), this.exactBase)
+                && ItemStack.isSameItemSameComponents(input.addition(), this.exactAddition);
+    }
+
+    /** 对齐 1.20.1 父类：基座有自定义数据时整体继承，否则保留编辑的结果；空基座也能出货。 */
+    @Override
+    public ItemStack assemble(SmithingRecipeInput input, HolderLookup.Provider registries) {
+        return input.base().isEmpty() || input.base().getComponentsPatch().isEmpty()
+                ? this.exactResult.copy()
+                : input.base().transmuteCopy(this.exactResult.getItem(), this.exactResult.getCount());
     }
 
     /**
@@ -95,32 +106,37 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
 
     /**
      * 本配方专用序列化器：网络侧按「4 个完整物品栈」收发（保 NBT）；
-     * JSON 侧没有来源——配方只在运行时注入，从不经过 datapack JSON。
+     * MapCodec 为 1.21.1 序列化器必需接口；编辑配方仍以独立磁盘注册表为数据源。
      */
     public static class Serializer implements RecipeSerializer<CustomSmithingRecipe> {
 
-        @Override
-        public CustomSmithingRecipe fromJson(ResourceLocation id, com.google.gson.JsonObject json) {
-            throw new UnsupportedOperationException(
-                    "cnpcplus 自定义锻造配方只在运行时注入，不支持 datapack JSON 解析");
-        }
+        private static final MapCodec<CustomSmithingRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+                ItemStack.OPTIONAL_CODEC.fieldOf("template").forGetter(r -> r.exactTemplate),
+                ItemStack.OPTIONAL_CODEC.fieldOf("base").forGetter(r -> r.exactBase),
+                ItemStack.OPTIONAL_CODEC.fieldOf("addition").forGetter(r -> r.exactAddition),
+                ItemStack.CODEC.fieldOf("result").forGetter(r -> r.exactResult),
+                com.mojang.serialization.Codec.BOOL.optionalFieldOf("name_only", false).forGetter(r -> r.nameOnly)
+        ).apply(instance, CustomSmithingRecipe::new));
+        private static final StreamCodec<RegistryFriendlyByteBuf, CustomSmithingRecipe> STREAM_CODEC =
+                StreamCodec.of(Serializer::toNetwork, Serializer::fromNetwork);
 
-        @Override
-        public CustomSmithingRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buf) {
-            ItemStack template = buf.readItem();
-            ItemStack base = buf.readItem();
-            ItemStack addition = buf.readItem();
-            ItemStack result = buf.readItem();
+        @Override public MapCodec<CustomSmithingRecipe> codec() { return CODEC; }
+        @Override public StreamCodec<RegistryFriendlyByteBuf, CustomSmithingRecipe> streamCodec() { return STREAM_CODEC; }
+
+        private static CustomSmithingRecipe fromNetwork(RegistryFriendlyByteBuf buf) {
+            ItemStack template = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
+            ItemStack base = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
+            ItemStack addition = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
+            ItemStack result = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
             boolean nameOnly = buf.readBoolean();
-            return new CustomSmithingRecipe(id, template, base, addition, result, nameOnly);
+            return new CustomSmithingRecipe(template, base, addition, result, nameOnly);
         }
 
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, CustomSmithingRecipe recipe) {
-            buf.writeItem(recipe.exactTemplate);
-            buf.writeItem(recipe.exactBase);
-            buf.writeItem(recipe.exactAddition);
-            buf.writeItem(recipe.exactResult);
+        private static void toNetwork(RegistryFriendlyByteBuf buf, CustomSmithingRecipe recipe) {
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactTemplate);
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactBase);
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactAddition);
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactResult);
             buf.writeBoolean(recipe.nameOnly);
         }
     }

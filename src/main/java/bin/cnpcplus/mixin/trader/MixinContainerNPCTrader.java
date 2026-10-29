@@ -9,10 +9,10 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import noppes.npcs.containers.ContainerNPCTrader;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = ContainerNPCTrader.class, remap = false)
 public abstract class MixinContainerNPCTrader {
@@ -29,12 +29,9 @@ public abstract class MixinContainerNPCTrader {
         }
     }
 
-    /**
-     * @author cnpcplus
-     * @reason Restore 1.20.1 CNPC quick move: shift-click in player area must work.
-     */
-    @Overwrite
-    public ItemStack quickMoveStack(Player player, int index) {
+    /** 保留原有快捷移动语义，仅以注入替代 Overwrite。 */
+    @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
+    private void cnpcplus$quickMoveStack(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
         AbstractContainerMenuInvoker menu = (AbstractContainerMenuInvoker) this;
         ContainerMenuAccessor move = (ContainerMenuAccessor) this;
         ItemStack result = ItemStack.EMPTY;
@@ -44,10 +41,12 @@ public abstract class MixinContainerNPCTrader {
             result = item.copy();
             if (index < 45) {
                 if (!move.cnpcplus$moveItemStackTo(item, 45, menu.cnpcplus$getSlots().size(), false)) {
-                    return ItemStack.EMPTY;
+                    cir.setReturnValue(ItemStack.EMPTY);
+                    return;
                 }
             } else if (!move.cnpcplus$moveItemStackTo(item, 18, 45, false)) {
-                return ItemStack.EMPTY;
+                cir.setReturnValue(ItemStack.EMPTY);
+                return;
             }
             if (item.isEmpty()) {
                 slot.set(ItemStack.EMPTY);
@@ -55,6 +54,6 @@ public abstract class MixinContainerNPCTrader {
                 slot.setChanged();
             }
         }
-        return result;
+        cir.setReturnValue(result);
     }
 }

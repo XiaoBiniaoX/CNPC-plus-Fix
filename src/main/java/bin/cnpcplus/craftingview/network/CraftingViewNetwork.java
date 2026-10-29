@@ -16,6 +16,25 @@ import top.cnpcplus.anvil.network.PacketAnvilSave;
 import top.cnpcplus.anvil.network.PacketAnvilSelect;
 import top.cnpcplus.anvil.network.PacketAnvilSync;
 import top.cnpcplus.anvil.network.PacketOpenAnvilGui;
+import top.cnpcplus.smithing.network.PacketOpenSmithingGui;
+import top.cnpcplus.smithing.network.PacketSmithingSave;
+import top.cnpcplus.smithing.network.PacketSmithingRemove;
+import top.cnpcplus.smithing.network.PacketSmithingSync;
+import top.cnpcplus.smithing.network.PacketSmithingRequestList;
+import top.cnpcplus.smithing.network.PacketSmithingSelect;
+import top.cnpcplus.drop.network.PacketOpenDropGui;
+import top.cnpcplus.drop.network.PacketDropSave;
+import top.cnpcplus.drop.network.PacketDropRemove;
+import top.cnpcplus.drop.network.PacketDropSync;
+import top.cnpcplus.drop.network.PacketDropRequestList;
+import top.cnpcplus.drop.network.PacketDropSelect;
+import top.cnpcplus.transport.network.PacketTransportMetaRequest;
+import top.cnpcplus.transport.network.PacketTransportMetaResponse;
+import top.cnpcplus.transport.network.PacketTransportMetaSave;
+import top.cnpcplus.transport.network.PacketTransportImageRequest;
+import top.cnpcplus.transport.network.PacketTransportImageResponse;
+import top.cnpcplus.transport.network.PacketTransportImageUpload;
+import top.cnpcplus.transport.network.PacketTransportImageChunk;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -77,6 +96,28 @@ public final class CraftingViewNetwork {
         registrar.playToClient(PacketAnvilSync.TYPE, PacketAnvilSync.STREAM_CODEC, PacketAnvilSync::handle);
         registrar.playToServer(PacketAnvilRequestList.TYPE, PacketAnvilRequestList.STREAM_CODEC, PacketAnvilRequestList::handle);
         registrar.playToServer(PacketAnvilSelect.TYPE, PacketAnvilSelect.STREAM_CODEC, PacketAnvilSelect::handle);
+        registrar.playToServer(PacketOpenSmithingGui.TYPE, PacketOpenSmithingGui.STREAM_CODEC, PacketOpenSmithingGui::handle);
+        registrar.playToServer(PacketSmithingSave.TYPE, PacketSmithingSave.STREAM_CODEC, PacketSmithingSave::handle);
+        registrar.playToServer(PacketSmithingRemove.TYPE, PacketSmithingRemove.STREAM_CODEC, PacketSmithingRemove::handle);
+        registrar.playToClient(PacketSmithingSync.TYPE, PacketSmithingSync.STREAM_CODEC, PacketSmithingSync::handle);
+        registrar.playToServer(PacketSmithingRequestList.TYPE, PacketSmithingRequestList.STREAM_CODEC, PacketSmithingRequestList::handle);
+        registrar.playToServer(PacketSmithingSelect.TYPE, PacketSmithingSelect.STREAM_CODEC, PacketSmithingSelect::handle);
+        registrar.playToServer(PacketOpenDropGui.TYPE, PacketOpenDropGui.STREAM_CODEC, PacketOpenDropGui::handle);
+        registrar.playToServer(PacketDropSave.TYPE, PacketDropSave.STREAM_CODEC, PacketDropSave::handle);
+        registrar.playToServer(PacketDropRemove.TYPE, PacketDropRemove.STREAM_CODEC, PacketDropRemove::handle);
+        registrar.playToClient(PacketDropSync.TYPE, PacketDropSync.STREAM_CODEC, PacketDropSync::handle);
+        registrar.playToServer(PacketDropRequestList.TYPE, PacketDropRequestList.STREAM_CODEC, PacketDropRequestList::handle);
+        registrar.playToServer(PacketDropSelect.TYPE, PacketDropSelect.STREAM_CODEC, PacketDropSelect::handle);
+        registrar.playToServer(PacketTransportMetaRequest.TYPE, PacketTransportMetaRequest.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToClient(PacketTransportMetaResponse.TYPE, PacketTransportMetaResponse.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToServer(PacketTransportMetaSave.TYPE, PacketTransportMetaSave.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToServer(PacketTransportImageRequest.TYPE, PacketTransportImageRequest.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToClient(PacketTransportImageResponse.TYPE, PacketTransportImageResponse.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToServer(PacketTransportImageUpload.TYPE, PacketTransportImageUpload.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToServer(PacketTransportImageChunk.TYPE, PacketTransportImageChunk.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToServer(top.cnpcplus.villagertrade.network.PacketEditInventoryCommit.TYPE,
+                top.cnpcplus.villagertrade.network.PacketEditInventoryCommit.STREAM_CODEC,
+                top.cnpcplus.villagertrade.network.PacketEditInventoryCommit::handle);
         registrar.playToServer(
                 PacketLinkedScriptSync.TYPE,
                 PacketLinkedScriptSync.STREAM_CODEC,

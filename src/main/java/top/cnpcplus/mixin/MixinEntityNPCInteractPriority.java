@@ -52,7 +52,7 @@ import top.cnpcplus.interact.InteractPriority;
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public class MixinEntityNPCInteractPriority {
 
-    @Inject(method = "m_6071_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "mobInteract", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$letItemWin(Player player, InteractionHand hand,
                                      CallbackInfoReturnable<InteractionResult> cir) {
         EntityNPCInterface self = (EntityNPCInterface) (Object) this;

@@ -16,6 +16,12 @@ import java.util.Set;
 public final class TransportNpcLookup {
     private TransportNpcLookup() {}
 
+    /** 与原生高级编辑包相同权限，并绑定服务端当前编辑对象。 */
+    public static boolean canEdit(ServerPlayer player, EntityNPCInterface npc) {
+        return npc != null && noppes.npcs.NoppesUtilServer.getEditingNpc(player) == npc
+                && noppes.npcs.CustomNpcsPermissions.hasPermission(player, noppes.npcs.CustomNpcsPermissions.NPC_ADVANCED);
+    }
+
     public static EntityNPCInterface find(ServerPlayer player, int npcId) {
         if (player == null || player.level() == null) return null;
         if (player.level() instanceof ServerLevel sl) {

@@ -1,7 +1,12 @@
 package top.cnpcplus.roles;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentPredicate;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.trading.ItemCost;
+import net.minecraft.world.item.trading.MerchantOffer;
+import java.util.Optional;
 
 /**
  * 单条交易数据 + 限购设置。
@@ -46,10 +51,10 @@ public class TradeData {
         this.refreshInterval = refreshInterval;
     }
 
-    public CompoundTag save(CompoundTag tag) {
-        tag.put("A", inputA.save(new CompoundTag()));
-        tag.put("B", inputB.save(new CompoundTag()));
-        tag.put("O", output.save(new CompoundTag()));
+    public CompoundTag save(HolderLookup.Provider registries, CompoundTag tag) {
+        tag.put("A", inputA.saveOptional(registries));
+        tag.put("B", inputB.saveOptional(registries));
+        tag.put("O", output.saveOptional(registries));
         tag.putInt("MaxUses", maxUses);
         tag.putInt("XP", xp);
         tag.putFloat("Mult", priceMult);
@@ -62,11 +67,11 @@ public class TradeData {
         return tag;
     }
 
-    public static TradeData load(CompoundTag tag) {
+    public static TradeData load(HolderLookup.Provider registries, CompoundTag tag) {
         TradeData d = new TradeData();
-        d.inputA = ItemStack.of(tag.getCompound("A"));
-        d.inputB = ItemStack.of(tag.getCompound("B"));
-        d.output = ItemStack.of(tag.getCompound("O"));
+        d.inputA = ItemStack.parseOptional(registries, tag.getCompound("A"));
+        d.inputB = ItemStack.parseOptional(registries, tag.getCompound("B"));
+        d.output = ItemStack.parseOptional(registries, tag.getCompound("O"));
         d.maxUses = tag.getInt("MaxUses");
         d.xp = tag.getInt("XP");
         d.priceMult = tag.getFloat("Mult");
@@ -77,6 +82,24 @@ public class TradeData {
         d.limitResetAt = tag.getLong("LimitResetAt");
         d.nameOnly = tag.getBoolean("NameOnly");
         return d;
+    }
+
+    public static ItemCost cost(ItemStack stack) {
+        // 空兑换槽只用于本地编辑/免费交易，不交给非空 ItemCost 磁盘 codec。
+        return new ItemCost(stack.getItemHolder(), stack.getCount(),
+                DataComponentPredicate.allOf(stack.getComponents()), stack.copy());
+    }
+
+    public MerchantOffer toOffer() {
+        return toOffer(0, maxUses);
+    }
+
+    public MerchantOffer toOffer(int uses, int maxUses) {
+        MerchantOffer offer = new MerchantOffer(cost(inputA),
+                inputB.isEmpty() ? Optional.empty() : Optional.of(cost(inputB)),
+                output.copy(), uses, maxUses, xp, priceMult);
+        ((top.cnpcplus.villagertrade.NameOnlyOffer) offer).cnpcplus$setNameOnly(nameOnly);
+        return offer;
     }
 
     public String displayName() {

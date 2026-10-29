@@ -10,6 +10,10 @@ import bin.cnpcplus.smelting.SmeltingMenus;
 import bin.cnpcplus.smelting.client.SmeltingScreen;
 import top.cnpcplus.anvil.AnvilMenus;
 import top.cnpcplus.anvil.client.GuiNpcAnvilRecipes;
+import top.cnpcplus.smithing.SmithingMenus;
+import top.cnpcplus.smithing.client.GuiNpcSmithingRecipes;
+import top.cnpcplus.drop.DropMenus;
+import top.cnpcplus.drop.client.GuiDropRecipes;
 
 @Mod(value = CnpcPlus.MODID, dist = net.neoforged.api.distmarker.Dist.CLIENT)
 @EventBusSubscriber(modid = CnpcPlus.MODID, value = net.neoforged.api.distmarker.Dist.CLIENT)
@@ -23,5 +27,7 @@ public class CnpcPlusClient {
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(SmeltingMenus.TYPE, SmeltingScreen::new);
         event.register(AnvilMenus.TYPE, GuiNpcAnvilRecipes::new);
+        event.register(SmithingMenus.TYPE, GuiNpcSmithingRecipes::new);
+        event.register(DropMenus.TYPE, GuiDropRecipes::new);
     }
 }

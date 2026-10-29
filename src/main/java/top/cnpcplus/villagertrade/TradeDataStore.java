@@ -12,6 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.core.HolderLookup;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import top.cnpcplus.roles.TradeData;
 
 /**
@@ -43,25 +48,20 @@ public class TradeDataStore {
     }
 
     /** 服务端：保存交易列表。 */
-    public static void save(int id, List<TradeData> trades) {
-        CompoundTag tag = new CompoundTag();
-        ListTag list = new ListTag();
-        for (TradeData t : trades) {
-            list.add(t.save(new CompoundTag()));
-        }
-        tag.put("Trades", list);
+    public static void save(HolderLookup.Provider registries, int id, List<TradeData> trades) {
+        CompoundTag tag = encodeTrades(registries, trades);
         SERVER_DATA.put(id, tag);
         CLIENT_CACHE.put(id, tag);
         saveToFile();
     }
 
     /** 服务端：加载交易列表。 */
-    public static List<TradeData> load(int id) {
-        return parseTrades(SERVER_DATA.get(id));
+    public static List<TradeData> load(HolderLookup.Provider registries, int id) {
+        return parseTrades(registries, SERVER_DATA.get(id));
     }
 
     /** 客户端：从缓存加载（缓冲层）。重启后缓存为空时回退 SERVER_DATA（单机共享）。 */
-    public static List<TradeData> loadClient(int id) {
+    public static List<TradeData> loadClient(HolderLookup.Provider registries, int id) {
         CompoundTag tag = CLIENT_CACHE.get(id);
         if (tag == null) {
             tag = SERVER_DATA.get(id);
@@ -69,7 +69,7 @@ public class TradeDataStore {
                 CLIENT_CACHE.put(id, tag);
             }
         }
-        return parseTrades(tag);
+        return parseTrades(registries, tag);
     }
 
     /** 客户端：更新缓存。 */
@@ -77,12 +77,24 @@ public class TradeDataStore {
         CLIENT_CACHE.put(id, tag);
     }
 
-    private static List<TradeData> parseTrades(CompoundTag tag) {
+    public static void clearClientCache() {
+        CLIENT_CACHE.clear();
+    }
+
+    public static CompoundTag encodeTrades(HolderLookup.Provider registries, List<TradeData> trades) {
+        CompoundTag tag = new CompoundTag();
+        ListTag list = new ListTag();
+        for (TradeData trade : trades) list.add(trade.save(registries, new CompoundTag()));
+        tag.put("Trades", list);
+        return tag;
+    }
+
+    public static List<TradeData> parseTrades(HolderLookup.Provider registries, CompoundTag tag) {
         List<TradeData> trades = new ArrayList<>();
         if (tag != null && tag.contains("Trades")) {
             ListTag list = tag.getList("Trades", 10);
             for (int i = 0; i < list.size(); i++) {
-                trades.add(TradeData.load(list.getCompound(i)));
+                trades.add(TradeData.load(registries, list.getCompound(i)));
             }
         }
         return trades;
@@ -108,7 +120,7 @@ public class TradeDataStore {
     private static void loadFromFile() {
         if (storageFile == null || !storageFile.exists()) return;
         try (FileInputStream fis = new FileInputStream(storageFile)) {
-            CompoundTag fileTag = NbtIo.readCompressed(fis);
+            CompoundTag fileTag = NbtIo.readCompressed(fis, NbtAccounter.unlimitedHeap());
             SERVER_DATA.clear();
             for (String key : fileTag.getAllKeys()) {
                 SERVER_DATA.put(Integer.parseInt(key), fileTag.getCompound(key));
@@ -130,5 +142,20 @@ public class TradeDataStore {
         }
         RESERVED.add(id);
         return id;
+    }
+
+    @SubscribeEvent
+    public static void onStarting(ServerStartingEvent event) {
+        SERVER_DATA.clear();
+        CLIENT_CACHE.clear();
+        setStoragePath(event.getServer().getServerDirectory().resolve("data/cnpcplus/villager_trades.dat").toFile());
+    }
+
+    @SubscribeEvent
+    public static void onStopped(ServerStoppedEvent event) {
+        storageFile = null;
+        SERVER_DATA.clear();
+        CLIENT_CACHE.clear();
+        RESERVED.clear();
     }
 }

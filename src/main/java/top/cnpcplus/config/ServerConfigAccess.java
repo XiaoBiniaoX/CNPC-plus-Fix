@@ -1,9 +1,9 @@
 package top.cnpcplus.config;
 
-import net.minecraftforge.common.ForgeConfigSpec;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * 安全读取 {@link CnpcPlusServerConfig} 的包装。
+ * 安全读取配置的包装；实体构造期配置可能尚未加载。
  *
  * <h3>为什么需要它（字节码实证）</h3>
  * {@code CnpcPlusServerConfig} 注册为 {@code ModConfig.Type.SERVER}，
@@ -47,7 +47,7 @@ public final class ServerConfigAccess {
     /**
      * 读 boolean 配置；未加载或任何异常时回落到该项自己的默认值。
      */
-    public static boolean bool(ForgeConfigSpec.BooleanValue value, boolean fallback) {
+    public static boolean bool(ModConfigSpec.BooleanValue value, boolean fallback) {
         if (value == null) return fallback;
         try {
             return value.get();
@@ -63,7 +63,7 @@ public final class ServerConfigAccess {
     }
 
     /** 读 int 配置；未加载或任何异常时回落到该项自己的默认值。 */
-    public static int integer(ForgeConfigSpec.IntValue value, int fallback) {
+    public static int integer(ModConfigSpec.IntValue value, int fallback) {
         if (value == null) return fallback;
         try {
             return value.get();
@@ -78,7 +78,7 @@ public final class ServerConfigAccess {
     }
 
     /** 读 double 配置；未加载或任何异常时回落到该项自己的默认值。 */
-    public static double decimal(ForgeConfigSpec.DoubleValue value, double fallback) {
+    public static double decimal(ModConfigSpec.DoubleValue value, double fallback) {
         if (value == null) return fallback;
         try {
             return value.get();
@@ -92,7 +92,7 @@ public final class ServerConfigAccess {
         }
     }
 
-    public static String string(ForgeConfigSpec.ConfigValue<String> value, String fallback) {
+    public static String string(ModConfigSpec.ConfigValue<String> value, String fallback) {
         if (value == null) return fallback;
         try {
             return value.get();

@@ -6,7 +6,6 @@ import noppes.npcs.entity.data.DataRanged;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.ranged.RangedSpinStore;
 
@@ -14,15 +13,19 @@ import top.cnpcplus.ranged.RangedSpinStore;
 @Mixin(value = EntityProjectile.class, remap = false)
 public class MixinEntityProjectileSpin {
 
-    @Inject(method = "m_8097_", at = @At("RETURN"), remap = false)
-    private void cnpcplus$defineSpinFactors(CallbackInfo ci) {
-        SynchedEntityData data = ((EntityProjectile) (Object) this).getEntityData();
-        data.define(RangedSpinStore.SPIN_X, 0.0f);
-        data.define(RangedSpinStore.SPIN_Y, 0.0f);
-        data.define(RangedSpinStore.SPIN_Z, 0.0f);
+    @Inject(method = "<clinit>", at = @At("RETURN"), require = 1, remap = false)
+    private static void cnpcplus$initializeSpinIds(CallbackInfo ci) {
+        RangedSpinStore.initializeProjectileData();
     }
 
-    @Inject(method = "getStatProperties", at = @At("RETURN"), remap = false)
+    @Inject(method = "defineSynchedData", at = @At("RETURN"), require = 1, remap = false)
+    private void cnpcplus$defineSpinFactors(SynchedEntityData.Builder builder, CallbackInfo ci) {
+        builder.define(RangedSpinStore.SPIN_X, 0.0f);
+        builder.define(RangedSpinStore.SPIN_Y, 0.0f);
+        builder.define(RangedSpinStore.SPIN_Z, 0.0f);
+    }
+
+    @Inject(method = "getStatProperties", at = @At("RETURN"), require = 1, remap = false)
     private void cnpcplus$snapshotSpinFactors(DataRanged stats, CallbackInfo ci) {
         if (stats == null) return;
         EntityProjectile projectile = (EntityProjectile) (Object) this;
@@ -36,22 +39,7 @@ public class MixinEntityProjectileSpin {
 
     }
 
-    @Redirect(method = "m_8119_", at = @At(value = "INVOKE",
-            target = "Lnoppes/npcs/entity/EntityProjectile;m_146926_(F)V",
-            ordinal = 2), require = 1, remap = false)
-    private void cnpcplus$replaceVanillaSpin(EntityProjectile self, float vanillaPitch) {
-        SynchedEntityData data = self.getEntityData();
-        float x = data.get(RangedSpinStore.SPIN_X);
-        float y = data.get(RangedSpinStore.SPIN_Y);
-        float z = data.get(RangedSpinStore.SPIN_Z);
-        // Zero remains byte-for-byte vanilla behaviour. With any configured
-        // axis, preserve the motion-facing pitch and let the renderer own all
-        // configured continuous spin instead of mixing in vanilla's hardcoded
-        // 10/20-degree X increment.
-        self.setXRot(vanillaPitch);
-    }
-
-    @Inject(method = "m_8119_", at = @At("TAIL"), remap = false)
+    @Inject(method = "tick", at = @At("TAIL"), require = 1, remap = false)
     private void cnpcplus$advanceContinuousSpin(CallbackInfo ci) {
         EntityProjectile self = (EntityProjectile) (Object) this;
         SynchedEntityData data = self.getEntityData();

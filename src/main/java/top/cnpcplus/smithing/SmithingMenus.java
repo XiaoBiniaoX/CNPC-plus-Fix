@@ -1,11 +1,11 @@
 package top.cnpcplus.smithing;
 
 import net.minecraft.world.inventory.MenuType;
-import net.minecraftforge.common.extensions.IForgeMenuType;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
-import top.cnpcplus.CnpcPlus;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.flag.FeatureFlags;
+import net.neoforged.neoforge.network.IContainerFactory;
+import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
  * 锻造配方编辑容器的 MenuType 注册（226 从 SmeltingMenus 复制）。
@@ -13,13 +13,13 @@ import top.cnpcplus.CnpcPlus;
  * 226 本步只注册 MenuType（打开界面用），数据网络通道后续阶段按需求再建。
  */
 public class SmithingMenus {
-    public static final DeferredRegister<MenuType<?>> MENUS =
-            DeferredRegister.create(ForgeRegistries.MENU_TYPES, CnpcPlus.MOD_ID);
+    public static MenuType<ContainerSmithingRecipes> TYPE;
 
-    public static final RegistryObject<MenuType<ContainerSmithingRecipes>> SMITHING_RECIPES =
-            MENUS.register("smithing_recipes", () -> IForgeMenuType.create(ContainerSmithingRecipes::new));
-
-    public static void register() {
-        MENUS.register(net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext.get().getModEventBus());
+    public static void register(RegisterEvent event) {
+        event.register(BuiltInRegistries.MENU.key(), helper -> {
+            TYPE = new MenuType<>((IContainerFactory<ContainerSmithingRecipes>) ContainerSmithingRecipes::new,
+                    FeatureFlags.VANILLA_SET);
+            helper.register(ResourceLocation.fromNamespaceAndPath("cnpcplus", "smithing_recipes"), TYPE);
+        });
     }
 }

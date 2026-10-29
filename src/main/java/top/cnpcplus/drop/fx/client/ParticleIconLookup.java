@@ -147,7 +147,7 @@ public final class ParticleIconLookup {
 
         // —— vibration：唯一单文件多帧条带 18×126（7 帧 18×18），裁首帧 ——
         ICONS.put("minecraft:vibration", new Icon(
-                new ResourceLocation("minecraft", "textures/particle/vibration.png"),
+                ResourceLocation.fromNamespaceAndPath("minecraft", "textures/particle/vibration.png"),
                 18, 18, 18, 126));
 
         // —— vanilla 88 粒子全部覆盖；mod 粒子走 '?' ——
@@ -155,7 +155,7 @@ public final class ParticleIconLookup {
 
     private static void icon(String id, String tex, int w, int h) {
         ICONS.put(id, new Icon(
-                new ResourceLocation("minecraft", "textures/particle/" + tex + ".png"),
+                ResourceLocation.fromNamespaceAndPath("minecraft", "textures/particle/" + tex + ".png"),
                 w, h, w, h));
     }
 

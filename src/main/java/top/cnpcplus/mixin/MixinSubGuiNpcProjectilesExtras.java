@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.drop.fx.DropFxConfig;
 import top.cnpcplus.drop.fx.client.SubGuiDropFx;
-import top.cnpcplus.melee.SubGuiMeleeBuffs;
+import bin.cnpcplus.melee.client.SubGuiMeleeBuffs;
 import top.cnpcplus.ranged.RangedBuffStore;
 import top.cnpcplus.ranged.RangedFxStore;
 import top.cnpcplus.ranged.RangedSpinStore;
@@ -80,7 +80,7 @@ public abstract class MixinSubGuiNpcProjectilesExtras {
     @Unique
     private GuiLabel cnpcplus$spinLabelZ;
 
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), remap = false)
     private void cnpcplus$replaceEffectAndTrailControls(CallbackInfo ci) {
         SubGuiNpcProjectiles self = (SubGuiNpcProjectiles) (Object) this;
 

@@ -6,7 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import top.cnpcplus.smelting.client.GuiIconToggleButton;
+import bin.cnpcplus.smelting.client.GuiIconToggleButton;
 import top.cnpcplus.smithing.ContainerSmithingRecipes;
 import top.cnpcplus.smithing.SmithingLayout;
 import top.cnpcplus.smithing.SmithingRecipeData;
@@ -14,7 +14,7 @@ import top.cnpcplus.smithing.network.PacketSmithingRemove;
 import top.cnpcplus.smithing.network.PacketSmithingRequestList;
 import top.cnpcplus.smithing.network.PacketSmithingSave;
 import top.cnpcplus.smithing.network.PacketSmithingSelect;
-import top.cnpcplus.smithing.network.SmithingPacketHandler;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import noppes.npcs.client.NoppesUtil;
 import noppes.npcs.client.gui.util.GuiContainerNPCInterface2;
@@ -42,9 +42,9 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         implements ICustomScrollListener {
 
     private static final ResourceLocation SLOT_TEX =
-            new ResourceLocation("customnpcs", "textures/gui/slot.png");
+            ResourceLocation.fromNamespaceAndPath("customnpcs", "textures/gui/slot.png");
     private static final ResourceLocation SMITHING_TEX =
-            new ResourceLocation("minecraft", "textures/gui/container/smithing.png");
+            ResourceLocation.fromNamespaceAndPath("minecraft", "textures/gui/container/smithing.png");
 
     private GuiCustomScrollNop scroll;
     private final ContainerSmithingRecipes container;
@@ -78,13 +78,13 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         // 只在首次（缓存为空）向服务端要一次全量列表，收到后 Sync 会回调 refreshFromServer。
         boolean cacheEmpty = SmithingClientData.get().isEmpty();
         if (cacheEmpty) {
-            SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingRequestList());
+            PacketDistributor.sendToServer(new PacketSmithingRequestList());
         }
     }
 
     @Override
-    public void m_7856_() {
-        super.m_7856_();
+    public void init() {
+        super.init();
         // 界面整体偏移：guiLeft/guiTop 与 vanilla leftPos/topPos 一起按居中基准+偏移重算，
         // 不用 += 累加（m_7856_ 被二次调用时会叠加跑偏——熔炼版已实证，见 SmeltingLayout 注释）。
         this.guiLeft = (this.width - this.imageWidth) / 2 + SmithingLayout.guiOffsetX();
@@ -185,7 +185,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             // 首开自动选中第一条：同时让服务端把该配方填进四槽（新容器此时必为空槽，
             // 填入即「列表选中项=槽内展示」状态一致；服务端会先归还槽内原有物品，不会销毁）。
             if (this.selectedId >= 0) {
-                SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(this.selectedId));
+                PacketDistributor.sendToServer(new PacketSmithingSelect(this.selectedId));
             }
         }
     }
@@ -214,16 +214,16 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             // 「添加配方」= 清空表单 + 清空四个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketSmithingSelect(-1) 查不到配方时把四槽设为 EMPTY 并归还物品），
             // 客户端不自己 setItem，避免与点击包的 stateId 对不上导致物品显示错乱。
-            SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(-1));
+            PacketDistributor.sendToServer(new PacketSmithingSelect(-1));
             this.selectedId = -1;
             this.draft = true;
             this.nameOnly = false;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
-            this.m_7856_();
+            this.init();
         } else if (button.id == BTN_REMOVE) {
             if (this.selectedId >= 0) {
-                SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingRemove(this.selectedId));
+                PacketDistributor.sendToServer(new PacketSmithingRemove(this.selectedId));
                 this.selectedId = -1;
                 this.draft = false;
                 this.nameOnly = false;
@@ -265,8 +265,9 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         // 槽里放个装满物品的潜影盒或大 NBT 物品就可能撞线。既然是废数据，就别发。
         // 名称同步进 selectedName：refreshFromServer 靠它按「最终保存名」匹配草稿收尾，
         // 否则玩家在名称框改过名后匹配不上 → draft 不结束 → 再点保存会重复新建同名配方。
+        if (d.name.length() > 64) d.name = d.name.substring(0, 64);
         this.selectedName = d.name;
-        SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSave(d.toNBT(false)));
+        PacketDistributor.sendToServer(new PacketSmithingSave(d.id, d.name, d.nameOnly));
     }
 
     @Override
@@ -280,9 +281,9 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             }
         }
         if (this.selectedId >= 0) {
-            SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(this.selectedId));
+            PacketDistributor.sendToServer(new PacketSmithingSelect(this.selectedId));
         }
-        this.m_7856_();
+        this.init();
     }
 
     /**
@@ -299,7 +300,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
                 }
             }
         }
-        this.m_7856_();
+        this.init();
     }
 
     @Override
@@ -307,8 +308,8 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
     }
 
     @Override
-    protected void m_7286_(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
-        super.m_7286_(graphics, partialTicks, mouseX, mouseY);
+    protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
+        super.renderBg(graphics, partialTicks, mouseX, mouseY);
 
         // 四个锻造台槽位背景：直接读容器实际槽位真实坐标（-1 让 18x18 框套住 16x16 槽位）
         drawSlotBgAt(graphics, ContainerSmithingRecipes.SLOT_INDEX_TEMPLATE);

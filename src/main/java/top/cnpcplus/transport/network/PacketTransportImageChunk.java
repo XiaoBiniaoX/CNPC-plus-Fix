@@ -1,14 +1,24 @@
 package top.cnpcplus.transport.network;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.network.NetworkEvent;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import noppes.npcs.CustomNpcsPermissions;
 import top.cnpcplus.transport.TransportImageIO;
 import top.cnpcplus.transport.TransportKeys;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 /**
  * 241v：传送点图片**分块上传**。
@@ -19,7 +29,12 @@ import java.util.function.Supplier;
  *
  * <p>协议：key + seq + data(≤32KB)；客户端顺序发 0..n-1，最后再发一个 seq=n 的空块表示"收齐了"。
  */
-public class PacketTransportImageChunk {
+@EventBusSubscriber(modid = "cnpcplus")
+public class PacketTransportImageChunk implements CustomPacketPayload {
+    public static final Type<PacketTransportImageChunk> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "transport_image_chunk"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PacketTransportImageChunk> STREAM_CODEC = StreamCodec.of(
+            (buf, packet) -> packet.encode(buf), PacketTransportImageChunk::decode);
+    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     private static final int CHUNK = 32 * 1024;
     private static final Map<String, ByteArrayOutputStream> BUFFERS = new ConcurrentHashMap<>();
     private static final Map<String, Integer> NEXT_SEQ = new ConcurrentHashMap<>();
@@ -47,58 +62,69 @@ public class PacketTransportImageChunk {
         String key = buf.readUtf(64);
         int seq = buf.readVarInt();
         int len = buf.readVarInt();
-        if (len < 0 || len > CHUNK) {
-            byte[] skip = new byte[buf.readableBytes()];
-            buf.readBytes(skip);
-            return new PacketTransportImageChunk(key, seq, new byte[0]);
-        }
+        if (seq < 0 || seq > TransportKeys.MAX_IMAGE_BYTES / CHUNK
+                || len < 0 || len > CHUNK || len > buf.readableBytes())
+            throw new IllegalArgumentException("Invalid transport image chunk");
         byte[] data = new byte[len];
         buf.readBytes(data);
         return new PacketTransportImageChunk(key, seq, data);
     }
 
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            var sender = ctx.get().getSender();
-            if (sender == null || !sender.hasPermissions(2)) return;
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer sender)
+                    || !CustomNpcsPermissions.hasPermission(sender, CustomNpcsPermissions.NPC_ADVANCED)) return;
             String safe = TransportKeys.sanitize(this.key);
             if (safe.isEmpty()) return;
-            ByteArrayOutputStream buf = BUFFERS.computeIfAbsent(safe, k -> new ByteArrayOutputStream());
-            int next = NEXT_SEQ.getOrDefault(safe, 0);
+            String transfer = sender.getUUID() + ":" + safe;
+            // 主线程串行；同名图片的不同玩家不可拼到一起，未完成上传总数有界。
+            if (!BUFFERS.containsKey(transfer) && BUFFERS.size() >= 32) return;
+            ByteArrayOutputStream buf = BUFFERS.computeIfAbsent(transfer, k -> new ByteArrayOutputStream());
+            int next = NEXT_SEQ.getOrDefault(transfer, 0);
             if (this.seq == next) {
                 if (this.data.length > 0) {
                     buf.write(this.data, 0, this.data.length);
                 }
-                NEXT_SEQ.put(safe, next + 1);
+                NEXT_SEQ.put(transfer, next + 1);
             } else {
                 // 乱序/丢块：丢弃这次传输，等客户端重传
-                BUFFERS.remove(safe);
-                NEXT_SEQ.remove(safe);
+                BUFFERS.remove(transfer);
+                NEXT_SEQ.remove(transfer);
                 return;
             }
             if (this.data.length > 0) {
                 // 数据块：等收齐（下一个 seq 的空块才是"结束"标记）
                 if (buf.size() > TransportKeys.MAX_IMAGE_BYTES) {
-                    BUFFERS.remove(safe);
-                    NEXT_SEQ.remove(safe);
+                    BUFFERS.remove(transfer);
+                    NEXT_SEQ.remove(transfer);
                 }
                 return;
             }
             // 空块 = 结束 → 写盘
             byte[] all = buf.toByteArray();
-            BUFFERS.remove(safe);
-            NEXT_SEQ.remove(safe);
+            BUFFERS.remove(transfer);
+            NEXT_SEQ.remove(transfer);
             boolean ok = all.length > 0 && TransportImageIO.write(safe, all);
             try {
                 net.minecraft.nbt.CompoundTag out = new net.minecraft.nbt.CompoundTag();
                 out.putBoolean("ImageSaved", ok);
                 out.putString("ImageKey", safe);
-                TransportPacketHandler.CHANNEL.send(
-                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> sender),
-                        new PacketTransportMetaResponse(out, true));
+                PacketDistributor.sendToPlayer(sender, new PacketTransportMetaResponse(out, true));
             } catch (Throwable ignored) {
             }
         });
-        ctx.get().setPacketHandled(true);
+    }
+
+    @SubscribeEvent
+    public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        String prefix = event.getEntity().getUUID() + ":";
+        BUFFERS.keySet().removeIf(key -> key.startsWith(prefix));
+        NEXT_SEQ.keySet().removeIf(key -> key.startsWith(prefix));
+    }
+
+    @SubscribeEvent
+    public static void onStopped(ServerStoppedEvent event) {
+        BUFFERS.clear();
+        NEXT_SEQ.clear();
     }
 }

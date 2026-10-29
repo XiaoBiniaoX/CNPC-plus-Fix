@@ -25,8 +25,10 @@ import top.cnpcplus.villagertrade.EditableMerchant;
 import top.cnpcplus.villagertrade.EditableMerchantMenu;
 import top.cnpcplus.villagertrade.EditMode;
 import top.cnpcplus.villagertrade.network.PacketEditInventoryCommit;
-import top.cnpcplus.villagertrade.network.VillagerEditPacketHandler;
-import top.cnpcplus.mixin.MerchantScreenAccessor;
+import net.neoforged.neoforge.network.PacketDistributor;
+import bin.cnpcplus.mixin.villagertrade.MerchantScreenAccessor;
+import bin.cnpcplus.mixin.villagertrade.MerchantMenuAccessor;
+import top.cnpcplus.villagertrade.TradeDataStore;
 
 public class GuiVillagerTraderEdit extends MerchantScreen {
 
@@ -75,12 +77,12 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
     }
 
     private ItemStack[] tradeSlotSnapshot() {
-        var c = ((top.cnpcplus.mixin.MerchantMenuAccessor) merchantMenu).getTradeContainer();
+        var c = ((MerchantMenuAccessor) merchantMenu).getTradeContainer();
         return new ItemStack[]{c.getItem(0).copy(), c.getItem(1).copy(), c.getItem(2).copy()};
     }
 
     private boolean tradeSlotsChanged(ItemStack[] before) {
-        var c = ((top.cnpcplus.mixin.MerchantMenuAccessor) merchantMenu).getTradeContainer();
+        var c = ((MerchantMenuAccessor) merchantMenu).getTradeContainer();
         for (int i = 0; i < 3; i++) {
             if (!ItemStack.matches(before[i], c.getItem(i))) return true;
         }
@@ -224,13 +226,15 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
             }
         }
         if (!changes.isEmpty()) {
-            VillagerEditPacketHandler.CHANNEL.sendToServer(new PacketEditInventoryCommit(changes));
+            PacketDistributor.sendToServer(new PacketEditInventoryCommit(changes));
         }
     }
 
     private void saveTrades() {
         role.saveTrades(trades);
-        Packets.sendServer(new SPacketNpcRoleSave(role.save(new CompoundTag())));
+        CompoundTag data = role.save(new CompoundTag());
+        data.put("CNPCPlusVillagerTrades", TradeDataStore.encodeTrades(npc.level().registryAccess(), trades));
+        Packets.sendServer(new SPacketNpcRoleSave(data));
     }
 
     private void syncTradesFromOffers() {
@@ -257,7 +261,7 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
     }
 
     private void onAddTrade() {
-        merchant.addOffer(new MerchantOffer(ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY, 16, 2, 0.05f));
+        merchant.addOffer(new TradeData().toOffer());
         syncTradesFromOffers();
         rebuildWidgets();
         int newIdx = merchant.getOffers().size() - 1;
@@ -392,8 +396,8 @@ public class GuiVillagerTraderEdit extends MerchantScreen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        boolean r = super.mouseScrolled(mouseX, mouseY, delta);
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double delta) {
+        boolean r = super.mouseScrolled(mouseX, mouseY, scrollX, delta);
         clampScrollOff();
         return r;
     }

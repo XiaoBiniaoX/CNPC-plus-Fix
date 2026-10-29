@@ -39,19 +39,26 @@ public class RoleVillagerTrader extends RoleInterface {
     public List<TradeData> getTrades() {
         if (this.npc.level().isClientSide) {
             if (cache == null) {
-                cache = TradeDataStore.loadClient(tradeListId);
+                cache = TradeDataStore.loadClient(this.npc.level().registryAccess(), tradeListId);
             }
             return cache;
         }
         // 服务端直读存储（缓冲层只在客户端）：编辑面板实时 saveTrades 后，
         // 玩家交易页/交互必须立刻拿到新数据，不能命中旧缓存（Fix C）。
-        return TradeDataStore.load(tradeListId);
+        if (tradeListId <= 0 && TradeDataStore.isReady()) tradeListId = TradeDataStore.nextId();
+        return TradeDataStore.load(this.npc.level().registryAccess(), tradeListId);
     }
 
     /** 保存交易列表到存储并刷新缓存。 */
     public void saveTrades(List<TradeData> trades) {
         this.cache = trades;
-        TradeDataStore.save(tradeListId, trades);
+        var registries = this.npc.level().registryAccess();
+        if (this.npc.level().isClientSide) {
+            TradeDataStore.updateClientCache(tradeListId, TradeDataStore.encodeTrades(registries, trades));
+        } else {
+            if (tradeListId <= 0 && TradeDataStore.isReady()) tradeListId = TradeDataStore.nextId();
+            TradeDataStore.save(registries, tradeListId, trades);
+        }
     }
 
     /** 由交易列表构建原版 MerchantOffers。 */
@@ -82,21 +89,11 @@ public class RoleVillagerTrader extends RoleInterface {
                     dirty = true;
                 }
             }
-            // 用 NBT 构造器恢复 uses（MerchantOffer 无 setUses，官方构造器直读 uses 键）
-            CompoundTag tag = new CompoundTag();
-            tag.put("buy", t.inputA.save(new CompoundTag()));
-            tag.put("buyB", t.inputB.save(new CompoundTag()));
-            tag.put("sell", t.output.save(new CompoundTag()));
-            tag.putInt("uses", uses);
-            tag.putInt("maxUses", maxU);
-            tag.putInt("xp", t.xp);
-            tag.putFloat("priceMultiplier", t.priceMult);
-            MerchantOffer offer = new MerchantOffer(tag);
-            ((top.cnpcplus.villagertrade.NameOnlyOffer) (Object) offer).cnpcplus$setNameOnly(t.nameOnly);
+            MerchantOffer offer = t.toOffer(uses, maxU);
             offers.add(offer);
         }
         if (dirty) {
-            TradeDataStore.save(tradeListId, trades);
+            saveTrades(trades);
         }
         return offers;
     }
@@ -129,7 +126,7 @@ public class RoleVillagerTrader extends RoleInterface {
             } else if (t.uses < maxU) {
                 t.limitResetAt = 0;
             }
-            TradeDataStore.save(tradeListId, trades);
+            saveTrades(trades);
             return;
         }
     }
@@ -147,6 +144,10 @@ public class RoleVillagerTrader extends RoleInterface {
             tradeListId = compound.getInt("TradeListId");
             TradeDataStore.reserve(tradeListId); // 已占用，防 nextId 再分配
             cache = null; // 失效缓存
+        }
+        if (this.npc.level().isClientSide && compound.contains("CNPCPlusVillagerTrades", 10)) {
+            TradeDataStore.updateClientCache(tradeListId, compound.getCompound("CNPCPlusVillagerTrades").copy());
+            cache = null;
         }
     }
 

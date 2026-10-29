@@ -22,7 +22,7 @@ public abstract class MixinGuiScriptInterfaceLinks {
     private static final String URL_SKILLS = "https://github.com/SaltfishSheep/SKILL_CNPC_SCRIPTING";
     private static final String URL_BILI = "https://space.bilibili.com/353609880";
 
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), remap = false)
     private void cnpcplus$addLinkButtons(CallbackInfo ci) {
         GuiScriptInterface self = (GuiScriptInterface) (Object) this;
         // 仅控制台页（无 activeTab 字段访问）：网站按钮存在才注入

@@ -15,7 +15,7 @@ import top.cnpcplus.ai.UntargetableAccess;
  */
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public abstract class MixinEntityNPCUntargetable {
-    @Inject(method = "m_6710_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "setTarget", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$blockUntargetable(LivingEntity target, CallbackInfo ci) {
         if (this.cnpcplus$isBlocked(target)) {
             ci.cancel();
@@ -29,7 +29,7 @@ public abstract class MixinEntityNPCUntargetable {
         }
     }
 
-    @Inject(method = "m_8119_", at = @At("HEAD"), remap = false)
+    @Inject(method = "tick", at = @At("HEAD"), remap = false)
     private void cnpcplus$dropUntargetable(CallbackInfo ci) {
         EntityNPCInterface self = (EntityNPCInterface) (Object) this;
         if (self.level().isClientSide) return;

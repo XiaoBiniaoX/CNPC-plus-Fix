@@ -19,7 +19,7 @@ import top.cnpcplus.ai.NpcAiOptimizerAccess;
 @Mixin(value = NpcNearestAttackableTargetGoal.class, remap = false)
 public abstract class MixinNpcNearestTargetStuck {
 
-    @Inject(method = "m_8045_", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "canContinueToUse", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$forceRescanIfNoTarget(CallbackInfoReturnable<Boolean> cir) {
         if (!NpcAiOptimizerAccess.enabled()) return;
         if (!((Object) this instanceof TargetGoalAccessor accessor)) return;

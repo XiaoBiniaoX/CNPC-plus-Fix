@@ -1,7 +1,7 @@
 package top.cnpcplus.mixin;
 
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import noppes.npcs.client.gui.SubGuiNpcRespawn;
 import noppes.npcs.entity.data.DataStats;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
@@ -52,7 +52,7 @@ public abstract class MixinSubGuiNpcRespawnExtras implements ITextfieldListener 
     @Unique
     private GuiLabel cnpcplus$delayLabel;
 
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), remap = false)
     private void cnpcplus$addDelayAndFx(CallbackInfo ci) {
         SubGuiNpcRespawn self = (SubGuiNpcRespawn) (Object) this;
         // 238c（#2）：延迟框随「隐藏尸体」开关显隐——恒建+enabled，buttonEvent TAIL 翻转。

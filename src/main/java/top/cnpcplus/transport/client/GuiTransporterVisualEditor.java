@@ -27,7 +27,7 @@ import top.cnpcplus.transport.TransportOrder;
 import top.cnpcplus.transport.TransportSpans;
 import top.cnpcplus.transport.network.PacketTransportMetaRequest;
 import top.cnpcplus.transport.network.PacketTransportMetaSave;
-import top.cnpcplus.transport.network.TransportPacketHandler;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * 任务241 传送师可视化编辑子页。
@@ -183,7 +183,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     private int sbFullW() { return Math.max(60, this.sbW() - 16 - 30); }
 
     @Override
-    public void m_7856_() {
+    public void init() {
         try {
             this.cnpcplus$init();
         } catch (Throwable t) {
@@ -195,7 +195,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     }
 
     private void cnpcplus$init() {
-        super.m_7856_();
+        super.init();
         this.layout();
         TransportClientCache.requestMeta(this.npcId, true);
         // 241n：meta 到达后重建列表 + 重新覆盖本地改动（不再整体替换导致"改了没反应"）
@@ -383,9 +383,9 @@ public class GuiTransporterVisualEditor extends GuiBasic
     }
 
     @Override
-    public void m_88315_(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (this.drawDefaultBackground) {
-            this.renderBackground(graphics);
+            this.renderBackground(graphics, mouseX, mouseY, partialTick);
         }
         boolean bg = this.drawDefaultBackground;
         this.drawDefaultBackground = false;
@@ -442,14 +442,14 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
         pose.popPose();
 
-        // 241r：行按钮与搜索框都是 vanilla 子控件，super.m_88315_ 会再画一次
+        // 241r：行按钮与搜索框都是 vanilla 子控件，super.render 会再画一次
         // → 这里不再手动画（否则文字/光标重影）
 
         // 边栏画在 super 之前：CNPC 的输入框/文本区由 super 画，必须压在边栏背景之上
         this.drawSidebar(graphics, mouseX, mouseY);
         this.drawHint(graphics);
 
-        super.m_88315_(graphics, mouseX, mouseY, partialTick);
+        super.render(graphics, mouseX, mouseY, partialTick);
         if (!this.rowDragKey.isEmpty()) {
             int idx = this.filtered.indexOf(this.rowDragKey) - this.offset;
             if (idx >= 0 && idx < TransportLayout.ROW_VISIBLE) {
@@ -985,7 +985,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     }
 
     @Override
-    public boolean m_6050_(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double delta) {
         if (delta == 0.0D) return false;
 
         if (this.activeElement >= 0 && inRect(mouseX, mouseY, 0, 0, this.sbW(), this.sbH())) {
@@ -1010,13 +1010,13 @@ public class GuiTransporterVisualEditor extends GuiBasic
     }
 
     @Override
-    public boolean m_7933_(int key, int scanCode, int modifiers) {
+    public boolean keyPressed(int key, int scanCode, int modifiers) {
         // 241o：ESC = **退出编辑器并保存**（用户明确要求）；边栏用「关闭」按钮收起
-        return super.m_7933_(key, scanCode, modifiers);
+        return super.keyPressed(key, scanCode, modifiers);
     }
 
     @Override
-    public boolean m_6375_(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
 
             // 241q：点击输入框时**主动给 vanilla 焦点**（否则拖选无效：Screen.mouseClicked 没跑到）
@@ -1029,7 +1029,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
                     area.clicked = false;
                 }
                 this.setFocused(hit);
-                return super.m_6375_(mouseX, mouseY, button);
+                return super.mouseClicked(mouseX, mouseY, button);
             }
             // 241n：先给内容框（GuiTextArea）——它必须拿到点击才能 active，
             // 否则光标/方向键/Home/输入法整批字符全部无效（CNPC 的 GuiWrapper 会先让输入框吃掉点击）
@@ -1039,7 +1039,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 // 241z-7：点正文时清掉输入框焦点，避免两边同时接收字符
                 this.setFocused(null);
                 GuiTextFieldNop.unfocus();
-                area.m_6375_(mouseX, mouseY, button);
+                area.mouseClicked(mouseX, mouseY, button);
                 this.areaAnchor = area instanceof TextAreaSelectionAccess acc
                         ? acc.cnpcplus$selectionStart() : -1;
                 this.areaDragging = this.areaAnchor >= 0;
@@ -1066,7 +1066,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 return true;
             }
         }
-        return super.m_6375_(mouseX, mouseY, button);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     /** 找出鼠标位置命中的输入框（边栏字段 + 搜索框），用于给 vanilla 焦点。 */
@@ -1079,7 +1079,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     }
 
     @Override
-    public boolean m_7979_(double x, double y, int button, double dragX, double dragY) {
+    public boolean mouseDragged(double x, double y, int button, double dragX, double dragY) {
         if (button == 0 && !this.rowDragKey.isEmpty()) {
             if (Math.abs(x - this.rowDragX) + Math.abs(y - this.rowDragY) < 4) return true;
             int top = this.sy(TransportLayout.ROW_Y);
@@ -1118,11 +1118,11 @@ public class GuiTransporterVisualEditor extends GuiBasic
             acc.cnpcplus$select(Math.min(anchor, pos), Math.max(anchor, pos), pos);
             return true;
         }
-        return super.m_7979_(x, y, button, dragX, dragY);
+        return super.mouseDragged(x, y, button, dragX, dragY);
     }
 
     @Override
-    public boolean m_6348_(double x, double y, int button) {
+    public boolean mouseReleased(double x, double y, int button) {
         this.areaDragging = false;
         if (button == 0 && !this.rowDragKey.isEmpty()) {
             this.rowDragKey = "";
@@ -1130,7 +1130,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
             this.rowOrderChanged = false;
             return true;
         }
-        return super.m_6348_(x, y, button);
+        return super.mouseReleased(x, y, button);
     }
 
     private boolean handleSidebarClick(double mouseX, double mouseY) {
@@ -1736,7 +1736,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 entries.put(this.entryKey(entryName), t);
             }
         }
-        TransportPacketHandler.CHANNEL.sendToServer(
+        PacketDistributor.sendToServer(
                 new PacketTransportMetaSave(this.npcId, panel, entries, false));
     }
 
@@ -1807,7 +1807,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
         CompoundTag t = new CompoundTag();
         t.putBoolean(TransportKeys.DELETE, true);
         entries.put(this.entryKey(name), t);
-        TransportPacketHandler.CHANNEL.sendToServer(
+        PacketDistributor.sendToServer(
                 new PacketTransportMetaSave(this.npcId, new CompoundTag(), entries, true));
         String shown = this.plainName(name);
         Map<String, CompoundTag> all = TransportClientCache.allEditMeta();
@@ -1875,10 +1875,10 @@ public class GuiTransporterVisualEditor extends GuiBasic
             int len = Math.min(chunk, bytes.length - off);
             byte[] part = new byte[len];
             System.arraycopy(bytes, off, part, 0, len);
-            TransportPacketHandler.CHANNEL.sendToServer(
+            PacketDistributor.sendToServer(
                     new top.cnpcplus.transport.network.PacketTransportImageChunk(key, seq, part));
         }
-        TransportPacketHandler.CHANNEL.sendToServer(
+        PacketDistributor.sendToServer(
                 new top.cnpcplus.transport.network.PacketTransportImageChunk(key, seq, new byte[0]));
         TransportClientCache.acceptImage(key, bytes);
         CompoundTag meta = TransportClientCache.editMeta(this.selectedName);
@@ -1924,7 +1924,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
             copyEntry(src, t);
             entries.put(this.entryKey(e.getKey()), t);
         }
-        TransportPacketHandler.CHANNEL.sendToServer(
+        PacketDistributor.sendToServer(
                 new PacketTransportMetaSave(this.npcId, panel, entries, disk));
     }
 

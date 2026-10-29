@@ -10,7 +10,7 @@ import net.minecraft.core.particles.ParticleType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
@@ -204,7 +204,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         this.drawDefaultBackground = false; // 无全屏 dirt
         this.closeOnEsc = true;
         List<String> ids = new ArrayList<>();
-        for (ResourceLocation id : ForgeRegistries.PARTICLE_TYPES.getKeys()) {
+        for (ResourceLocation id : BuiltInRegistries.PARTICLE_TYPE.keySet()) {
             ids.add(id.toString());
         }
         ids.sort(Comparator.naturalOrder());
@@ -212,8 +212,8 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
     }
 
     @Override
-    public void m_7856_() {
-        super.m_7856_();
+    public void init() {
+        super.init();
         // 整体下移 8px（233d-UI5「界面应该下移一点」）：guiTop 偏移后所有
         // place/render/按钮坐标自动跟随。scale=4（1080p，屏 270）校验：
         // 黑边底=gt+252=15+252=267<270、黑边顶=gt-2=13>0，不超屏。
@@ -224,7 +224,6 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         // 左块（最大）：粒子注册表（width=192 贴面板内缘，消 4px 灰缝防像第二条滚动条）
         if (this.particleList == null) {
             this.particleList = new ParticleList();
-            killVanillaDirt(this.particleList);
         }
         this.particleList.place(gl + 6, gt + 18);
         this.addRenderableWidget(this.particleList);
@@ -239,7 +238,6 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         // 右下块：参数（14 行每参数一行滚动；EditBox 叠加跟随滚动）
         if (this.paramList == null) {
             this.paramList = new ParamList();
-            killVanillaDirt(this.paramList);
         }
         this.paramList.place(gl + 206, gt + 120);
         this.addRenderableWidget(this.paramList);
@@ -316,12 +314,6 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
      * renderBackground=列表区 dirt；renderTopAndBottom=列表外上下
      * dirt 条（从屏幕边画到列表边，旧版漏关=泥土残留根因）。
      */
-    private static void killVanillaDirt(ObjectSelectionList<?> list) {
-        list.setRenderBackground(false);
-        list.setRenderTopAndBottom(false);
-        list.setRenderSelection(false);
-    }
-
     private Component followLabel() {
         return Component.translatable("cnpcplus.projectile.fxFollow",
                 Component.translatable(this.followProjectile ? "gui.yes" : "gui.no"));
@@ -701,15 +693,16 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
         ParticleList() {
             // width=192：place(gl+6) 后 x1=gl+198=左面板内缘（233d-UI7 宽 196→192），暗底无缝
-            super(Minecraft.getInstance(), 192, 172, 0, 172, 18);
+            super(Minecraft.getInstance(), 192, 172, 0, 18);
         }
 
         void place(int x, int y) {
-            this.x0 = x;
-            this.x1 = x + this.width;
-            this.y0 = y;
-            this.y1 = y + this.height;
+            this.setPosition(x, y);
         }
+
+        @Override protected void renderListBackground(GuiGraphics g) {}
+        @Override protected void renderListSeparators(GuiGraphics g) {}
+        @Override protected void renderSelection(GuiGraphics g, int top, int width, int height, int outer, int inner) {}
 
         /**
          * 233d-UI5：vanilla {@code getScrollbarPosition()=width/2+124} 是
@@ -720,13 +713,13 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
          */
         @Override
         protected int getScrollbarPosition() {
-            return this.x1 - 6;
+            return this.getRight() - 6;
         }
 
-        int left() { return this.x0; }
-        int top() { return this.y0; }
-        int right() { return this.x1; }
-        int bottom() { return this.y1; }
+        int left() { return this.getX(); }
+        int top() { return this.getY(); }
+        int right() { return this.getRight(); }
+        int bottom() { return this.getBottom(); }
 
         @Override
         public int getRowWidth() {
@@ -748,8 +741,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
 
             Entry(String id) {
                 this.id = id;
-                ParticleType<?> t = ForgeRegistries.PARTICLE_TYPES.getValue(
-                        new ResourceLocation(id));
+                ParticleType<?> t = BuiltInRegistries.PARTICLE_TYPE.get(ResourceLocation.parse(id));
                 this.usable = t instanceof ParticleOptions;
                 this.configured = SubGuiDropFx.this.particleConfigured(id);
                 this.selected = id.equals(SubGuiDropFx.this.selectedParticleId);
@@ -874,7 +866,7 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         }
 
         @Override
-        public boolean mouseScrolled(double mx, double my, double delta) {
+        public boolean mouseScrolled(double mx, double my, double scrollX, double delta) {
             if (!this.active || !this.visible) return false;
             this.scrollX -= delta * COL_W; // 滚轮=横向滑动一格
             clampScroll();
@@ -1033,26 +1025,27 @@ public class SubGuiDropFx extends GuiBasic implements ITextfieldListener {
         ParamList() {
             // 内容 14 行×18=252 > 可视 92 → 溢出 160px，滚动条明显（233d-UI4 每参数一行）
             // 233d-UI7 宽 206→192（右面板内缘）
-            super(Minecraft.getInstance(), 192, 92, 0, 92, PARAM_ROW);
+            super(Minecraft.getInstance(), 192, 92, 0, PARAM_ROW);
         }
 
         void place(int x, int y) {
-            this.x0 = x;
-            this.x1 = x + this.width;
-            this.y0 = y;
-            this.y1 = y + this.height;
+            this.setPosition(x, y);
         }
+
+        @Override protected void renderListBackground(GuiGraphics g) {}
+        @Override protected void renderListSeparators(GuiGraphics g) {}
+        @Override protected void renderSelection(GuiGraphics g, int top, int width, int height, int outer, int inner) {}
 
         /** 见 ParticleList 同名方法（滚动条右缘+entry 命中修复，233d-UI5）。 */
         @Override
         protected int getScrollbarPosition() {
-            return this.x1 - 6;
+            return this.getRight() - 6;
         }
 
-        int left() { return this.x0; }
-        int top() { return this.y0; }
-        int right() { return this.x1; }
-        int bottom() { return this.y1; }
+        int left() { return this.getX(); }
+        int top() { return this.getY(); }
+        int right() { return this.getRight(); }
+        int bottom() { return this.getBottom(); }
 
         @Override
         public int getRowWidth() {

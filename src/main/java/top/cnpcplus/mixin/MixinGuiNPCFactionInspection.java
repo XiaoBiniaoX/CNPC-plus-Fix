@@ -18,7 +18,7 @@ import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
 @Mixin(value = GuiNPCFactionSetup.class, remap = false)
 public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener {
-    @Inject(method = "m_7856_", at = @At("TAIL"), remap = false)
+    @Inject(method = "init", at = @At("TAIL"), remap = false)
     private void cnpcplus$addInspectionButton(CallbackInfo ci) {
         GuiNPCFactionSetup self = (GuiNPCFactionSetup) (Object) this;
         if (self.getButton(13) == null) {

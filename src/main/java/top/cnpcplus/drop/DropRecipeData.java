@@ -1,6 +1,7 @@
 package top.cnpcplus.drop;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -30,17 +31,17 @@ public class DropRecipeData {
     public final java.util.List<top.cnpcplus.drop.fx.DropFxConfig> fxs =
             top.cnpcplus.drop.fx.DropFxCaps.newList();
 
-    public CompoundTag toNBT() {
-        return this.toNBT(true);
+    public CompoundTag toNBT(HolderLookup.Provider registries) {
+        CompoundTag t = toMetadataNBT();
+        for (int i = 0; i < 4; i++) t.put("Input" + i, this.inputs[i].saveOptional(registries));
+        t.put("Result", this.result.saveOptional(registries));
+        return t;
     }
 
     /**
-     * @param withItems 是否写入五个槽位物品。
-     *   客户端往服务端发保存请求时传 false：服务端只认自己容器里的 ItemStack（见 PacketDropSave），
-     *   带上去纯属废数据，还会把 C→S 载荷推向 32767 字节硬上限（超限玩家直接被踢）。
-     *   落盘与 S→C 同步必须传 true。
+     * 保存请求仅带元数据与粒子配置，不带物品；五槽物品始终取服务端编辑容器。
      */
-    public CompoundTag toNBT(boolean withItems) {
+    public CompoundTag toMetadataNBT() {
         CompoundTag t = new CompoundTag();
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
@@ -55,17 +56,12 @@ public class DropRecipeData {
         net.minecraft.nbt.ListTag fxList = new net.minecraft.nbt.ListTag();
         for (top.cnpcplus.drop.fx.DropFxConfig c : this.fxs) fxList.add(c.toNBT());
         t.put("Fx", fxList);
-        if (withItems) {
-            for (int i = 0; i < 4; i++) {
-                t.put("Input" + i, this.inputs[i].save(new CompoundTag()));
-            }
-            t.put("Result", this.result.save(new CompoundTag()));
-        }
         return t;
     }
 
-    public static DropRecipeData fromNBT(CompoundTag t) {
+    public static DropRecipeData fromMetadataNBT(CompoundTag t) {
         DropRecipeData d = new DropRecipeData();
+        if (t == null) return d;
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly");
@@ -81,10 +77,16 @@ public class DropRecipeData {
         }
         // 数据卫生：磁盘/网络进入一律裁剪（超限丢子项+WARN），空形状的 config 清除
         top.cnpcplus.drop.fx.DropFxCaps.sanitize(d);
+        return d;
+    }
+
+    public static DropRecipeData fromNBT(HolderLookup.Provider registries, CompoundTag t) {
+        DropRecipeData d = fromMetadataNBT(t);
+        if (t == null) return d;
         for (int i = 0; i < 4; i++) {
-            d.inputs[i] = ItemStack.of(t.getCompound("Input" + i));
+            d.inputs[i] = ItemStack.parseOptional(registries, t.getCompound("Input" + i));
         }
-        d.result = ItemStack.of(t.getCompound("Result"));
+        d.result = ItemStack.parseOptional(registries, t.getCompound("Result"));
         return d;
     }
 
@@ -98,6 +100,19 @@ public class DropRecipeData {
     }
 
     public DropRecipeData copy() {
-        return fromNBT(this.toNBT());
+        DropRecipeData d = new DropRecipeData();
+        d.id = this.id;
+        d.name = this.name;
+        d.nameOnly = this.nameOnly;
+        d.soundId = this.soundId;
+        d.dim = this.dim;
+        d.hasBindPos = this.hasBindPos;
+        d.bindX = this.bindX;
+        d.bindY = this.bindY;
+        d.bindZ = this.bindZ;
+        for (int i = 0; i < 4; i++) d.inputs[i] = this.inputs[i].copy();
+        d.result = this.result.copy();
+        for (var fx : this.fxs) d.fxs.add(fx.copy());
+        return d;
     }
 }

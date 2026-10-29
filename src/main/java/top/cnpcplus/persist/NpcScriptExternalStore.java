@@ -69,7 +69,8 @@ public final class NpcScriptExternalStore {
         UUID id = parseId(tag.getString(ID_KEY));
         if (id == null) id = owner;
         State state = readState(id);
-        boolean legacy = hasData(tag);
+        // 内联键即失败回退快照（也包括合法清空），不能被旧外置文件覆盖。
+        boolean legacy = tag.contains(SCRIPTS, Tag.TAG_LIST);
 
         try {
             if (state != null && !owner.equals(state.owner)) {
@@ -79,7 +80,7 @@ public final class NpcScriptExternalStore {
                 state = readState(id);
             }
 
-            if (state != null && verifyData(state)) {
+            if (!legacy && state != null && verifyData(state)) {
                 ACTIVE.put(npc, state);
                 attachData(tag, state.data);
                 tag.putString(ID_KEY, state.id.toString());
@@ -87,7 +88,7 @@ public final class NpcScriptExternalStore {
                 return true;
             }
 
-            if (!legacy) return false;
+            if (!legacy || (state == null && !hasData(tag))) return false;
 
             State migrated = new State();
             migrated.id = id;
@@ -114,14 +115,18 @@ public final class NpcScriptExternalStore {
     public static synchronized void saveNpc(EntityNPCInterface npc, CompoundTag tag) {
         if (npc == null || tag == null || npc.level() == null || npc.level().isClientSide) return;
         UUID owner = npc.getUUID();
+        State state = ACTIVE.get(npc);
         UUID id = parseId(tag.getString(ID_KEY));
-        if (id == null) id = owner;
+        if (id == null) id = state != null && owner.equals(state.owner) ? state.id : owner;
         CompoundTag data = extractData(tag);
         File file = stateFile(id);
-        State state = ACTIVE.get(npc);
         if (state != null && (!owner.equals(state.owner) || !id.equals(state.id))) state = null;
         if (state == null) state = readState(id);
-        if (state != null && !owner.equals(state.owner)) state = null;
+        if (state != null && !owner.equals(state.owner)) {
+            id = UUID.randomUUID();
+            file = stateFile(id);
+            state = null;
+        }
 
         try {
             if (!hasData(data)) {
@@ -145,24 +150,20 @@ public final class NpcScriptExternalStore {
                 return;
             }
 
-            if (state == null) {
-                state = new State();
-                state.id = id;
-                state.owner = owner;
-            }
+            // 不原地修改 ACTIVE 的已提交快照；失败后的相同内容必须真正重试写盘。
+            state = new State();
+            state.id = id;
+            state.owner = owner;
             state.data = data;
             state.migration = COPYING;
             writeState(state);
             if (!verifyData(state)) throw new IOException("script save verification failed");
             state.migration = EXTERNAL_ACTIVE;
             writeState(state);
-            tag.putString(ID_KEY, state.id.toString());
-            tag.putInt(STATE_KEY, CLEANUP_PENDING);
-            stripData(tag);
             state.migration = CLEANED;
-            tag.putInt(STATE_KEY, CLEANED);
             writeState(state);
-            ACTIVE.put(npc, state);
+            adopt(npc, tag, state);
+            stripData(tag);
         } catch (Exception e) {
             LOGGER.error("[scripts] save failed; script NBT retained for {}", owner, e);
         }
