@@ -3,11 +3,15 @@ package bin.cnpcplus.mixin.perf;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import noppes.npcs.shared.client.gui.components.GuiTextArea;
+import noppes.npcs.shared.client.gui.components.TextContainer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.transport.client.TextAreaSelectionAccess;
 
@@ -80,15 +84,28 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
     @Shadow(remap = false) private int startSelection;
     @Shadow(remap = false) private int endSelection;
     @Shadow(remap = false) private int cursorPosition;
+    @Shadow(remap = false) private TextContainer container;
+    @Unique private TextContainer cnpcplus$markedContainer;
     @Shadow(remap = false) protected abstract int getSelectionPos(double mouseX, double mouseY);
 
-    // setText 不会重置旧选区；清空介绍文本后必须限制下标，避免 render 的 charAt 越界。
+    // 分别限制下标，不能将有效的start一起移到末尾：addText随后还要加插入长度。
     @Inject(method = "setText(Ljava/lang/String;)V", at = @At("TAIL"), require = 1, remap = false)
     private void cnpcplus$resetSelection(String text, CallbackInfo ci) {
-        int len = text == null ? 0 : text.length();
-        if (cursorPosition > len || startSelection > len || endSelection > len) {
-            cnpcplus$clearSelection();
-        }
+        cnpcplus$select(startSelection, endSelection, cursorPosition);
+    }
+
+    // 与原生setText的CR规范化一致，让原生addText用实际插入长度更新光标。
+    @ModifyVariable(method = "addText(Ljava/lang/String;)V", at = @At("HEAD"), argsOnly = true,
+            require = 1, remap = false)
+    private String cnpcplus$normalizeInsertion(String value) {
+        return value == null ? "" : value.replace("\r", "");
+    }
+
+    // 撤销/重做会在setText之后恢复旧光标；同时防止历史越界状态进入复制/方向键分支。
+    @Inject(method = "keyPressed(III)Z", at = {@At("HEAD"), @At("RETURN")}, require = 1, remap = false)
+    private void cnpcplus$validateSelection(int key, int scanCode, int modifiers,
+                                           CallbackInfoReturnable<Boolean> cir) {
+        cnpcplus$select(startSelection, endSelection, cursorPosition);
     }
 
     @Override
@@ -101,6 +118,23 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
     public int cnpcplus$selectionStart() { return startSelection; }
 
     @Override
+    public int cnpcplus$cursor() { return cursorPosition; }
+
+    @Override
+    public void cnpcplus$highlightError(int start, int end) {
+        if (container == null) return;
+        if (cnpcplus$markedContainer == container) {
+            container.makeup.clear();
+            container.formatCodeText();
+        }
+        cnpcplus$markedContainer = null;
+        if (start >= 0 && end > start && end <= text.length()) {
+            container.addMakeUp(start, end, 'c', Integer.MAX_VALUE);
+            cnpcplus$markedContainer = container;
+        }
+    }
+
+    @Override
     public int cnpcplus$selectionPos(double mouseX, double mouseY) {
         return getSelectionPos(mouseX, mouseY);
     }
@@ -108,8 +142,8 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
     @Override
     public void cnpcplus$select(int start, int end, int cursor) {
         int len = text == null ? 0 : text.length();
-        startSelection = Math.max(0, Math.min(start, len));
-        endSelection = Math.max(0, Math.min(end, len));
+        startSelection = Math.max(0, Math.min(Math.min(start, end), len));
+        endSelection = Math.max(0, Math.min(Math.max(start, end), len));
         cursorPosition = Math.max(0, Math.min(cursor, len));
     }
 

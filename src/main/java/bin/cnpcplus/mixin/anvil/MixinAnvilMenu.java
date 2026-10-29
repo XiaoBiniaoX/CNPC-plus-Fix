@@ -2,10 +2,12 @@ package bin.cnpcplus.mixin.anvil;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 阶段231b：放宽 vanilla AnvilMenu.mayPickup 对自定义配方的经验门槛。
@@ -14,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * {@code (instabuild || experienceLevel >= cost) && cost > 0}
  * —— {@code cost>0} 使 0（免费）与负数（自定义配方「负数=给锻造者经验」）结果取不走，
  * 而 onTake 原生 {@code giveExperienceLevels(-cost)} 对负 cost 天然=给经验（ineg 实证），
- * 唯独这道门拦路。本注入复刻原判定并去掉 {@code cost>0}：
+ * 生存模式由原版结算，创造模式另补负值奖励。本注入复刻原判定并去掉 {@code cost>0}：
  * cost<=0 时 {@code level>=cost} 恒真（等级恒>=0>=负数）→ 可取走；正数仍按等级检查，语义不变。
  *
  * <p>对原版行为零影响：原版 cost=0 时结果槽必为空（createResult 空操作即置空/结果空无从取），
@@ -25,6 +27,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(value = AnvilMenu.class, remap = false)
 public class MixinAnvilMenu {
+
+    // onTake 随后会清空cost，必须在HEAD读取；只在服务端补原版跳过的创造模式奖励。
+    @Inject(method = "onTake(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;)V",
+            at = @At("HEAD"), require = 1, remap = false)
+    private void cnpcplus$rewardCreativeNegativeCost(Player player, ItemStack stack, CallbackInfo ci) {
+        int cost = ((AnvilMenu) (Object) this).getCost();
+        if (!player.level().isClientSide && player.getAbilities().instabuild && cost < 0) {
+            player.giveExperienceLevels(-cost);
+        }
+    }
 
     @Inject(method = "mayPickup", at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void cnpcplus$allowZeroNegativeCost(Player player, boolean canTake,

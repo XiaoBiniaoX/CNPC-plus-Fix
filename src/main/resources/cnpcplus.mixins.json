@@ -41,6 +41,7 @@
     "recipe.MixinRecipeCarpentryMatches",
     "recipe.MixinCraftingMenu",
     "script.MixinScriptControllerLoad",
+    "script.MixinScriptContainerError",
     "puppet.MixinJobPuppetEquipment",
     "puppet.MixinPuppetPartConfig",
     "puppet.MixinModelDataSharedEquipment",
@@ -122,6 +123,7 @@
     "containers.MixinContainerNpcInterfaceDistance"
   ],
   "client": [
+    "script.MixinGuiScriptEditor",
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
     "anvil.MixinAnvilScreen",
     "anvil.MixinGuiNPCGlobalMainMenuAnvil",

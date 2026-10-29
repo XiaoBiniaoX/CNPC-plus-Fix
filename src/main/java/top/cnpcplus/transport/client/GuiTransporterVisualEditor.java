@@ -1046,23 +1046,31 @@ public class GuiTransporterVisualEditor extends GuiBasic
                 return true;
             }
             if (this.handleSidebarClick(mouseX, mouseY)) return true;
-            int hitEl = this.hitElement(mouseX, mouseY);
-            if (hitEl >= 0) {
-                this.setActiveElement(this.activeElement == hitEl ? -1 : hitEl);
-                return true;
-            }
-            // 行空白处拖动排序；文字和图标仍走原编辑入口，搜索时不移动隐藏条目。
+            // 整行（包括文字/图标）都能建立排序锚点；不拖动时仍走原来的元素编辑。
+            this.rowDragKey = "";
             for (int i = 0; i < TransportLayout.ROW_VISIBLE; i++) {
                 GuiButtonNop row = this.getButton(TransportLayout.BTN_ROW_ID_BASE + i);
                 if (!(row instanceof GuiTransportRowButton r) || !r.visible) continue;
                 if (!inRect(mouseX, mouseY, r.getX(), r.getY(), r.getWidth(), r.getHeight())) continue;
-                this.selectRow(r.entryName);
                 if (this.search.isEmpty()) {
                     this.rowDragKey = r.entryName;
                     this.rowDragX = mouseX;
                     this.rowDragY = mouseY;
                     this.rowOrderChanged = false;
                 } else this.setHint(tr("cnpcplus.transporter.editor.sortSearch"));
+                break;
+            }
+            int hitEl = this.hitElement(mouseX, mouseY);
+            if (hitEl >= 0) {
+                this.setActiveElement(this.activeElement == hitEl ? -1 : hitEl);
+                return true;
+            }
+            // 行空白处只选中；拖动锚点已在元素命中前建立。
+            for (int i = 0; i < TransportLayout.ROW_VISIBLE; i++) {
+                GuiButtonNop row = this.getButton(TransportLayout.BTN_ROW_ID_BASE + i);
+                if (!(row instanceof GuiTransportRowButton r) || !r.visible) continue;
+                if (!inRect(mouseX, mouseY, r.getX(), r.getY(), r.getWidth(), r.getHeight())) continue;
+                this.selectRow(r.entryName);
                 return true;
             }
         }
