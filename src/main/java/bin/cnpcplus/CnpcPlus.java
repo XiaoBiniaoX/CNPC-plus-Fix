@@ -12,6 +12,9 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import bin.cnpcplus.smelting.SmeltingMenus;
 import bin.cnpcplus.smelting.SmeltingRecipeBootstrap;
+import top.cnpcplus.anvil.AnvilCraftHandler;
+import top.cnpcplus.anvil.AnvilMenus;
+import top.cnpcplus.anvil.AnvilRecipeRegistry;
 import org.slf4j.Logger;
 
 @Mod("cnpcplus")
@@ -23,8 +26,11 @@ public class CnpcPlus {
         modContainer.registerConfig(ModConfig.Type.COMMON, CnpcPlusConfig.SPEC);
         CraftingViewNetwork.register(modEventBus);
         modEventBus.addListener(SmeltingMenus::register);
+        modEventBus.addListener(AnvilMenus::register);
         NeoForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
         NeoForge.EVENT_BUS.register(SmeltingRecipeBootstrap.class);
+        NeoForge.EVENT_BUS.register(AnvilCraftHandler.class);
+        NeoForge.EVENT_BUS.register(AnvilRecipeRegistry.class);
         NeoForge.EVENT_BUS.register(ScoreboardFixListener.class);
         NeoForge.EVENT_BUS.register(NoppesCommandBlockAccess.class);
         NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerDataLifecycle.class);

@@ -46,5 +46,11 @@
   "cnpcplus.trader.pageTitle": "Заголовок страницы",
   "cnpcplus.trader.prevPage": "Назад",
   "cnpcplus.trader.nextPage": "Вперёд",
-  "cnpcplus.trader.deletePage": "Удалить страницу (%s/%s)"
+  "cnpcplus.trader.deletePage": "Удалить страницу (%s/%s)",
+  "cnpcplus.nameonly": "Только по имени",
+  "cnpcplus.anvil.open": "Визуальные рецепты наковальни",
+  "cnpcplus.anvil.title": "Визуальные рецепты наковальни",
+  "cnpcplus.anvil.need": "Нужны предметы в слотах A, B и результате",
+  "cnpcplus.anvil.expcost": "Уровни опыта за удар (отрицательные = выдача опыта)",
+  "cnpcplus.anvil.give": "Этот удар даст вам %s уровней"
 }

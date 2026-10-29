@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 真实护甲：让 NPC 身上的原版盔甲真正参与减伤，并按「伤害/4」消耗耐久。
+ * 真实护甲：让 NPC 身上的原版盔甲真正参与减伤，不消耗装备耐久。
  * 移植自 1.20.1 {@code MixinLivingEntityRealArmor}（与 1.12.2 {@code MixinEntityNPCRealArmor} 等价）。
  *
  * <p>必须注入 CNPC 自己覆写的 {@code getDamageAfterArmorAbsorb} —— 它不调 super，
@@ -63,19 +63,7 @@ public abstract class MixinEntityNPCRealArmor {
         armor = Math.max(armor, npc.getArmorValue());
         toughness = Math.max(toughness, npc.getAttributeValue(Attributes.ARMOR_TOUGHNESS));
 
-        // 耐久必须自己扣：原版 LivingEntity.hurtArmor 对 NPC 是空实现，
-        // 只有 Player/Wolf 覆写，不扣的话就是「无限耐久的护甲减伤」。
-        if (!npc.level().isClientSide && armor > 0.0) {
-            int durability = Math.max(1, (int) Math.floor(damage / 4.0f));
-            for (EquipmentSlot slot : CNPCPLUS$ARMOR_SLOTS) {
-                ItemStack stack = npc.getItemBySlot(slot);
-                if (!stack.isEmpty() && stack.isDamageableItem()) {
-                    // 1.21.1 签名：hurtAndBreak(int, LivingEntity, EquipmentSlot)，断了会自己广播损坏事件。
-                    stack.hurtAndBreak(durability, npc, slot);
-                }
-            }
-        }
-
+        // 对齐 1.20.1 终版：装备只参与减伤，不修改 NPC 护甲的耐久。
         LivingEntity entity = npc;
         cir.setReturnValue(CombatRules.getDamageAfterAbsorb(
                 entity, damage, source, (float) armor, (float) toughness));

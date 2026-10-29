@@ -10,6 +10,12 @@ import bin.cnpcplus.trader.network.PacketTraderPageSync;
 import bin.cnpcplus.follower.network.PacketFollowerDismiss;
 import bin.cnpcplus.smelting.network.PacketSmeltingAction;
 import bin.cnpcplus.smelting.network.PacketSmeltingSync;
+import top.cnpcplus.anvil.network.PacketAnvilRemove;
+import top.cnpcplus.anvil.network.PacketAnvilRequestList;
+import top.cnpcplus.anvil.network.PacketAnvilSave;
+import top.cnpcplus.anvil.network.PacketAnvilSelect;
+import top.cnpcplus.anvil.network.PacketAnvilSync;
+import top.cnpcplus.anvil.network.PacketOpenAnvilGui;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -65,6 +71,12 @@ public final class CraftingViewNetwork {
                 PacketSmeltingSync.STREAM_CODEC,
                 PacketSmeltingSync::handle
         );
+        registrar.playToServer(PacketOpenAnvilGui.TYPE, PacketOpenAnvilGui.STREAM_CODEC, PacketOpenAnvilGui::handle);
+        registrar.playToServer(PacketAnvilSave.TYPE, PacketAnvilSave.STREAM_CODEC, PacketAnvilSave::handle);
+        registrar.playToServer(PacketAnvilRemove.TYPE, PacketAnvilRemove.STREAM_CODEC, PacketAnvilRemove::handle);
+        registrar.playToClient(PacketAnvilSync.TYPE, PacketAnvilSync.STREAM_CODEC, PacketAnvilSync::handle);
+        registrar.playToServer(PacketAnvilRequestList.TYPE, PacketAnvilRequestList.STREAM_CODEC, PacketAnvilRequestList::handle);
+        registrar.playToServer(PacketAnvilSelect.TYPE, PacketAnvilSelect.STREAM_CODEC, PacketAnvilSelect::handle);
         registrar.playToServer(
                 PacketLinkedScriptSync.TYPE,
                 PacketLinkedScriptSync.STREAM_CODEC,

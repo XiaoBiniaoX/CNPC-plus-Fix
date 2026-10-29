@@ -120,7 +120,7 @@ public class CnpcPlusConfig {
     public static final ModConfigSpec.BooleanValue REAL_ARMOR_ENABLED = BUILDER
             .comment(
                 "真实护甲（默认 false）",
-                "开启后 NPC 身上的原版盔甲按原版公式真实减伤，并按 伤害/4 每件消耗耐久",
+                "开启后 NPC 身上的原版盔甲按原版公式真实减伤，不消耗护甲耐久",
                 "关闭时与原版一致：护甲只存不生效（伙伴 role 6 除外，它自带算法）",
                 "摔落/虚空等 BYPASSES_ARMOR 伤害不受影响；热改热生效"
             )

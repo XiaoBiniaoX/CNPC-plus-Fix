@@ -8,6 +8,8 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import bin.cnpcplus.smelting.SmeltingMenus;
 import bin.cnpcplus.smelting.client.SmeltingScreen;
+import top.cnpcplus.anvil.AnvilMenus;
+import top.cnpcplus.anvil.client.GuiNpcAnvilRecipes;
 
 @Mod(value = CnpcPlus.MODID, dist = net.neoforged.api.distmarker.Dist.CLIENT)
 @EventBusSubscriber(modid = CnpcPlus.MODID, value = net.neoforged.api.distmarker.Dist.CLIENT)
@@ -20,5 +22,6 @@ public class CnpcPlusClient {
     @net.neoforged.bus.api.SubscribeEvent
     public static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(SmeltingMenus.TYPE, SmeltingScreen::new);
+        event.register(AnvilMenus.TYPE, GuiNpcAnvilRecipes::new);
     }
 }

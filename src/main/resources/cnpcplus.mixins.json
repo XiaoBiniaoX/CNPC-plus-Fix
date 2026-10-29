@@ -12,6 +12,7 @@
     "smelting.MixinBlastFurnaceBurnDuration",
     "smelting.MixinSmokerBurnDuration",
     "smelting.MixinFurnaceFuelSlot",
+    "anvil.MixinAnvilMenu",
     "CnpcBranchPatchProviderMixin",
     "DataDisplayMixin",
     "EntityCustomNpcMixin",
@@ -115,6 +116,8 @@
   ],
   "client": [
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
+    "anvil.MixinAnvilScreen",
+    "anvil.MixinGuiNPCGlobalMainMenuAnvil",
     "AbstractContainerScreenAccess",
     "MinecraftNpcUseItemCooldownMixin",
     "ClientLevelProjectileCodecMixin",

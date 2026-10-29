@@ -4,8 +4,12 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import top.cnpcplus.transport.client.TextAreaSelectionAccess;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,7 +74,44 @@ import java.util.Collection;
  */
 @OnlyIn(Dist.CLIENT)
 @Mixin(value = GuiTextArea.class, remap = false)
-public abstract class MixinGuiTextAreaRender {
+public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess {
+
+    @Shadow(remap = false) public String text;
+    @Shadow(remap = false) private int startSelection;
+    @Shadow(remap = false) private int endSelection;
+    @Shadow(remap = false) private int cursorPosition;
+    @Shadow(remap = false) protected abstract int getSelectionPos(double mouseX, double mouseY);
+
+    // setText 不会重置旧选区；清空介绍文本后必须限制下标，避免 render 的 charAt 越界。
+    @Inject(method = "setText(Ljava/lang/String;)V", at = @At("TAIL"), require = 1, remap = false)
+    private void cnpcplus$resetSelection(String text, CallbackInfo ci) {
+        int len = text == null ? 0 : text.length();
+        if (cursorPosition > len || startSelection > len || endSelection > len) {
+            cnpcplus$clearSelection();
+        }
+    }
+
+    @Override
+    public void cnpcplus$clearSelection() {
+        int len = text == null ? 0 : text.length();
+        startSelection = endSelection = cursorPosition = len;
+    }
+
+    @Override
+    public int cnpcplus$selectionStart() { return startSelection; }
+
+    @Override
+    public int cnpcplus$selectionPos(double mouseX, double mouseY) {
+        return getSelectionPos(mouseX, mouseY);
+    }
+
+    @Override
+    public void cnpcplus$select(int start, int end, int cursor) {
+        int len = text == null ? 0 : text.length();
+        startSelection = Math.max(0, Math.min(start, len));
+        endSelection = Math.max(0, Math.min(end, len));
+        cursorPosition = Math.max(0, Math.min(cursor, len));
+    }
 
     @Redirect(
             method = "render",
