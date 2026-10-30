@@ -68,12 +68,10 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
                 && ItemStack.isSameItemSameComponents(input.addition(), this.exactAddition);
     }
 
-    /** 对齐 1.20.1 父类：基座有自定义数据时整体继承，否则保留编辑的结果；空基座也能出货。 */
+    /** 自定义配方以编辑结果为准：完整复制组件，不能用输入基座覆盖结果的 NBT/模型等数据。 */
     @Override
     public ItemStack assemble(SmithingRecipeInput input, HolderLookup.Provider registries) {
-        return input.base().isEmpty() || input.base().getComponentsPatch().isEmpty()
-                ? this.exactResult.copy()
-                : input.base().transmuteCopy(this.exactResult.getItem(), this.exactResult.getCount());
+        return this.exactResult.copy();
     }
 
     /**
