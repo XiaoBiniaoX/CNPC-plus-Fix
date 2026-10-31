@@ -1,5 +1,5 @@
-# CNPCPlus NeoForge
-<img width="1792" height="592" alt="Gemini_Generated_Image_e6ndu4e6ndu4e6nd" src="https://github.com/user-attachments/assets/3aef7b9b-7862-4603-aebd-75a46d524cb2" />
+# CNPCPlus
+<img width="1792" height="592" alt="Gemini_Generated_Image_e6ndu4e6ndu4e6nd" src="https://github.com/user-attachments/assets/c7f9b41e-a743-42c0-b0c6-6cfb2d993d5b" />
 
 [English](#english) | [简体中文](#简体中文)
 
@@ -7,288 +7,183 @@
 
 # English
 
-## What is CNPCPlus NeoForge?
+## What is CNPCPlus-Fix?
 
-CNPCPlus NeoForge is a community-maintained extension for **CustomNPCs** on **Minecraft 1.21.1 NeoForge**.
+CNPCPlus-Fix is a community-driven improvement and bug-fix addon for **CustomNPCs**.
 
-Unlike the Forge 1.20.1 branch, this project is not only a collection of improvements and bug fixes—it also restores and completes several unfinished systems left in the original NeoForge port while introducing new quality-of-life features for both players and map creators.
+It does not replace CustomNPCs. Instead, it improves the existing mod while preserving its original design philosophy.
 
-> **Current Minecraft Version**
->
-> - NeoForge **1.21.1**
+The project focuses on:
 
----
+- Bug fixes.
+- Compatibility improvements.
+- Developer tools and workflow enhancements.
+- Expanded NPC customization capabilities.
+- Player experience improvements.
 
-## Philosophy
+CNPCPlus-Fix is primarily intended for **Minecraft modded map creators and development teams**, as well as **RPG server developers and development teams**.
 
-CNPCPlus follows a simple philosophy:
+## Project Philosophy
 
-- Improve CustomNPCs without breaking existing worlds whenever possible.
-- Preserve compatibility before adding new features.
-- Complete unfinished systems instead of simply patching around them.
-- Provide long-term community maintenance.
+The goal of CNPCPlus-Fix is not to create a new NPC system, but to make CustomNPCs more stable and easier to use in different environments.
 
----
+The project follows these principles:
 
-# Fixed Issues
+- Preserve compatibility with existing worlds whenever possible.
+- Repair or completely rewrite problematic and unfinished features when necessary.
+- Prioritize real community feedback and requested improvements.
+- Focus development on the actual needs of the Chinese CustomNPCs community.
 
-The following issues present in the original NeoForge version have been resolved.
+## Independent Development & Community Direction
 
-| Status | Description |
-|:------:|-------------|
-| ✅ | Fixed NPC position offset after toggling visibility. |
-| ✅ | Fixed incorrect faction name colors after visibility synchronization. |
-| ✅ | Fixed duplicated scoreboard packets causing "Network Protocol Error" disconnects. |
-| ✅ | Fixed scoreboard listener crashes caused by NullPointerException. |
-| ✅ | Improved scoreboard synchronization stability. |
+CNPCPlus-Fix has completely abandoned the pursuit of upstream support and cooperation.
 
----
+Due to significant differences in development philosophy and other circumstances, the project will no longer seek support, cooperation or feature integration from GoodBird or the upstream CustomNPCs project.
 
-# Current CNPCPlus Features
+From this point onward, **all project updates and development decisions will be based exclusively on the needs and feedback of the Chinese CustomNPCs community.**
 
-## Recipe Editor (Completely Reworked)
+CNPCPlus-Fix will maintain its own development direction and release schedule, independently of upstream development.
 
-The original NeoForge implementation only displayed a recipe button. The interface itself was never implemented.
+## Supported Versions
 
-CNPCPlus completely rebuilds the entire visual recipe editing system.
+CNPCPlus-Fix follows a **version-locked development strategy**. Supported CustomNPCs versions are fixed and will not automatically follow future upstream releases.
 
-Features include:
+| Minecraft Version | Mod Loader | Supported CustomNPCs Version |
+|:---:|:---:|:---:|
+| 1.12.2 | Forge | Latest official release |
+| 1.20.1 | Forge | 1.20.1.20260711 |
+| 1.21.1 | NeoForge | 1.21.1.20251230 |
 
-- 🚀 Visual recipe editor for 3×3 Workbench.
-- 🚀 Visual recipe editor for 4×4 Carpenter Bench.
-- 🚀 One-click recipe editing.
-- 🚀 Independent recipe configuration.
-- 🚀 Recipe browser sidebar.
-- 🚀 Expandable recipe categories.
-- 🚀 Detailed recipe preview.
-- 🚀 One-click recipe autofill.
-- 🚀 Green indicators showing available recipes.
-- 🚀 Completely rewritten recipe save logic.
-- 🚀 Recipes no longer shift when saved.
-- 🚀 Fuzzy Matching support.
-- 🚀 ID & Name Matching support.
-- 🚀 Individual matching configuration per recipe.
-- 🚀 Approximately **4× faster** than the original CustomNPCs Forge 1.20.1 implementation during recipe operations.
+Different Minecraft versions may have different development progress and feature availability.
 
----
+## Development & Maintenance Policy
 
-## Dialogue Customization
+The project will continue development until **V5.0.0**.
 
-- 🚀 Added global configuration for NPC dialogue fonts.
-- 🚀 Added global configuration for dialogue option fonts.
-- 🚀 Supports hexadecimal color values.
+The last guaranteed stable versions are:
 
----
+- **V3.5.0** for Minecraft 1.20.1 and 1.21.1.
+- **V4.0.0** for Minecraft 1.12.2.
 
-## Additional Improvements
+After V5.0.0 is released, CNPCPlus-Fix will permanently end further updates and maintenance.
 
-- Better compatibility.
-- Community-driven bug fixes.
-- Continuous long-term maintenance.
-- Performance optimizations.
+### Compatibility Policy
 
----
+Future updates will no longer prioritize compatibility with other mods.
 
-# Performance
+Crashes, conflicts and compatibility issues caused by other mods will no longer be covered by the project's maintenance commitments.
 
-The visual recipe system has been almost entirely rewritten.
+## Community Feedback
 
-Except for a small portion of reused interface assets, nearly the entire implementation was redesigned from scratch.
+CNPCPlus-Fix is built around real problems encountered by CustomNPCs users and creators.
 
-Compared with the original CustomNPCs recipe implementation (Forge 1.20.1), recipe-related operations are approximately **4× faster**.
+If you encounter problems while using CustomNPCs or have suggestions for improvements, community feedback is welcome.
 
----
+The needs of the community will remain the sole basis for future development priorities.
 
-# Building
+## Credits
 
-```bash
-git clone https://github.com/<YOUR_NAME>/CNPCPlus-NeoForge.git
-cd CNPCPlus-NeoForge
-./gradlew build
-```
+- **XiaoBiniaoX** — Project Maintainer.
+- **驿站忆行** — Authorization for the recipe sidebar feature.
+- **shand1an** — Multiple crash fixes for CustomNPCs 1.21.1 NeoForge.
+- **GoodBird** — CustomNPCs upstream development.
+- **Noppes** — Original CustomNPCs developer.
+- **The CustomNPCs Community** — Thanks to everyone who has supported the project.
 
-Compiled JARs can be found in:
+## Project Page
 
-```
-build/libs/
-```
-
----
-
-# Contributing
-
-Issues and Pull Requests are always welcome.
-
-Whether you are fixing bugs, improving compatibility, or adding new functionality, every contribution helps the project grow.
-
----
-
-# Credits
-
-## Project Maintainer
-
-- XiaoBiniaoX
-
-## Contributors
-
-- [@detahdomin](https://github.com/detahdomin)
-  - Bug fixes and compatibility improvements for the NeoForge branch.
-- [@postyizhan](https://github.com/postyizhan)（驿站忆行）
-  - Community feature contributions.
-
-## Special Thanks
-
-- GoodBird
-- The CustomNPCs Community
-
----
-
-# License
-
-See the LICENSE file in this repository.
+https://www.curseforge.com/minecraft/mc-mods/cnpc-plus-fix
 
 ---
 
 # 简体中文
 
-## 什么是 CNPCPlus NeoForge？
+## 关于模组
 
-CNPCPlus NeoForge 是一个面向 **Minecraft 1.21.1 NeoForge** 的 **CustomNPCs** 社区维护扩展项目。
+这是一款对 **CustomNPCs** 进行改进与修复的模组。
 
-与 Forge 1.20.1 分支不同，本项目不仅持续修复 Bug、提升兼容性，还补全了官方 NeoForge 移植过程中遗留的大量未完成功能，并持续加入社区所需的新特性。
+它不会替代 CustomNPCs，而是在保留原有设计理念的基础上，对 CustomNPCs 进行：
 
-> **当前支持版本**
->
-> - NeoForge **1.21.1**
+- Bug 修复；
+- 兼容性优化；
+- 开发者工具增强；
+- NPC 自定义能力扩展；
+- 玩家体验优化。
 
----
+CNPCPlus-Fix 主要面向 **模组地图作者（团队）** 与 **RPG 服务器建设者（团队）**。
 
 ## 项目理念
 
-CNPCPlus 坚持以下理念：
+CNPCPlus-Fix 的目标不是制作一个新的 NPC 系统，而是让 CustomNPCs 在更多场景下更加稳定和易用。
 
-- 尽可能在不破坏旧存档的前提下改进 CustomNPCs。
-- 优先保证兼容性。
-- 对官方未完成的系统进行真正的补全，而不是简单修补。
-- 长期维护社区版本。
+本项目遵循：
 
----
+- 尽可能保证与旧存档的兼容性；
+- 对有问题或尚未完成的功能进行修补，必要时进行完整重写；
+- 长期以社区反馈的问题与功能需求为主要开发依据；
+- 以 CNPC 中文社区的实际需求为核心。
 
-# 已修复的问题
+## 独立开发与社区方向
 
-以下问题均已在 CNPCPlus NeoForge 中修复。
+CNPCPlus-Fix 已经彻底放弃寻求上游支持与合作的路线。
 
-| 状态 | 内容 |
-|:---:|------|
-| ✅ | 修复 NPC 可见性切换后位置偏移的问题。 |
-| ✅ | 修复阵营名称颜色同步错误。 |
-| ✅ | 修复重复发送计分板数据包导致的“网络协议错误”断开连接。 |
-| ✅ | 修复计分板监听器导致的 NullPointerException 崩溃。 |
-| ✅ | 提升计分板同步稳定性。 |
+由于开发理念等方面存在较大分歧，以及个人因素和相关团队变化，项目此后将不再寻求 GoodBird 或上游 CustomNPCs 项目的支持、合作及功能合并。
 
----
+**从现在开始，项目后续的所有更新与开发方向，都将完全以 CNPC 中文社区的实际需求和反馈为准。**
 
-# 当前 CNPCPlus 功能
+CNPCPlus-Fix 将独立决定开发方向与发布计划，不再跟随上游项目的发展路线。
 
-## 可视化配方系统（完全重构）
+## 支持版本
 
-官方 NeoForge 版本虽然保留了配方按钮，但整个可视化配方系统实际上并未完成。
+CNPCPlus-Fix 采用**版本锁定策略**，固定所支持的 CustomNPCs 版本，不再跟随上游更新。
 
-CNPCPlus 对整个系统进行了重新实现。
+| Minecraft 版本 | 加载器 | 锁定的 CustomNPCs 版本 |
+|:---:|:---:|:---:|
+| 1.12.2 | Forge | 官方最新版本 |
+| 1.20.1 | Forge | 1.20.1.20260711 |
+| 1.21.1 | NeoForge | 1.21.1.20251230 |
 
-目前支持：
+不同 Minecraft 版本的开发进度与功能可能存在差异。
 
-- 🚀 工作台（3×3）可视化编辑。
-- 🚀 木工台（4×4）可视化编辑。
-- 🚀 一键编辑配方。
-- 🚀 配方独立配置。
-- 🚀 配方侧边栏浏览器。
-- 🚀 支持折叠分类。
-- 🚀 点击查看完整配方。
-- 🚀 一键自动填充配方。
-- 🚀 绿色提示可合成配方。
-- 🚀 全新配方保存逻辑。
-- 🚀 保存配方时物品不会发生偏移。
-- 🚀 支持配置模糊化。
-- 🚀 支持仅名字检查（ID + 名称）。
-- 🚀 每个配方均可独立配置匹配方式。
-- 🚀 配方系统性能相比原版 CustomNPCs（Forge 1.20.1）提升约 **4 倍**。
+## 开发计划与维护政策
 
----
+项目仍将继续更新至 **V5.0.0**。
 
-## 对话字体配置
+最后一个保证稳定性的版本为：
 
-新增全局配置项：
+- **V3.5.0**：Minecraft 1.20.1 与 1.21.1。
+- **V4.0.0**：Minecraft 1.12.2。
 
-- 🚀 NPC 对话字体。
-- 🚀 NPC 对话选项字体。
-- 🚀 支持十六进制颜色配置。
+在 V5.0.0 发布后，CNPCPlus-Fix 将不再进行后续更新与维护。
 
----
+### 兼容性政策
 
-## 其它改进
+之后的更新将不再以与其他模组的兼容性为维护目标。
 
-- 更好的 Mod 兼容性。
-- 多项社区 Bug 修复。
-- 持续长期维护。
-- 性能优化。
+对于由其他模组引起的崩溃、冲突及兼容性问题，项目将不再承担修复与维护责任。
 
----
+## 社区反馈
 
-# 性能
+CNPCPlus-Fix 的开发主要围绕 CustomNPCs 用户与制作者在实际使用过程中遇到的问题展开。
 
-可视化配方系统几乎进行了完全重写。
+可以在这里反馈使用 CustomNPCs 时遇到的问题，或者提出对 CNPC 改进的建议。
 
-除少量界面资源沿用外，大部分逻辑均重新设计实现。
+社区的实际需求与反馈将是项目后续开发的唯一依据。
 
-相比原版 CustomNPCs（Forge 1.20.1）的实现，配方相关操作性能提升约 **4 倍**。
+## 鸣谢
 
----
+- **XiaoBiniaoX** —— 项目维护者。
+- **驿站忆行** —— 提供配方侧栏功能的授权。
+- **shand1an** —— 提供 1.21.1 NeoForge CustomNPCs 的多项崩溃问题修复。
+- **GoodBird** —— CustomNPCs 上游开发者。
+- **Noppes** —— CustomNPCs 原作者。
+- **CustomNPCs 社区所有成员**。
 
-# 编译
+## 项目地址
 
-```bash
-git clone https://github.com/<YOUR_NAME>/CNPCPlus-NeoForge.git
-cd CNPCPlus-NeoForge
-./gradlew build
-```
+https://www.curseforge.com/minecraft/mc-mods/cnpc-plus-fix
 
-编译完成后生成：
+感谢一直以来所有支持此项目的玩家、开发者、地图作者与服务器建设者。
 
-```
-build/libs/
-```
+我们不希望一个拥有如此辉煌历史的mods，会因为上游的原因，在CN社区被完全放弃
 
----
-
-# 参与贡献
-
-欢迎提交 Issue 与 Pull Request。
-
-无论是修复 Bug、提升兼容性还是新增功能，都欢迎参与项目建设。
-
----
-
-# 致谢
-
-## 项目维护
-
-- XiaoBiniaoX
-
-## 代码贡献
-
-- [@detahdomin](https://github.com/detahdomin)
-  - NeoForge 分支 Bug 修复与兼容性改进。
-- [@postyizhan](https://github.com/postyizhan)（驿站忆行）
-  - 社区功能开发与代码贡献。
-
-## 特别感谢
-
-- GoodBird
-- CustomNPCs 社区
-
----
-
-# License
-
-请参阅仓库中的 LICENSE 文件。
