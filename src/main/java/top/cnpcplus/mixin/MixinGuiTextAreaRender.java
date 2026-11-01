@@ -13,6 +13,10 @@ import top.cnpcplus.transport.client.TextAreaSelectionAccess;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import net.minecraft.client.gui.GuiGraphics;
+import noppes.npcs.shared.client.gui.components.TextContainer;
+import noppes.npcs.shared.client.util.TrueTypeFont;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * 优化 #6 的第二部分：消除 {@code GuiTextArea.render} 里的每帧行列表拷贝。
@@ -125,6 +129,41 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
     @Shadow(remap = false) private int startSelection;
     @Shadow(remap = false) private int endSelection;
     @Shadow(remap = false) private int cursorPosition;
+    @Shadow private static TrueTypeFont font;
+    @Shadow private TextContainer container;
+    @Shadow private int scrolledLine;
+
+    @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/util/TrueTypeFont;draw(Lcom/mojang/blaze3d/vertex/PoseStack;Ljava/lang/String;FFI)V"))
+    private void cnpcplus$styledGlyphs(TrueTypeFont font, com.mojang.blaze3d.vertex.PoseStack pose, String text, float x, float y, int color,
+                                     GuiGraphics graphics, int mouseX, int mouseY) {
+        if ((Object)this instanceof top.cnpcplus.text.client.StyledTextArea area) area.drawLine(graphics, font, (int)x, (int)y, color);
+        else font.draw(pose, text, x, y, color);
+    }
+
+    @Inject(method = "render", at = @At("HEAD"))
+    private void cnpcplus$clip(GuiGraphics graphics, int mouseX, int mouseY, CallbackInfo ci) {
+        GuiTextArea area = (GuiTextArea)(Object)this;
+        if (area.visible) {
+            container.visibleLines = Math.max(1, area.height / container.lineHeight);
+            scrolledLine = Math.max(0, Math.min(scrolledLine, container.linesCount - container.visibleLines));
+            graphics.enableScissor(area.x - 1, area.y - 1, area.x + area.width + 1, area.y + area.height + 1);
+        }
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
+    private void cnpcplus$unclip(GuiGraphics graphics, int mouseX, int mouseY, CallbackInfo ci) {
+        if (((GuiTextArea)(Object)this).visible) graphics.disableScissor();
+    }
+
+    @Inject(method = "getSelectionPos", at = @At("HEAD"), cancellable = true)
+    private void cnpcplus$lineEnd(double mouseX, double mouseY, CallbackInfoReturnable<Integer> cir) {
+        GuiTextArea area = (GuiTextArea)(Object)this;
+        int row = scrolledLine + (int)Math.floor((mouseY - area.y - 1) / container.lineHeight);
+        if (row < 0 || row >= container.lines.size()) { cir.setReturnValue(row < 0 ? 0 : text.length()); return; }
+        TextLineAccess line = (TextLineAccess)container.lines.get(row);
+        cir.setReturnValue(top.cnpcplus.text.client.NativeTextLayout.selectionPos(
+                line.cnpcplus$text(), line.cnpcplus$start(), mouseX - area.x - 1, font));
+    }
 
     @Redirect(
             method = "render",

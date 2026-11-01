@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.bard.SongListStore;
+import top.cnpcplus.bard.BardSoundGuard;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +55,7 @@ public class MixinJobBardClient {
 
         Minecraft mc = Minecraft.getInstance();
         MusicController c = MusicController.Instance;
+        if (c == null) return;
         SoundManager sm = mc.getSoundManager();
         Player player = CustomNpcs.proxy.getPlayer();
         if (player == null) return;
@@ -144,7 +146,9 @@ public class MixinJobBardClient {
             this.cnpcplus$lastActive = active;
         }
 
-        String picked = fallback ? self.song : SongListStore.pick(self, this.cnpcplus$lastSong);
+        String picked = fallback
+                ? (BardSoundGuard.isPlayable(self.song) ? self.song : null)
+                : SongListStore.pick(self, this.cnpcplus$lastSong, BardSoundGuard::isPlayable);
         if (picked == null || picked.isEmpty()) return;
         cnpcplus$play(c, self, picked);
     }
@@ -152,12 +156,31 @@ public class MixinJobBardClient {
     /** 实际起播 + 记录状态。抽出来是因为循环重播与正常选曲两条路径都要用。 */
     @Unique
     private void cnpcplus$play(MusicController c, JobBard self, String song) {
-        // 同曲重合区交接：原版 JobBard.aiStep 60-64 在 isPlaying(song) 且
-        // playingEntity 不是自己时，只把 playingEntity 换成（更近的）自己，
-        // 不 stop 不重播。此前这里无条件 stop+play，表现为此曲在重合区
-        // 「断开重播」。距离准入已在 aiStep 125-141 判过，这里只做交接。
-        if (c.isPlaying(song) && c.playingEntity != self.npc) {
-            c.playingEntity = self.npc;
+        if (!BardSoundGuard.isPlayable(song)) return;
+        try {
+            // 同曲重合区交接：原版 JobBard.aiStep 60-64 在 isPlaying(song) 且
+            // playingEntity 不是自己时，只把 playingEntity 换成（更近的）自己，
+            // 不 stop 不重播。此前这里无条件 stop+play，表现为此曲在重合区
+            // 「断开重播」。距离准入已在 aiStep 125-141 判过，这里只做交接。
+            if (c.isPlaying(song) && c.playingEntity != self.npc) {
+                c.playingEntity = self.npc;
+                this.cnpcplus$lastPicked = song;
+                this.cnpcplus$lastSong = song;
+                this.cnpcplus$lastPlay = System.currentTimeMillis();
+                try {
+                    ((noppes.npcs.mixin.MusicManagerMixin) Minecraft.getInstance().getMusicManager()).nextSongDelay(12000);
+                } catch (Exception ignored) {
+                }
+                return;
+            }
+            // playStreaming / playMusic 第一行都是 `if (isPlaying(music)) return;`。
+            // 走进另一个诗人范围但两曲同名时，不先清掉 playingResource，起播会被静默吞掉，
+            // 表现为「直接断开而不是播放 BGM」（玩家反馈：因距离关闭音乐为开、循环为关）。
+            // BardLoopKeeper 已经用同一招处理「同曲续播」了，这里是夺权路径的对应处理。
+            if (c.isPlaying(song)) {
+                c.stopMusic();
+            }
+            if (!BardSoundGuard.play(c, self, song)) return;
             this.cnpcplus$lastPicked = song;
             this.cnpcplus$lastSong = song;
             this.cnpcplus$lastPlay = System.currentTimeMillis();
@@ -165,26 +188,8 @@ public class MixinJobBardClient {
                 ((noppes.npcs.mixin.MusicManagerMixin) Minecraft.getInstance().getMusicManager()).nextSongDelay(12000);
             } catch (Exception ignored) {
             }
-            return;
-        }
-        // playStreaming / playMusic 第一行都是 `if (isPlaying(music)) return;`。
-        // 走进另一个诗人范围但两曲同名时，不先清掉 playingResource，起播会被静默吞掉，
-        // 表现为「直接断开而不是播放 BGM」（玩家反馈：因距离关闭音乐为开、循环为关）。
-        // BardLoopKeeper 已经用同一招处理「同曲续播」了，这里是夺权路径的对应处理。
-        if (c.isPlaying(song)) {
-            c.stopMusic();
-        }
-        if (self.isStreamer) {
-            c.playStreaming(song, self.npc, false);
-        } else {
-            c.playMusic(song, self.npc, false);
-        }
-        this.cnpcplus$lastPicked = song;
-        this.cnpcplus$lastSong = song;
-        this.cnpcplus$lastPlay = System.currentTimeMillis();
-        try {
-            ((noppes.npcs.mixin.MusicManagerMixin) Minecraft.getInstance().getMusicManager()).nextSongDelay(12000);
-        } catch (Exception ignored) {
+        } catch (Throwable error) {
+            BardSoundGuard.failed(c, song, error);
         }
     }
 }

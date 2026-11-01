@@ -21,6 +21,14 @@ public class CnpcPlusConfigData {
         builder.comment("木工台/合成台侧栏（合成视图）显示开关（默认true，修改后重新打开界面即生效）");
         CraftingViewEnabled = builder.define("CraftingViewEnabled", true);
 
+        builder.comment("背包中的 CNPC 阵营旗帜标签；局内修改后重新打开背包生效，不影响任务键打开的界面。");
+        InventoryFactionTab = builder.define("InventoryFactionTab", true);
+        builder.comment("背包中的 CNPC 任务书标签；局内修改后重新打开背包生效，不影响任务键打开的 Quest Log。");
+        InventoryQuestTab = builder.define("InventoryQuestTab", true);
+
+        builder.comment("持NPC魔杖、复制魔杖或脚本魔杖时，显示半径30格内所有已同步NPC的真实碰撞框，局内热生效。");
+        WandNpcHitboxes = builder.define("WandNpcHitboxes", true);
+
         builder.push("对话框");
         builder.comment("对话框中NPC模型的缩放倍数（默认3.0）");
         DialogNpcScale = builder.defineInRange("DialogNpcScale", 3.0, 0.0, 100.0);
@@ -54,6 +62,9 @@ public class CnpcPlusConfigData {
     public static ForgeConfigSpec.ConfigValue<String> CraftingCategories;
     public static ForgeConfigSpec.ConfigValue<String> RecipeFuzzyMatchRules;
     public static ForgeConfigSpec.BooleanValue CraftingViewEnabled;
+    public static ForgeConfigSpec.BooleanValue InventoryFactionTab;
+    public static ForgeConfigSpec.BooleanValue InventoryQuestTab;
+    public static ForgeConfigSpec.BooleanValue WandNpcHitboxes;
     public static ForgeConfigSpec.DoubleValue DialogNpcScale;
     public static ForgeConfigSpec.IntValue DialogNpcPosX;
     public static ForgeConfigSpec.IntValue DialogNpcPosY;

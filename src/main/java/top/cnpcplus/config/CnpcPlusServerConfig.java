@@ -18,8 +18,9 @@ public class CnpcPlusServerConfig {
         FollowerTeleportRange = builder.defineInRange("FollowerTeleportRange", 12, 1, 64);
         builder.comment("每个玩家最多同时雇佣多少个 NPC（默认30，范围1-10000）。达到上限后再尝试雇佣会被拒绝并显示提示。");
         MaxHiredNpcs = builder.defineInRange("MaxHiredNpcs", 30, 1, 10000);
-        builder.comment("玩家超过最大雇佣数仍尝试雇佣时显示的提示文本（默认：你雇佣的人过多）");
-        HireLimitMessage = builder.define("HireLimitMessage", "你雇佣的人过多");
+        builder.comment("废弃迁移项：仅保留旧版自定义超限台词供尚未迁移的NPC读取；不是全局活动提示。",
+                "超限/解雇台词现在在每个NPC的随从页编辑。空值使用NPC新默认，不再自动生成旧提示。");
+        HireLimitMessage = builder.define("HireLimitMessage", "");
         builder.pop();
 
         builder.push("自定义熔炼");
@@ -73,6 +74,13 @@ public class CnpcPlusServerConfig {
         KilledBodyNoHitbox = builder.define("KilledBodyNoHitbox", true);
         builder.pop();
 
+        builder.push("复活计时");
+        builder.comment("独立游戏时钟计时NPC复活（默认开启）。每运行tick累计，doDaylightCycle=false时暂停，",
+                "不受/time set、睡觉跳时或现实离线时间影响；卸载NPC在重新加载后由原生死亡tick判断复活，不强加载区块。",
+                "关闭恢复原生现实时间计时，切换只换算剩余时间；时钟快照安全异步写盘，实体操作仅在服务器线程。");
+        IndependentRespawnClock = builder.define("IndependentRespawnClock", true);
+        builder.pop();
+
         builder.push("骑乘");
         builder.comment(
                 "玩家骑乘 NPC 且「骑乘控制」为开、NPC 导航为陆地时，按空格让 NPC 跳跃（默认true）。",
@@ -113,6 +121,7 @@ public class CnpcPlusServerConfig {
     public static ForgeConfigSpec.IntValue ReturnHomeTimeoutSeconds;
     public static ForgeConfigSpec.BooleanValue KilledBodyNoPush;
     public static ForgeConfigSpec.BooleanValue KilledBodyNoHitbox;
+    public static ForgeConfigSpec.BooleanValue IndependentRespawnClock;
     public static ForgeConfigSpec.BooleanValue MountJumpEnabled;
     public static ForgeConfigSpec.BooleanValue TeamShareKillQuest;
     public static ForgeConfigSpec.BooleanValue RealArmorEnabled;

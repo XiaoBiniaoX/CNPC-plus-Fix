@@ -12,29 +12,28 @@ public class PacketServerConfigSync {
     private final boolean realArmorEnabled;
     private final int followerTeleportRange;
     private final int maxHiredNpcs;
-    private final String hireLimitMessage;
 
     public PacketServerConfigSync(boolean realArmorEnabled, int followerTeleportRange,
-                                  int maxHiredNpcs, String hireLimitMessage) {
+                                  int maxHiredNpcs) {
         this.realArmorEnabled = realArmorEnabled;
         this.followerTeleportRange = followerTeleportRange;
         this.maxHiredNpcs = maxHiredNpcs;
-        this.hireLimitMessage = hireLimitMessage == null ? "" : hireLimitMessage;
     }
 
     public void encode(FriendlyByteBuf buf) {
         buf.writeBoolean(this.realArmorEnabled);
         buf.writeVarInt(this.followerTeleportRange);
         buf.writeVarInt(this.maxHiredNpcs);
-        buf.writeUtf(this.hireLimitMessage, MAX_MESSAGE_LENGTH);
+        buf.writeUtf("", MAX_MESSAGE_LENGTH); // Legacy protocol slot, not an editable global message.
     }
 
     public static PacketServerConfigSync decode(FriendlyByteBuf buf) {
-        return new PacketServerConfigSync(
+        var packet = new PacketServerConfigSync(
                 buf.readBoolean(),
                 buf.readVarInt(),
-                buf.readVarInt(),
-                buf.readUtf(MAX_MESSAGE_LENGTH));
+                buf.readVarInt());
+        buf.readUtf(MAX_MESSAGE_LENGTH);
+        return packet;
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctx) {
@@ -43,7 +42,6 @@ public class PacketServerConfigSync {
                 CnpcPlusServerConfig.RealArmorEnabled.set(this.realArmorEnabled);
                 CnpcPlusServerConfig.FollowerTeleportRange.set(this.followerTeleportRange);
                 CnpcPlusServerConfig.MaxHiredNpcs.set(this.maxHiredNpcs);
-                CnpcPlusServerConfig.HireLimitMessage.set(this.hireLimitMessage);
             } catch (Throwable ignored) {
             }
         });

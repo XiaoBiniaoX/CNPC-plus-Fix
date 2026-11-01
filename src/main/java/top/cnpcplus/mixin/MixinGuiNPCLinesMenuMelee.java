@@ -3,7 +3,6 @@ package top.cnpcplus.mixin;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.world.entity.player.Player;
 import noppes.npcs.client.NoppesUtil;
-import noppes.npcs.client.gui.GuiNPCLinesEdit;
 import noppes.npcs.client.gui.advanced.GuiNPCLinesMenu;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -12,7 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import top.cnpcplus.lines.MeleeLinesStorage;
+import top.cnpcplus.lines.client.GuiLinesArrayEditor;
 
 /**
  * 在台词菜单里加一个「近战打击」入口，界面与其他六类台词完全一致。
@@ -26,7 +25,7 @@ import top.cnpcplus.lines.MeleeLinesStorage;
  * 按钮最终放在 +156：比原始插入位置 +158 上移 2px，避免贴近随机开关。
  *
  * <p>点击后打开原版的 {@code GuiNPCLinesEdit}，传入我们旁挂的 Lines 对象 ——
- * 编辑器本身完全复用，8 槽文本 + 音效选择 + 保存链路全部沿用原版实现。
+     * 编辑器扩展为无槽数限制列表，保存仍沿用 ADVANCED 权限链。
  * 保存走原版 {@code save()} 里的 {@code SPacketMenuSave(ADVANCED, advanced.save(...))}，
  * 而 {@code MixinDataAdvancedMeleeLines} 已在 save 里补写了 NBT 键，所以自动落盘。
  */
@@ -64,6 +63,6 @@ public class MixinGuiNPCLinesMenuMelee {
         if (guibutton.id != BTN_MELEE) return;
         GuiNPCLinesMenu self = (GuiNPCLinesMenu) (Object) this;
         NoppesUtil.openGUI((Player) self.player,
-                new GuiNPCLinesEdit(self.npc, MeleeLinesStorage.get(self.npc.advanced)));
+                new GuiLinesArrayEditor(self.npc, 6));
     }
 }

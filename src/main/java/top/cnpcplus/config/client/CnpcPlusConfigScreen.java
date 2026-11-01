@@ -36,7 +36,6 @@ public class CnpcPlusConfigScreen extends Screen {
     private boolean serverRealArmor;
     private EditBox serverTeleportRangeBox;
     private EditBox serverMaxHiredBox;
-    private EditBox serverHireMessageBox;
 
     private record Row(String label, EditBox box, Button toggle) {
         static Row header(String label) { return new Row(label, null, null); }
@@ -55,6 +54,9 @@ public class CnpcPlusConfigScreen extends Screen {
 
         addHeader("主配置 cnpcplus.toml");
         addBool("合成视图侧栏", CnpcPlusConfigData.CraftingViewEnabled);
+        addBool("背包CNPC旗帜标签", CnpcPlusConfigData.InventoryFactionTab);
+        addBool("背包CNPC任务书标签", CnpcPlusConfigData.InventoryQuestTab);
+        addBool("魔杖30格NPC真实碰撞框", CnpcPlusConfigData.WandNpcHitboxes);
         addString("合成分类", CnpcPlusConfigData.CraftingCategories);
         addString("配方模糊规则", CnpcPlusConfigData.RecipeFuzzyMatchRules);
         addDouble("对话框NPC缩放", CnpcPlusConfigData.DialogNpcScale);
@@ -77,8 +79,6 @@ public class CnpcPlusConfigScreen extends Screen {
                 ServerConfigAccess.integer(CnpcPlusServerConfig.FollowerTeleportRange, 12));
         serverMaxHiredBox = addServerInt("玩家最大雇佣NPC数",
                 ServerConfigAccess.integer(CnpcPlusServerConfig.MaxHiredNpcs, 30));
-        serverHireMessageBox = addServerString("雇佣超限提示",
-                ServerConfigAccess.string(CnpcPlusServerConfig.HireLimitMessage, "你雇佣的人过多"));
 
         addHeader("性能配置 cnpcplus-perf.toml");
         addDouble("阴影半径上限", Config.shadowValue());
@@ -176,17 +176,6 @@ public class CnpcPlusConfigScreen extends Screen {
         return box;
     }
 
-    private EditBox addServerString(String label, String initial) {
-        EditBox box = new EditBox(font, 0, 0, 200, 18, Component.literal(label));
-        if (initial != null && initial.length() > 128) initial = initial.substring(0, 128);
-        box.setValue(initial == null ? "" : initial);
-        box.setMaxLength(128);
-        box.setEditable(this.serverEditable);
-        rows.add(new Row(label, box, null));
-        addRenderableWidget(box);
-        return box;
-    }
-
     private void saveAll() {
         // perf 快照字段在 set() 后不会自动刷新，手动 apply 一次；
         // 主配置多数是每次 get() 热读，set() 即生效。
@@ -209,9 +198,8 @@ public class CnpcPlusConfigScreen extends Screen {
         if (!this.serverEditable) return;
         int range = Mth.clamp(parseInt(this.serverTeleportRangeBox.getValue(), 12), 1, 64);
         int maxHired = Mth.clamp(parseInt(this.serverMaxHiredBox.getValue(), 30), 1, 10000);
-        String message = this.serverHireMessageBox.getValue();
         ConfigPacketHandler.CHANNEL.sendToServer(
-                new PacketUpdateServerConfig(this.serverRealArmor, range, maxHired, message));
+                new PacketUpdateServerConfig(this.serverRealArmor, range, maxHired));
     }
 
     private static int parseInt(String raw, int fallback) {

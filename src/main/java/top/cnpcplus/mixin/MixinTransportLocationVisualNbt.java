@@ -18,6 +18,7 @@ import top.cnpcplus.transport.TransportVisualMeta;
  */
 @Mixin(value = TransportLocation.class, remap = false)
 public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
+    @Unique private java.util.UUID cnpcplus$owner;
 
     @Unique private String cnpcplus$icon = "";
     @Unique private String cnpcplus$iconSel = "";
@@ -39,6 +40,8 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     @Inject(method = "readNBT", at = @At("TAIL"), remap = false)
     private void cnpcplus$readVisual(CompoundTag compound, CallbackInfo ci) {
         if (compound == null) return;
+        cnpcplus$owner = compound.hasUUID(top.cnpcplus.transport.TransportOwnership.KEY)
+                ? compound.getUUID(top.cnpcplus.transport.TransportOwnership.KEY) : null;
         if (compound.contains(TransportKeys.ICON)) this.cnpcplus$icon = compound.getString(TransportKeys.ICON);
         if (compound.contains(TransportKeys.ICON_SEL)) this.cnpcplus$iconSel = compound.getString(TransportKeys.ICON_SEL);
         if (compound.contains(TransportKeys.IMAGE)) this.cnpcplus$image = compound.getString(TransportKeys.IMAGE);
@@ -75,6 +78,7 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     private void cnpcplus$writeVisual(CallbackInfoReturnable<CompoundTag> cir) {
         CompoundTag out = cir.getReturnValue();
         if (out == null) return;
+        if (cnpcplus$owner != null) out.putUUID(top.cnpcplus.transport.TransportOwnership.KEY, cnpcplus$owner);
         if (!this.cnpcplus$icon.isEmpty()) out.putString(TransportKeys.ICON, this.cnpcplus$icon);
         if (!this.cnpcplus$iconSel.isEmpty()) out.putString(TransportKeys.ICON_SEL, this.cnpcplus$iconSel);
         if (!this.cnpcplus$image.isEmpty()) out.putString(TransportKeys.IMAGE, this.cnpcplus$image);
@@ -97,6 +101,8 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
         return Math.max(25, Math.min(400, v));
     }
 
+    @Override public java.util.UUID cnpcplus$getOwner() { return cnpcplus$owner; }
+    @Override public void cnpcplus$setOwner(java.util.UUID owner) { cnpcplus$owner = owner; }
     @Override public String cnpcplus$getIcon() { return this.cnpcplus$icon; }
     @Override public void cnpcplus$setIcon(String v) { this.cnpcplus$icon = v == null ? "" : v; }
     @Override public String cnpcplus$getIconSel() { return this.cnpcplus$iconSel; }

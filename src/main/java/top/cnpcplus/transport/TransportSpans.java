@@ -147,7 +147,15 @@ public final class TransportSpans {
                 i++;
                 continue;
             }
-            char k = text.charAt(i + 1);
+            char k = Character.toLowerCase(text.charAt(i + 1));
+            net.minecraft.ChatFormatting legacyColor = net.minecraft.ChatFormatting.getByCode(k);
+            if (legacyColor != null && legacyColor.isColor()) {
+                curColor = legacyColor.getColor();
+                curFlags = 0;
+                events.add(new int[]{clean.length(), curColor, curFlags});
+                i += 2;
+                continue;
+            }
             if (k == 'x') {
                 int[] rgb = parseHexColor(text, i);
                 if (rgb != null) {
@@ -192,6 +200,14 @@ public final class TransportSpans {
         return new String[]{clean.toString(), serialize(spans)};
     }
 
+    /** Same recognized codes as fromLegacy, for keeping external source-indexed spans aligned. */
+    public static int legacyCodeLength(String text, int pos) {
+        if (pos + 1 >= text.length() || text.charAt(pos) != '\u00a7') return 0;
+        char code = Character.toLowerCase(text.charAt(pos + 1));
+        if (code == 'x' && parseHexColor(text, pos) != null) return 14;
+        return "0123456789abcdeflnor".indexOf(code) >= 0 ? 2 : 0;
+    }
+
     /** 解析 §x§R§R§G§G§B§B 形式的十六进制颜色，返回 {rgb} 或 null。 */
     private static int[] parseHexColor(String text, int pos) {
         int[] digits = new int[6];
@@ -214,20 +230,17 @@ public final class TransportSpans {
      */
     public static void cleanLegacy(net.minecraft.nbt.CompoundTag meta) {
         if (meta == null) return;
-        top.cnpcplus.transport.TransportKeys keys = null;
         String desc = meta.getString(top.cnpcplus.transport.TransportKeys.DESC);
         if (desc.indexOf('\u00a7') >= 0) {
-            String[] r = fromLegacy(desc);
-            meta.putString(top.cnpcplus.transport.TransportKeys.DESC, r[0]);
-            String merged = merge(r[1], meta.getString(top.cnpcplus.transport.TransportKeys.DESC_SPANS));
-            meta.putString(top.cnpcplus.transport.TransportKeys.DESC_SPANS, merged);
+            var value = new top.cnpcplus.text.StyledText(desc, meta.getString(top.cnpcplus.transport.TransportKeys.DESC_SPANS)).legacy();
+            meta.putString(top.cnpcplus.transport.TransportKeys.DESC, value.text());
+            meta.putString(top.cnpcplus.transport.TransportKeys.DESC_SPANS, value.spans());
         }
         String tab = meta.getString(top.cnpcplus.transport.TransportPanelStyle.TAB_TEXT);
         if (tab.indexOf('\u00a7') >= 0) {
-            String[] r = fromLegacy(tab);
-            meta.putString(top.cnpcplus.transport.TransportPanelStyle.TAB_TEXT, r[0]);
-            meta.putString(top.cnpcplus.transport.TransportPanelStyle.TAB_SPANS,
-                    merge(r[1], meta.getString(top.cnpcplus.transport.TransportPanelStyle.TAB_SPANS)));
+            var value = new top.cnpcplus.text.StyledText(tab, meta.getString(top.cnpcplus.transport.TransportPanelStyle.TAB_SPANS)).legacy();
+            meta.putString(top.cnpcplus.transport.TransportPanelStyle.TAB_TEXT, value.text());
+            meta.putString(top.cnpcplus.transport.TransportPanelStyle.TAB_SPANS, value.spans());
         }
     }
 

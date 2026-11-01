@@ -82,8 +82,6 @@ public class PacketTransportMetaSave {
                 TransportPanelStyle.merge(cur, incoming);
             }
 
-            java.util.Set<Integer> liveIds = TransportNpcLookup.liveTransportIds(player);
-
             for (String key : this.entries.getAllKeys()) {
                 CompoundTag t = this.entries.getCompound(key);
                 if (t == null) continue;
@@ -104,8 +102,8 @@ public class PacketTransportMetaSave {
                     continue;
                 }
                 if (t.getBoolean(TransportKeys.DELETE)) {
-                    // 241n：删除遗留条目（NPC 本体点位、或仍有活着的 NPC 占用的点位不能删）
-                    if (target != own && !liveIds.contains(target.id)) {
+                    // Explicit administrator deletion, never infer deletion from unloaded chunks.
+                    if (target != own) {
                         TransportController.getInstance().removeLocation(target.id);
                     }
                     continue;

@@ -200,6 +200,10 @@ public class GuiTransporterVisualEditor extends GuiBasic
         TransportClientCache.requestMeta(this.npcId, true);
         // 241n：meta 到达后重建列表 + 重新覆盖本地改动（不再整体替换导致"改了没反应"）
         TransportClientCache.setMetaListener(() -> {
+            this.entryLocal.keySet().removeIf(key -> TransportClientCache.editMeta(key) == null);
+            if (!this.selectedName.isEmpty() && TransportClientCache.editMeta(this.selectedName) == null) {
+                this.selectedName = this.ownKey;
+            }
             this.applyLocal();
             this.syncLocationVisual();
             this.applyFilter();

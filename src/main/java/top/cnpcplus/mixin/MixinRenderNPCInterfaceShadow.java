@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import top.cnpcplus.data.NpcHitboxStore;
 
 /**
  * A2: 阴影修复 + 半透明渲染。
@@ -44,7 +45,7 @@ public class MixinRenderNPCInterfaceShadow {
         if (!cnpcplus$isVisible(npc)) {
             return 0.0f;
         }
-        return npc.getBbWidth() * sizeRatio;
+        return npc.getBbWidth() * sizeRatio * NpcHitboxStore.get(npc.display).shadowScale();
     }
 
     private static boolean cnpcplus$isVisible(EntityNPCInterface npc) {

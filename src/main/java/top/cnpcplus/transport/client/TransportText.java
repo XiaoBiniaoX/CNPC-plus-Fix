@@ -2,6 +2,7 @@ package top.cnpcplus.transport.client;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import top.cnpcplus.text.StyledText;
 
 /**
  * 任务241j：按字号缩放绘制文字（默认字体字形高 9px，字号 N 即放大 N/9 倍）。
@@ -46,21 +47,7 @@ public final class TransportText {
      */
     public static int drawMultiline(GuiGraphics g, Font font, String text, int x, int y,
                                      int size, int color, int maxWidth) {
-        if (text == null || text.isEmpty()) return 0;
-        int lineH = lineHeight(size);
-        int total = 0;
-        String[] lines = text.split("\n", -1);
-        for (String line : lines) {
-            String shown = line;
-            if (maxWidth > 0) {
-                while (shown.length() > 1 && font.width(shown) * (size / 9f) > maxWidth) {
-                    shown = shown.substring(0, shown.length() - 1);
-                }
-            }
-            draw(g, font, shown, x, y + total, size, color);
-            total += lineH;
-        }
-        return total;
+        return drawStyled(g, font, text, "", x, y, size, color, maxWidth);
     }
 
     /** 241r：行高（原来直接用字号 → 上下行重叠）。 */
@@ -75,46 +62,22 @@ public final class TransportText {
      */
     public static int drawStyled(GuiGraphics g, Font font, String text, String spans,
                                  int x, int y, int size, int baseColor, int maxWidth) {
-        if (text == null || text.isEmpty()) return 0;
-        java.util.List<top.cnpcplus.transport.TransportSpans.Span> list =
-                top.cnpcplus.transport.TransportSpans.parse(spans);
-        int lineH = lineHeight(size);
-        int total = 0;
-        String[] lines = text.split("\n", -1);
-        int base = 0;
-        for (String line : lines) {
-            int lineStart = base;
-            base += line.length() + 1;
-            int px = x;
-            int i = 0;
-            while (i < line.length()) {
-                int rgb = top.cnpcplus.transport.TransportSpans.colorAt(list, lineStart + i, baseColor);
-                int fl = top.cnpcplus.transport.TransportSpans.flagsAt(list, lineStart + i);
-                int j = i;
-                while (j < line.length()
-                        && top.cnpcplus.transport.TransportSpans.colorAt(list, lineStart + j, baseColor) == rgb
-                        && top.cnpcplus.transport.TransportSpans.flagsAt(list, lineStart + j) == fl) {
-                    j++;
-                }
-                String seg = line.substring(i, j);
-                if (maxWidth > 0) {
-                    int avail = maxWidth - (px - x);
-                    if (avail <= 0) break;
-                    while (seg.length() > 1 && width(font, seg, size / 9f) > avail) {
-                        seg = seg.substring(0, seg.length() - 1);
-                    }
-                    if (width(font, seg, size / 9f) > avail) break;
-                }
-                // 241t：必须按段宽推进 x（之前每段都画在同一个 x → 前后文本重叠）
-                // 241z-7：1.20.1 的 StringDecomposer 不解析 §x 十六进制色码（会被当成多个
-                // legacy 色码，最后一个生效 → 金色变紫色）。直接按段传 RGB 颜色绘制。
-                draw(g, font, stylePrefix(fl) + seg, px, y + total, size, 0xFF000000 | (rgb & 0xFFFFFF));
-                px += width(font, seg, size / 9f);
-                i = j;
+        if (text == null || text.isEmpty() || size <= 0) return 0;
+        float scale = size / 9f;
+        var lines = new StyledText(text, spans).legacy().lines(maxWidth > 0 ? maxWidth / scale : 0,
+                component -> font.width(component));
+        var pose = g.pose();
+        pose.pushPose();
+        try {
+            pose.translate(x, y, 0);
+            pose.scale(scale, scale, 1f);
+            for (int row = 0; row < lines.size(); row++) {
+                g.drawString(font, lines.get(row).component(), 0, Math.round(row * lineHeight(size) / scale), baseColor, false);
             }
-            total += lineH;
+        } finally {
+            pose.popPose();
         }
-        return total;
+        return lines.size() * lineHeight(size);
     }
 
     /** 把标志转成 MC 格式码前缀（颜色由 draw 的 color 参数直接传，避免 §x 不兼容）。 */

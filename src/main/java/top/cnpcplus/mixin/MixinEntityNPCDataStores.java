@@ -11,7 +11,7 @@ import top.cnpcplus.persist.NpcDataExternalStore;
 /**
  * 召唤师 SpawnerData 与掉落物（NpcInv+DropChance）外置分离（240 #2/#3）。
  *
- * <p>读档：挂 m_7378_ 内 {@code DataScript.load} 的 INVOKE——super 已读 UUID
+ * <p>读档：挂 m_7378_ 内 {@code DataDisplay.readToNBT} 的 INVOKE——super 已读 UUID
  * （owner 正确）、原生 {@code job.load}(1079)/{@code inventory.load}(1080)/
  * transform 基线(1081) 尚未跑，贴键即被原生 load 读走（零 reload）；linked
  * {@code loadNpcData}(1086) 在其后仍按原生顺序覆盖（linked 权威不变）。
@@ -26,11 +26,13 @@ import top.cnpcplus.persist.NpcDataExternalStore;
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public abstract class MixinEntityNPCDataStores {
 
-    @Inject(method = "m_7378_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/data/DataScript;load(Lnet/minecraft/nbt/CompoundTag;)V"), remap = false)
+    @Inject(method = "m_7378_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/data/DataDisplay;readToNBT(Lnet/minecraft/nbt/CompoundTag;)V"), remap = false, require = 1)
     private void cnpcplus$attachExternalData(CompoundTag tag, CallbackInfo ci) {
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
         NpcDataExternalStore.SPAWNER.prepareLoad(npc, tag);
         NpcDataExternalStore.INVENTORY.prepareLoad(npc, tag);
+        NpcDataExternalStore.ADVANCED.prepareLoad(npc, tag);
+        if (!(npc instanceof noppes.npcs.entity.EntityCustomNpc)) NpcDataExternalStore.MODEL.prepareLoad(npc, tag);
     }
 
     @Inject(method = "m_7380_", at = @At("RETURN"), remap = false)
@@ -38,5 +40,7 @@ public abstract class MixinEntityNPCDataStores {
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
         NpcDataExternalStore.SPAWNER.saveNpc(npc, tag);
         NpcDataExternalStore.INVENTORY.saveNpc(npc, tag);
+        NpcDataExternalStore.ADVANCED.saveNpc(npc, tag);
+        if (!(npc instanceof noppes.npcs.entity.EntityCustomNpc)) NpcDataExternalStore.MODEL.saveNpc(npc, tag);
     }
 }

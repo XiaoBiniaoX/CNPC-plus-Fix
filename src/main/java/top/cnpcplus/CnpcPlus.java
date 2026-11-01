@@ -50,6 +50,8 @@ public class CnpcPlus {
         top.cnpcplus.drop.DropMenus.register();
         top.cnpcplus.drop.network.DropPacketHandler.init();
         top.cnpcplus.transport.network.TransportPacketHandler.init();
+        top.cnpcplus.bossbar.BossBarPacket.init();
+        top.cnpcplus.wand.network.WandNpcPacket.init();
         // 241t：版本横幅 + 传送子系统日志（确认跑的是哪一版 jar；日志在 logs/latest.log 与 CNPC 日志）
         top.cnpcplus.transport.TransportLog.banner();
         LinkedPacketHandler.init();

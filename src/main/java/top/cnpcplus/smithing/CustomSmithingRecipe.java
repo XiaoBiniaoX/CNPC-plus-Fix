@@ -1,5 +1,6 @@
 package top.cnpcplus.smithing;
 
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
@@ -63,6 +64,16 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
         return ItemStack.isSameItemSameTags(container.getItem(0), this.exactTemplate)
                 && ItemStack.isSameItemSameTags(container.getItem(1), this.exactBase)
                 && ItemStack.isSameItemSameTags(container.getItem(2), this.exactAddition);
+    }
+
+    /**
+     * 原版锻造转换会把基座槽的 Tag 覆盖到配置结果上；这对“同一物品 ID、靠 NBT
+     * 区分型号”的枪械等物品会把管理员配置的结果还原成基座/默认型号。本配方的结果
+     * 是完整 ItemStack 模板，必须原样复制（copy 同时保留普通 Tag 与 ForgeCaps）。
+     */
+    @Override
+    public ItemStack assemble(Container container, RegistryAccess registryAccess) {
+        return this.exactResult.copy();
     }
 
     /**

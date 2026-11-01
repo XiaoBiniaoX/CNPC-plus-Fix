@@ -64,17 +64,16 @@ public final class BardLoopKeeper {
 
         // 先停再播：playStreaming/playMusic 的第一行是 `if (isPlaying(music)) return;`，
         // 不先清掉 playingResource，下一首若碰巧同名会被静默吞掉。
-        c.stopMusic();
-        String next = SongListStore.pick(bard, oldSong);
-        if (next == null || next.isEmpty()) {
-            next = bard.song;
+        try {
+            c.stopMusic();
+            String next = SongListStore.pick(bard, oldSong, BardSoundGuard::isPlayable);
+            if ((next == null || next.isEmpty()) && BardSoundGuard.isPlayable(bard.song)) {
+                next = bard.song;
+            }
+            return next != null && !next.isEmpty() && BardSoundGuard.play(c, bard, next);
+        } catch (Throwable error) {
+            BardSoundGuard.failed(c, oldSong, error);
+            return false;
         }
-        if (next == null || next.isEmpty()) return false;
-        if (bard.isStreamer) {
-            c.playStreaming(next, npc, false);
-        } else {
-            c.playMusic(next, npc, false);
-        }
-        return true;
     }
 }
