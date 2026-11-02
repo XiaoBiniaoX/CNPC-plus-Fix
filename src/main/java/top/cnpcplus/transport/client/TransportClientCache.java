@@ -106,6 +106,10 @@ public final class TransportClientCache {
     /** 241l：meta 到达时通知（编辑页据此重建列表，否则列表永远停在打开时的空集）。 */
     public static void setMetaListener(Runnable r) { metaListener = r; }
 
+    public static void clearMetaListener(Runnable owner) {
+        if (metaListener == owner) metaListener = null;
+    }
+
     public static void acceptImage(String key, byte[] bytes) {
         String safe = TransportKeys.sanitize(key);
         if (safe.isEmpty()) return;
@@ -190,11 +194,14 @@ public final class TransportClientCache {
     }
 
     public static void clear() {
+        metaListener = null;
+        savedAck = false;
+        imageAckOk = false;
+        top.cnpcplus.transport.network.PacketTransportImageResponse.clear();
         META.clear();
         EDIT_META.clear();
-        for (DynamicTexture t : IMAGES.values()) {
-            try { t.close(); } catch (Throwable ignored) {}
-        }
+        for (String key : IMAGES.keySet())
+            Minecraft.getInstance().getTextureManager().release(imageId(key));
         IMAGES.clear();
         IMG_SIZE.clear();
         IMAGE_REQUESTED.clear();

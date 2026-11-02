@@ -98,13 +98,7 @@ public final class SmeltingRecipeRegistry {
             try (FileOutputStream out = new FileOutputStream(tmp)) {
                 NbtIo.writeCompressed(root, out);
             }
-            if (f.exists() && !f.delete()) return;
-            if (!tmp.renameTo(f)) {
-                try (FileInputStream in = new FileInputStream(tmp); FileOutputStream out = new FileOutputStream(f)) {
-                    in.transferTo(out);
-                }
-                tmp.delete();
-            }
+            top.cnpcplus.persist.FileReplacement.replace(tmp.toPath(), f.toPath());
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("写入自定义熔炼配方文件失败", e);
         }

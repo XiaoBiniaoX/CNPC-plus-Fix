@@ -1,10 +1,12 @@
 package top.cnpcplus.perf;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 import noppes.npcs.CustomNpcs;
 import noppes.npcs.util.NBTJsonUtil;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -72,7 +74,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>{@link #load} 返回的是缓存条目的 {@link CompoundTag#copy() 深拷贝}。
  *       不拷贝的话，A 商人的 {@code readNBT} 之后 B 商人的物品栏对象会和缓存里的
  *       NBT 产生别名关系，一个改动会污染另一个。</li>
- *   <li>{@link #store} 一律覆盖缓存条目，所以任意一个 NPC 的保存会立刻对
+ *   <li>{@link #store} 成功落盘后覆盖缓存条目，所以任意一个 NPC 的保存会立刻对
  *       其他共享同名市场的 NPC 可见 —— 与原版「写文件、别人下次读到」一致，
  *       而且比原版更及时（原版要等对方下次交互重读）。</li>
  * </ul>
@@ -137,10 +139,7 @@ public final class MarketCache {
             return null;
         }
         try {
-            CompoundTag parsed = NBTJsonUtil.LoadFile(file);
-            if (parsed == null) {
-                return null;
-            }
+            CompoundTag parsed = TagParser.parseTag(Files.readString(file.toPath()));
             CACHE.put(key, parsed);
             return parsed.copy();
         } catch (Exception e) {
@@ -150,10 +149,9 @@ public final class MarketCache {
     }
 
     /**
-     * 写市场 NBT：更新缓存并同步落盘。
+     * 写市场 NBT：同步落盘成功后更新缓存；失败保留旧文件与缓存。
      *
-     * <p>落盘沿用原版的「写临时文件再改名」策略（{@code RoleTrader.save} 178-189 行），
-     * 这样写入过程中崩溃不会留下半个损坏的 json。
+     * <p>保留原版 writer，完整回读验证后替换旧文件，不先删除旧文件。
      *
      * @param tag 完整市场 NBT。<b>调用方必须传 {@code role.writeNBT(...)} 的产物</b>，
      *            否则第三方附属（如商人多页）搭车的字段会丢失。
@@ -163,24 +161,16 @@ public final class MarketCache {
             return;
         }
         String key = name.toLowerCase();
-        // 存进缓存的是拷贝：调用方后续如果复用了这个 CompoundTag（比如又往里塞别的键），
-        // 不应该影响缓存内容。
-        CACHE.put(key, tag.copy());
-
         File target = fileFor(key);
         File temp = new File(target.getParentFile(), key + "_new.json");
         try {
             NBTJsonUtil.SaveFile(temp, tag);
-            if (target.exists() && !target.delete()) {
-                // 删不掉说明被占用。放弃改名，但缓存已经更新，
-                // 内存里的数据是对的，只是这一次没落盘。
-                return;
-            }
-            //noinspection ResultOfMethodCallIgnored
-            temp.renameTo(target);
+            CompoundTag verified = TagParser.parseTag(Files.readString(temp.toPath()));
+            if (!verified.equals(tag)) throw new java.io.IOException("Market NBT read-back differs: " + key);
+            top.cnpcplus.persist.FileReplacement.replace(temp.toPath(), target.toPath());
+            CACHE.put(key, verified);
         } catch (Exception e) {
-            // 与原版 187-189 行一致：吞掉异常。
-            // 缓存已更新，所以运行期行为正确，只是这次没能持久化。
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("保存市场失败，保留旧文件与缓存: {}", key, e);
         }
     }
 

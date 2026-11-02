@@ -14,4 +14,15 @@ public abstract class MixinClonePortableData {
     private void cnpcplus$materializeBeforeUuidRemoval(CompoundTag tag, CallbackInfo ci) {
         NpcDataExternalStore.makeAllPortable(tag);
     }
+
+    @Inject(method = "cleanTags", at = @At("RETURN"), require = 1)
+    private void cnpcplus$cleanPassengers(CompoundTag tag, CallbackInfo ci) {
+        CompoundTag data = tag.getCompound("ForgeData");
+        data.remove("NpcSpawnerId");
+        data.remove("NpcSpawnerNr");
+        data.remove("CNPCPlusSpawnGroup");
+        for (var child : tag.getList("Passengers", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            ((ServerCloneController)(Object)this).cleanTags((CompoundTag)child);
+        }
+    }
 }

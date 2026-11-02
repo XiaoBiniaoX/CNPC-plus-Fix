@@ -1,59 +1,79 @@
 package top.cnpcplus.mixin;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
 import noppes.npcs.controllers.ServerCloneController;
+import noppes.npcs.util.NBTJsonUtil;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import top.cnpcplus.clone.ClonePreviewData;
 
-import java.util.Map;
-import java.util.function.Function;
-
-/**
- * 修复复制魔杖「保存同名克隆时不覆盖」。
- *
- * <p>根因（原版源码实证 ServerCloneController.saveClone 末尾）：
- * <pre>this.cloneCache.computeIfAbsent(tab + "|" + name, k -&gt; compound.copy());</pre>
- * computeIfAbsent 在 key 已存在时是 no-op。而 getCloneData 的第一件事就是查这个缓存：
- * <pre>if (this.cloneCache.containsKey(tab + "|" + name)) return this.cloneCache.get(...).copy();</pre>
- * 于是覆盖保存后，磁盘上的 json 是新的，内存缓存却仍是旧 NBT，本次服务器会话内所有
- * 生成/读取都拿到旧数据 —— 玩家看到的就是「覆盖没生效」。
- *
- * <p>为什么表现为「有时覆盖有时不覆盖」：缓存只有在该克隆**被读过或存过一次**之后才有条目。
- * 首次保存一个新名字时 computeIfAbsent 正常写入，看起来是好的；之后再覆盖同名就失效。
- * 而 removeClone 会 `cloneCache.remove(...)`，所以「先删掉再保存」永远正常 ——
- * 这条不对称正是偶发感的来源。
- *
- * <p>修法：@Redirect 把 computeIfAbsent 整个换成 put —— 无条件覆盖缓存条目。
- * 原版的落盘逻辑（写 _new 临时文件 → 删旧 → rename）完全保留，只补正缓存。
- *
- * <p>兼容性：只影响内存缓存，不改磁盘格式、不改文件名规则、不改 NBT 结构，
- * 旧存档与旧 clones 目录完全兼容。服务端专有类，无客户端引用。
- */
+/** Replace delete-then-rename: disk and cache change only after a verified replacement succeeds. */
 @Mixin(value = ServerCloneController.class, remap = false)
-public class MixinServerCloneControllerOverwrite {
+public abstract class MixinServerCloneControllerOverwrite {
+    @Shadow private Map<String, CompoundTag> cloneCache;
+    @Shadow public long lastLoaded;
+    @Shadow public abstract File getDir();
+    @Shadow public abstract void saveClone(int tab, String name, CompoundTag compound);
+    @Shadow private Map<Integer, Map<String, CompoundTag>> loadOldClones(File file) throws Exception { throw new AssertionError(); }
 
-    @Shadow(remap = false)
-    private Map<String, CompoundTag> cloneCache;
-
-    /**
-     * 把 saveClone 里的 computeIfAbsent 换成 put。
-     * saveClone 只有一处 computeIfAbsent（getCloneData 里那处是加载路径，不该动），ordinal=0。
-     */
-    @Redirect(method = "saveClone",
-              at = @At(value = "INVOKE",
-                       target = "Ljava/util/Map;computeIfAbsent(Ljava/lang/Object;Ljava/util/function/Function;)Ljava/lang/Object;"))
-    private Object cnpcplus$replaceComputeIfAbsent(Map<String, CompoundTag> map,
-                                                   Object key,
-                                                   Function<Object, CompoundTag> mappingFunction) {
-        // 无条件覆盖：先算出新值再 put。
-        CompoundTag value = mappingFunction.apply(key);
-        if (value != null) {
-            map.put((String) key, value);
+    @Inject(method = "loadClones", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$migrateWithoutDeletingSource(CallbackInfo ci) {
+        ci.cancel();
+        File source = new File(getDir(), "../clonednpcs.dat");
+        if (!source.isFile()) return;
+        try {
+            var clones = loadOldClones(source);
+            for (var tab : clones.entrySet()) for (var entry : tab.getValue().entrySet()) {
+                // A retry must not replace clones already saved or subsequently edited.
+                if (new File(new File(getDir(), tab.getKey().toString()), entry.getKey() + ".json").isFile()) continue;
+                long before = lastLoaded;
+                saveClone(tab.getKey(), entry.getKey(), entry.getValue());
+                if (lastLoaded == before) return; // verifiedSave already reports failure; the legacy source survives.
+            }
+            File archive = new File(source.getParentFile(), "clonednpcs.dat_old");
+            if (archive.exists()) archive = new File(source.getParentFile(), "clonednpcs-" + java.util.UUID.randomUUID() + ".dat_old");
+            Files.move(source.toPath(), archive.toPath());
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[clone] 旧克隆迁移未完成；原文件保留", e);
         }
-        return value;
+    }
+
+    @Inject(method = "saveClone", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$verifiedSave(int tab, String name, CompoundTag compound, CallbackInfo ci) {
+        ci.cancel();
+        try {
+            if (!ClonePreviewData.validSelection(tab, name) || compound == null) throw new IllegalArgumentException("invalid clone name/tab/data");
+            var root = getDir().toPath().toRealPath();
+            var directory = Files.createDirectories(root.resolve(Integer.toString(tab))).toRealPath();
+            if (!directory.getParent().equals(root)) throw new java.io.IOException("clone tab outside directory");
+            var file = directory.resolve(name + ".json");
+            var temp = Files.createTempFile(directory, "cnpcplus-clone-", ".tmp");
+            CompoundTag saved = compound.copy();
+            try {
+                NBTJsonUtil.SaveFile(temp.toFile(), saved);
+                if (!ClonePreviewData.readSaved(temp.toFile()).equals(saved)) throw new java.io.IOException("clone verification failed");
+                try { Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+                catch (java.nio.file.AtomicMoveNotSupportedException unsupported) { Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING); }
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+            cloneCache.put(tab + "|" + name, saved);
+            lastLoaded = Math.max(System.currentTimeMillis(), lastLoaded + 1);
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[clone] 克隆保存失败；旧文件和缓存保留", e);
+        }
+    }
+
+    @Redirect(method = "getCloneData", at = @At(value = "INVOKE", target = "Lnoppes/npcs/util/NBTJsonUtil;LoadFile(Ljava/io/File;)Lnet/minecraft/nbt/CompoundTag;"), require = 1)
+    private CompoundTag cnpcplus$readWithoutTruncation(File file) throws java.io.IOException {
+        return ClonePreviewData.readSaved(file);
     }
 }

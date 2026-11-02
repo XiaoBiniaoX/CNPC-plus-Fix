@@ -48,8 +48,7 @@ public record WandNpcPacket(int entityId, long request, boolean copying) {
                 if (copying) {
                     if (tool != CustomItems.cloner || !CustomNpcsPermissions.hasPermission(player, CustomNpcsPermissions.NPC_CLONE)
                             || CustomNpcs.OpsOnly && !player.server.getPlayerList().isOp(player.getGameProfile())) return;
-                    CompoundTag captured = new CompoundTag();
-                    if (!npc.save(captured)) return;
+                    CompoundTag captured = top.cnpcplus.clone.CloneMounts.capture(npc);
                     // Portable hook runs BEFORE native cleanTags removes UUIDs; failed captures leave the old clone intact.
                     ServerCloneController.Instance.cleanTags(captured);
                     PlayerData.get(player).cloned = captured.copy();

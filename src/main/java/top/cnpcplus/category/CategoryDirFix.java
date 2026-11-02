@@ -3,7 +3,7 @@ package top.cnpcplus.category;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.StandardCopyOption;
 
 /**
@@ -118,41 +118,18 @@ public final class CategoryDirFix {
             return false;
         }
 
-        // 先试原子移动，失败再退化成「建目录 + 逐个搬文件 + 删空旧目录」。
+        // 同一 root 下整体移动；失败不逐文件搬运，避免拆成两份部分分类。
         try {
-            Files.move(olddir.toPath(), newdir.toPath(), StandardCopyOption.ATOMIC_MOVE);
-            return true;
-        } catch (Exception ignored) {
-            // 落到下面的降级路径。
-        }
-        if (olddir.renameTo(newdir)) return true;
-        return moveContents(olddir, newdir);
-    }
-
-    /** 逐个搬运目录内容，用于 renameTo/ATOMIC_MOVE 都失败时（Windows 句柄、跨卷等）。 */
-    private static boolean moveContents(File olddir, File newdir) {
-        if (!newdir.isDirectory() && !newdir.mkdirs()) return false;
-        File[] files = olddir.listFiles();
-        if (files == null) return false;
-        boolean allMoved = true;
-        for (File f : files) {
-            if (!f.isFile()) {
-                // 分类目录里原版只放 <id>.json，出现子目录时保守放弃，不做递归删除。
-                allMoved = false;
-                continue;
-            }
-            Path target = new File(newdir, f.getName()).toPath();
             try {
-                Files.move(f.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                allMoved = false;
+                Files.move(olddir.toPath(), newdir.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException unsupported) {
+                Files.move(olddir.toPath(), newdir.toPath());
             }
+            return true;
+        } catch (IOException failure) {
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("Category rename failed: {} -> {}", olddir, newdir, failure);
+            return false;
         }
-        // 只有全部搬完才删旧目录；没搬完就保留，宁可留残留也不丢数据。
-        if (allMoved) {
-            olddir.delete();
-        }
-        return allMoved;
     }
 
     /**

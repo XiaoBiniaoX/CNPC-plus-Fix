@@ -45,9 +45,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * </ul>
  * 缓存层对「哪些字段是谁写的」完全无感知，所以对任何同类附属都透明兼容。
  *
- * <h2>为什么用 {@code @Inject(HEAD, cancellable)} 而不是 {@code @Overwrite}</h2>
- * 一样的理由：不独占方法。如果将来有别的附属想在 {@code RoleTrader.load} 上做点什么
- * （比如加个市场访问日志），它挂在 HEAD/RETURN 的注入照常触发。
+ * <h2>市场读写入口</h2>
+ * Mixin 0.8.5 按优先级升序应用入口注入；使用低于默认值的 900，先执行安全读写。
+ * cancellable 注入会跳过后续入口注入；库存的 readNBT/writeNBT 扩展仍照常执行。
  *
  * <h2>行为等价性逐条核对</h2>
  * <table>
@@ -59,11 +59,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *       <td>保留（{@code MarketCache.load} 内部 catch 后返回 null）</td></tr>
  *   <tr><td>{@code save}：名字为空则直接返回</td><td>保留</td></tr>
  *   <tr><td>{@code save}：写临时文件 → 删旧 → 改名</td>
- *       <td>保留（{@code MarketCache.store} 用同样的三步）</td></tr>
- *   <tr><td>{@code save}：全部异常被吞</td><td>保留</td></tr>
+ *       <td>保留 writer；完整回读后替换，不先删旧，成功才更新缓存</td></tr>
+ *   <tr><td>{@code save}：全部异常被吞</td><td>失败记录日志并保留旧文件与缓存</td></tr>
  * </table>
  */
-@Mixin(value = RoleTrader.class, remap = false)
+@Mixin(value = RoleTrader.class, remap = false, priority = 900)
 public abstract class MixinRoleTraderMarketCache {
 
     @Inject(method = "load(Lnoppes/npcs/roles/RoleTrader;Ljava/lang/String;)V",

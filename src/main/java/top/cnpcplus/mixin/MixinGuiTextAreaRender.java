@@ -99,6 +99,26 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
         }
     }
 
+    /**
+     * 重输错字修复：原版 {@code addText} 先 {@code setText(before + s + after)}，再用
+     * {@code startSelection + s.length()} 定位光标。上面的 {@code setText} TAIL 在旧 end 越界时会把
+     * {@code startSelection} 一起改成新长度，于是光标落到文本之外；下一次 {@code getSelectionAfterText}
+     * 走 catch 分支返回整段文本，把首字符又拼了一遍（实测 {@code function} → {@code fufnction}）。
+     *
+     * <p>这里整体接管 addText：先按真实值算好前后文，再 setText，最后把三个下标收敛到插入点之后。
+     * 语义与原版一致（含撤销记录由 setText 自身负责），只是不再依赖被改写的 startSelection。
+     */
+    @Inject(method = "addText(Ljava/lang/String;)V", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcyouhua$addText(String s, CallbackInfo ci) {
+        String current = this.text == null ? "" : this.text;
+        int start = Math.max(0, Math.min(this.startSelection, current.length()));
+        int end = Math.max(start, Math.min(this.endSelection, current.length()));
+        ((GuiTextArea) (Object) this).setText(current.substring(0, start) + s + current.substring(end));
+        int len = this.text == null ? 0 : this.text.length();
+        this.startSelection = this.endSelection = this.cursorPosition = Math.min(start + s.length(), len);
+        ci.cancel();
+    }
+
     @Override
     public void cnpcplus$clearSelection() {
         int len = this.text == null ? 0 : this.text.length();

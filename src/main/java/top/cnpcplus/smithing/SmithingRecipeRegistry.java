@@ -104,7 +104,8 @@ public final class SmithingRecipeRegistry {
     private static void writeDisk() {
         try {
             CompoundTag root = buildRoot();
-            DISK_EXEC.execute(() -> writeRoot(root));
+            File target = file();
+            DISK_EXEC.execute(() -> writeRoot(root, target));
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("写入自定义锻造配方文件失败（构造阶段）", e);
         }
@@ -122,22 +123,15 @@ public final class SmithingRecipeRegistry {
     }
 
     /** 安全异步（cnpcplus-smithing-disk 线程）：只做 NbtIo 序列化与文件原子替换，不碰任何 MC 实例。 */
-    private static void writeRoot(CompoundTag root) {
+    private static void writeRoot(CompoundTag root, File f) {
         try {
-            File f = file();
             File parent = f.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
             File tmp = new File(f.getParentFile(), FILE_NAME + ".tmp");
             try (FileOutputStream out = new FileOutputStream(tmp)) {
                 NbtIo.writeCompressed(root, out);
             }
-            if (f.exists() && !f.delete()) return;
-            if (!tmp.renameTo(f)) {
-                try (FileInputStream in = new FileInputStream(tmp); FileOutputStream out = new FileOutputStream(f)) {
-                    in.transferTo(out);
-                }
-                tmp.delete();
-            }
+            top.cnpcplus.persist.FileReplacement.replace(tmp.toPath(), f.toPath());
         } catch (Exception e) {
             LoggerFactory.getLogger("cnpcplus").error("写入自定义锻造配方文件失败（异步写阶段）", e);
         }

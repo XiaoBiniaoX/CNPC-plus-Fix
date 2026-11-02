@@ -14,7 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import noppes.npcs.client.gui.util.GuiTooltipUtils;
 import noppes.npcs.controllers.ScriptContainer;
 import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import noppes.npcs.shared.client.gui.components.TextContainer;
@@ -27,7 +26,7 @@ import top.cnpcplus.script.ScriptDiagnostics;
 /** Script-only text area with CNPC API completion and persisted runtime-error highlighting. */
 @OnlyIn(Dist.CLIENT)
 public final class ScriptTextArea extends GuiTextArea {
-    private static final int STATUS_HEIGHT = 24;
+    private static final int STATUS_HEIGHT = 48;
     private static final int POPUP_ROWS = 6;
     private static final int POPUP_ROW_HEIGHT = 12;
 
@@ -56,6 +55,9 @@ public final class ScriptTextArea extends GuiTextArea {
     private String staticText;
     private ScriptDiagnostic staticDiagnostic;
     private String checkStatus = "";
+    private String referenceText = "";
+    private int referenceScroll, referenceRows;
+    private boolean referenceHovered;
 
     public ScriptTextArea(int id, int x, int y, int width, int height, String text,
                           ScriptContainer owner, String context, String language, List<String> hooks) {
@@ -137,19 +139,30 @@ public final class ScriptTextArea extends GuiTextArea {
 
     @Override
     public boolean m_5534_(char character, int modifiers) {
+        // GLFW delivers Ctrl+Space as a separate character event after keyPressed.
+        if (this.active && this.javascript && character == ' ' && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0) return true;
         boolean handled = super.m_5534_(character, modifiers);
         refresh(false);
         return handled;
+    }
+
+    @Override public boolean m_6050_(double x, double y, double delta) {
+        if (this.referenceHovered) {
+            this.referenceScroll = Math.max(0, this.referenceScroll - (int)Math.signum(delta));
+            return true;
+        }
+        return super.m_6050_(x, y, delta);
     }
 
     private void moveSelection(int direction) {
         int size = this.result.entries.size();
         this.selected = Math.floorMod(this.selected + direction, size);
         if (this.selected < this.firstVisible) this.firstVisible = this.selected;
-        if (this.selected >= this.firstVisible + POPUP_ROWS) {
-            this.firstVisible = this.selected - POPUP_ROWS + 1;
+        int rows = Math.max(1, this.popupRows);
+        if (this.selected >= this.firstVisible + rows) {
+            this.firstVisible = this.selected - rows + 1;
         }
-        this.firstVisible = Math.max(0, Math.min(this.firstVisible, Math.max(0, size - POPUP_ROWS)));
+        this.firstVisible = Math.max(0, Math.min(this.firstVisible, Math.max(0, size - rows)));
     }
 
     private void dismiss() {
@@ -289,7 +302,7 @@ public final class ScriptTextArea extends GuiTextArea {
         String help = I18n.get(this.javascript
                 ? "cnpcplus.script.completion_help" : "cnpcplus.script.completion_js");
         String firstLine = this.status.isEmpty() ? help : this.status;
-        int statusWidth = Math.max(0, this.width - 104);
+        int statusWidth = this.width;
         graphics.drawString(font, font.plainSubstrByWidth(firstLine, statusWidth),
                 this.x, this.y + this.height + 3, this.status.isEmpty() ? 0xFF202020 : this.statusColor, false);
         String detail = this.hints.isEmpty() ? (this.status.isEmpty() ? "" : help) : this.hints.get(0).signature;
@@ -297,6 +310,7 @@ public final class ScriptTextArea extends GuiTextArea {
                 this.x, this.y + this.height + 14, 0xFF202020, false);
 
         this.popupRows = 0;
+        this.referenceHovered = false;
         if (this.active && this.result != null && !this.result.entries.isEmpty()) {
             drawPopup(graphics, mouseX, mouseY);
         }
@@ -304,24 +318,24 @@ public final class ScriptTextArea extends GuiTextArea {
     }
 
     private void drawStatusTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (mouseX < this.x || mouseX >= this.x + this.width - 104
-                || mouseY < this.y + this.height || mouseY >= this.y + this.height + STATUS_HEIGHT) return;
-        List<FormattedCharSequence> lines = new ArrayList<>();
+        if (mouseX < this.x || mouseX >= this.x + this.width
+                || mouseY < this.y + this.height || mouseY >= this.y + this.height + 24) return;
+        List<String> lines = new ArrayList<>();
         ScriptDiagnostic diagnostic = diagnostic();
         if (diagnostic != null && mouseY < this.y + this.height + 12) {
-            if (!this.status.isEmpty()) lines.addAll(font().split(Component.literal(this.status), 320));
-            lines.addAll(font().split(Component.literal(diagnostic == this.staticDiagnostic
-                    ? warning(diagnostic) : diagnostic.message), 320));
+            if (!this.status.isEmpty()) lines.add(this.status);
+            lines.add(diagnostic == this.staticDiagnostic ? warning(diagnostic) : diagnostic.message);
             if (this.staticDiagnostic != null && diagnostic != this.staticDiagnostic) {
-                lines.addAll(font().split(Component.literal(warning(this.staticDiagnostic)), 320));
+                lines.add(warning(this.staticDiagnostic));
             }
         } else {
-            if (!this.checkStatus.isEmpty()) lines.addAll(font().split(Component.literal(this.checkStatus), 320));
+            lines.add(I18n.get(this.javascript ? "cnpcplus.script.completion_help" : "cnpcplus.script.completion_js"));
+            if (!this.checkStatus.isEmpty()) lines.add(this.checkStatus);
             for (ScriptApiCompletion.Entry hint : this.hints) {
-                lines.addAll(font().split(Component.literal(hint.signature), 360));
+                lines.add(hint.signature);
             }
         }
-        if (!lines.isEmpty()) GuiTooltipUtils.renderTooltip(graphics, font(), lines, mouseX, mouseY);
+        if (!lines.isEmpty()) drawContainedTooltip(graphics, String.join("\n", lines), this.y + this.height - 4);
     }
 
     private static String warning(ScriptDiagnostic diagnostic) {
@@ -329,10 +343,11 @@ public final class ScriptTextArea extends GuiTextArea {
     }
 
     private void drawPopup(GuiGraphics graphics, int mouseX, int mouseY) {
+        int maxRows = Math.max(1, Math.min(POPUP_ROWS, (this.height - 36) / POPUP_ROW_HEIGHT));
         this.firstVisible = Math.max(0, Math.min(this.firstVisible,
-                Math.max(0, this.result.entries.size() - POPUP_ROWS)));
-        this.popupRows = Math.min(POPUP_ROWS, this.result.entries.size() - this.firstVisible);
-        this.popupWidth = Math.max(80, Math.min(this.width - 4, 330));
+                Math.max(0, this.result.entries.size() - maxRows)));
+        this.popupRows = Math.min(maxRows, this.result.entries.size() - this.firstVisible);
+        this.popupWidth = Math.min(this.width - 4, 330);
         this.popupX = this.x + this.width - this.popupWidth - 2;
         this.popupY = this.y + this.height - this.popupRows * POPUP_ROW_HEIGHT - 2;
         graphics.fill(this.popupX - 1, this.popupY - 1, this.popupX + this.popupWidth + 1,
@@ -353,9 +368,30 @@ public final class ScriptTextArea extends GuiTextArea {
         if (mouseX >= this.popupX && mouseX < this.popupX + this.popupWidth
                 && mouseY >= this.popupY && mouseY < this.popupY + this.popupRows * POPUP_ROW_HEIGHT) {
             int index = this.firstVisible + (mouseY - this.popupY) / POPUP_ROW_HEIGHT;
-            List<FormattedCharSequence> tooltip = font().split(
-                    Component.literal(this.result.entries.get(index).signature), 360);
-            GuiTooltipUtils.renderTooltip(graphics, font(), tooltip, mouseX, mouseY);
+            drawContainedTooltip(graphics, this.result.entries.get(index).signature, this.popupY - 3);
         }
+    }
+
+    /** Keep reference text above the footer; external tooltip positioners must not cover controls. */
+    private void drawContainedTooltip(GuiGraphics graphics, String text, int bottom) {
+        this.referenceHovered = true;
+        if (!text.equals(this.referenceText)) { this.referenceText = text; this.referenceScroll = 0; }
+        List<FormattedCharSequence> lines = font().split(Component.literal(text), this.width - 12);
+        this.referenceRows = Math.max(1, Math.min(lines.size(), (bottom - Math.max(4, this.y) - 8) / font().lineHeight));
+        this.referenceScroll = Math.min(this.referenceScroll, Math.max(0, lines.size() - this.referenceRows));
+        int boxWidth = 0;
+        for (var line : lines) boxWidth = Math.max(boxWidth, font().width(line));
+        int h = this.referenceRows * font().lineHeight + 8;
+        int yy = bottom - h;
+        int xx = Math.max(4, Math.min(this.x + this.width - boxWidth - 8,
+                Minecraft.getInstance().getWindow().getGuiScaledWidth() - boxWidth - 12));
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 400);
+        graphics.fill(xx, yy, xx + boxWidth + 8, yy + h, 0xFF181818);
+        for (int i = 0; i < this.referenceRows; i++)
+            graphics.drawString(font(), lines.get(this.referenceScroll + i), xx + 4, yy + 4 + i * font().lineHeight, 0xFFF0F0F0, false);
+        if (lines.size() > this.referenceRows)
+            graphics.fill(xx + boxWidth + 6, yy + 4, xx + boxWidth + 8, yy + h - 4, 0xFFAAAAAA);
+        graphics.pose().popPose();
     }
 }

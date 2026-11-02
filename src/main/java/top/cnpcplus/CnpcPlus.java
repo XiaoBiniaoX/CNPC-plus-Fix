@@ -50,8 +50,12 @@ public class CnpcPlus {
         top.cnpcplus.drop.DropMenus.register();
         top.cnpcplus.drop.network.DropPacketHandler.init();
         top.cnpcplus.transport.network.TransportPacketHandler.init();
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent e) ->
+                        top.cnpcplus.transport.network.PacketTransportImageChunk.clearPlayer(e.getEntity().getUUID()));
         top.cnpcplus.bossbar.BossBarPacket.init();
         top.cnpcplus.wand.network.WandNpcPacket.init();
+        top.cnpcplus.clone.ClonePreviewPacket.init();
         // 241t：版本横幅 + 传送子系统日志（确认跑的是哪一版 jar；日志在 logs/latest.log 与 CNPC 日志）
         top.cnpcplus.transport.TransportLog.banner();
         LinkedPacketHandler.init();
@@ -92,6 +96,8 @@ public class CnpcPlus {
                     top.cnpcplus.smithing.SmithingRecipeRegistry.clearCache();
                     top.cnpcplus.anvil.AnvilRecipeRegistry.clearCache();
                     top.cnpcplus.drop.DropRecipeRegistry.clearCache();
+                    top.cnpcplus.villagertrade.TradeDataStore.clear();
+                    top.cnpcplus.transport.network.PacketTransportImageChunk.clear();
                     // 233d-UI9：清掉落物「玩家丢出」身份集合（用户拍板「只加关服清理」）——
                     // 防单人换存档时残留实体 id 被新档复用误认成玩家丢出（id 每档从头计数）
                     top.cnpcplus.drop.DropCraftHandler.clearStatics();

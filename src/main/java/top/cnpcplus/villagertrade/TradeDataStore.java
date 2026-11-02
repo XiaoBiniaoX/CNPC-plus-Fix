@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +14,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
 import top.cnpcplus.roles.TradeData;
+import top.cnpcplus.persist.FileReplacement;
 
 /**
  * 交易数据独立存储（不进 NPC NBT）。
@@ -26,6 +28,7 @@ public class TradeDataStore {
     /** 已被某 NPC 占用但尚未写入文件的 id（构造器分配 / load 读到的 NBT id），防 nextId 撞车。 */
     private static final java.util.Set<Integer> RESERVED = ConcurrentHashMap.newKeySet();
     private static File storageFile;
+    private static boolean loadFailed;
 
     /** 存储是否就绪（setStoragePath 已在 ServerStartedEvent 调用）。 */
     public static boolean isReady() {
@@ -39,7 +42,19 @@ public class TradeDataStore {
 
     public static void setStoragePath(File file) {
         storageFile = file;
+        SERVER_DATA.clear();
+        CLIENT_CACHE.clear();
+        loadFailed = false;
+        // NPC load 在 ServerStarted 之前已 reserve，不能在这里释放其 ID。
         loadFromFile();
+    }
+
+    public static void clear() {
+        storageFile = null;
+        loadFailed = false;
+        SERVER_DATA.clear();
+        CLIENT_CACHE.clear();
+        RESERVED.clear();
     }
 
     /** 服务端：保存交易列表。 */
@@ -90,15 +105,21 @@ public class TradeDataStore {
 
     private static void saveToFile() {
         if (storageFile == null) return;
+        if (loadFailed) {
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[vt] refusing to overwrite unreadable store: {}", storageFile);
+            return;
+        }
         try {
             CompoundTag fileTag = new CompoundTag();
             for (Map.Entry<Integer, CompoundTag> e : SERVER_DATA.entrySet()) {
                 fileTag.put(String.valueOf(e.getKey()), e.getValue());
             }
-            storageFile.getParentFile().mkdirs();
-            try (FileOutputStream fos = new FileOutputStream(storageFile)) {
+            Files.createDirectories(storageFile.toPath().toAbsolutePath().getParent());
+            File temporary = new File(storageFile.getParentFile(), storageFile.getName() + ".tmp");
+            try (FileOutputStream fos = new FileOutputStream(temporary)) {
                 NbtIo.writeCompressed(fileTag, fos);
             }
+            FileReplacement.replace(temporary.toPath(), storageFile.toPath());
         } catch (IOException e) {
             // 233d-UI9 日志清理：println→error 级 logger（写盘失败=数据丢失风险，保留控制台可见）
             org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[vt] store save failed", e);
@@ -109,11 +130,19 @@ public class TradeDataStore {
         if (storageFile == null || !storageFile.exists()) return;
         try (FileInputStream fis = new FileInputStream(storageFile)) {
             CompoundTag fileTag = NbtIo.readCompressed(fis);
-            SERVER_DATA.clear();
+            Map<Integer, CompoundTag> loaded = new HashMap<>();
             for (String key : fileTag.getAllKeys()) {
-                SERVER_DATA.put(Integer.parseInt(key), fileTag.getCompound(key));
+                int id = Integer.parseInt(key);
+                if (!fileTag.contains(key, 10)) throw new IOException("Invalid trade list: " + key);
+                CompoundTag tag = fileTag.getCompound(key);
+                if (!tag.contains("Trades", 9)) throw new IOException("Missing trade entries: " + key);
+                ListTag trades = (ListTag)tag.get("Trades");
+                if (!trades.isEmpty() && trades.getElementType() != 10) throw new IOException("Invalid trade entries: " + key);
+                loaded.put(id, tag);
             }
-        } catch (IOException e) {
+            SERVER_DATA.putAll(loaded);
+        } catch (IOException | NumberFormatException e) {
+            loadFailed = true;
             // 233d-UI9 日志清理：println→error 级 logger（读盘失败=配方库不可用，保留控制台可见）
             org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[vt] store load failed", e);
         }

@@ -194,12 +194,14 @@ public class GuiTransporterVisualEditor extends GuiBasic
         }
     }
 
+    private Runnable metaListener;
+
     private void cnpcplus$init() {
         super.m_7856_();
         this.layout();
         TransportClientCache.requestMeta(this.npcId, true);
         // 241n：meta 到达后重建列表 + 重新覆盖本地改动（不再整体替换导致"改了没反应"）
-        TransportClientCache.setMetaListener(() -> {
+        this.metaListener = () -> {
             this.entryLocal.keySet().removeIf(key -> TransportClientCache.editMeta(key) == null);
             if (!this.selectedName.isEmpty() && TransportClientCache.editMeta(this.selectedName) == null) {
                 this.selectedName = this.ownKey;
@@ -213,7 +215,8 @@ public class GuiTransporterVisualEditor extends GuiBasic
             if (TransportClientCache.consumeImageAck()) {
                 this.setHint(tr("cnpcplus.transporter.editor.hint.imageSaved"));
             }
-        });
+        };
+        TransportClientCache.setMetaListener(this.metaListener);
         TransportDropHandler.setActive(this);
 
         GuiTextFieldNop searchField = new GuiTextFieldNop(
@@ -1900,12 +1903,18 @@ public class GuiTransporterVisualEditor extends GuiBasic
     @Override
     public void save() {
         TransportDropHandler.clear(this);
-        TransportClientCache.setMetaListener(null);
+        TransportClientCache.clearMetaListener(this.metaListener);
         this.syncLocationVisual();
         if (!this.dirty && !this.edited) return;
         this.dirty = false;
         this.edited = false;
         this.sendMeta(true);
+    }
+
+    @Override public void removed() {
+        TransportDropHandler.clear(this);
+        TransportClientCache.clearMetaListener(this.metaListener);
+        super.removed();
     }
 
     /** 显式保存按钮：不关闭页面，强制把当前缓存落盘。 */

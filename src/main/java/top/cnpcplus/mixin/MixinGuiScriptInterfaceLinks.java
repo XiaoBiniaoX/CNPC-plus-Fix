@@ -12,8 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 脚本控制台页在「网站/例子」上方加三个外链按钮。
- * 三按钮等宽拼出网站+例子总宽 161（53+1+53+1+53）。
+ * 控制台侧栏统一排列原按钮、外链和内置文档，避免多个TAIL注入相对挪动造成重叠。
  */
 @Mixin(value = GuiScriptInterface.class, remap = false)
 public abstract class MixinGuiScriptInterfaceLinks {
@@ -29,14 +28,9 @@ public abstract class MixinGuiScriptInterfaceLinks {
         GuiButtonNop website = self.getButton(109);
         if (website == null || self.getButton(120) != null) return;
 
-        int left = website.getX();
-        int y = website.getY();
-        // 各自下移一行：109/112 原 y+78→y+100；110/111 原 y+99→y+121（勿统一设成同一 y）
-        for (int id : new int[]{109, 112, 110, 111}) {
-            GuiButtonNop b = self.getButton(id);
-            if (b != null) ((AbstractWidgetAccess) (Object) b).cnpcplus$setY(b.getY() + 22);
-        }
-
+        int left = website.getX() - 17;
+        int top = Math.min(self.guiTop + 10, self.height - 184);
+        int y = top + 66;
         int w = 53;
         self.addButton(new GuiButtonNop(self, 120, left, y, w, 20, "cnpcplus.script.promptweb", button -> {
             self.setScreen(new ConfirmLinkScreen(ok -> {
@@ -59,5 +53,27 @@ public abstract class MixinGuiScriptInterfaceLinks {
             }, URL_BILI, true));
         }));
         self.getButton(122).setTooltip(Tooltip.create(Component.translatable("cnpcplus.script.followus.tooltip")));
+        self.addButton(new GuiButtonNop(self, 422, left, top + 132, 161, 20, "cnpcplus.api.title",
+                button -> self.setSubGui(new top.cnpcplus.script.client.SubGuiApiDocs())));
+        int[][] positions = {{103, 60, 0, 101}, {104, 60, 22, 101}, {106, 0, 44, 161},
+                {109, 0, 88, 80}, {112, 81, 88, 80}, {110, 0, 110, 80}, {111, 81, 110, 80},
+                {100, 0, 154, 80}, {102, 81, 154, 80}};
+        for (int[] p : positions) {
+            GuiButtonNop button = self.getButton(p[0]);
+            if (button == null) continue;
+            button.setX(left + p[1]);
+            button.setY(top + p[2]);
+            button.setWidth(p[3]);
+        }
+        self.getLabel(1).setX(left);
+        self.getLabel(1).setY(top + 5);
+        self.getLabel(2).setX(left);
+        self.getLabel(2).setY(top + 27);
+        if (self.get(3) instanceof noppes.npcs.shared.client.gui.components.GuiTextArea console) {
+            console.width = left - console.x - 6;
+            var container = ((IGuiTextAreaScriptAccess)(Object)console).cnpcplus$container();
+            container.lines.clear();
+            container.init(IGuiTextAreaScriptAccess.cnpcplus$font(), console.width, console.height);
+        }
     }
 }

@@ -244,6 +244,28 @@ public final class NpcDataExternalStore {
         return new File(directory, id + ".dat");
     }
 
+    /** Detached preview read: no migration, caching, writes or reference removal. Inline values win. */
+    public void readPreview(CompoundTag tag, File worldDirectory) throws IOException {
+        String raw = tag.getString(idKey);
+        if (raw.isEmpty()) return;
+        UUID id = parseId(raw);
+        if (id == null || !id.toString().equalsIgnoreCase(raw) || worldDirectory == null) throw new IOException("invalid preview store reference");
+        var world = worldDirectory.toPath().toRealPath();
+        var directory = world.resolve("data/cnpcplus/" + logTag).toRealPath();
+        var file = stateFile(directory.toFile(), id).toPath().toRealPath();
+        if (!directory.startsWith(world) || !file.getParent().equals(directory)
+                || Files.size(file) > 8 * 1024 * 1024) throw new IOException("preview store outside world or too large");
+        try (var input = Files.newInputStream(file);
+             var gzip = new java.util.zip.GZIPInputStream(com.google.common.io.ByteStreams.limit(input, 8 * 1024 * 1024));
+             var data = new java.io.DataInputStream(com.google.common.io.ByteStreams.limit(gzip, 8 * 1024 * 1024))) {
+            CompoundTag root = NbtIo.read(data, new net.minecraft.nbt.NbtAccounter(8 * 1024 * 1024));
+            if (!root.contains("Data", Tag.TAG_COMPOUND)) throw new IOException("missing preview store Data");
+            for (String key : root.getCompound("Data").getAllKeys()) {
+                if (isDataKey(key) && !tag.contains(key)) tag.put(key, root.getCompound("Data").get(key).copy());
+            }
+        }
+    }
+
     private State readState(File directory, UUID id) {
         File file = stateFile(directory, id);
         if (!file.isFile()) return null;
@@ -297,12 +319,16 @@ public final class NpcDataExternalStore {
 
     /** Materialize before cleanTags deletes UUID. On failure retain the reference and all inline keys. */
     public synchronized boolean makePortable(CompoundTag tag) {
-        return makePortable(tag, directory());
+        UUID id = parseId(tag.getString(idKey));
+        return id == null ? tag.getString(idKey).isEmpty() : materialize(tag, directory(), id);
     }
 
     synchronized boolean makePortable(CompoundTag tag, File directory) {
         UUID id = parseId(tag.getString(idKey));
-        if (id == null) return true;
+        return id == null ? tag.getString(idKey).isEmpty() : materialize(tag, directory, id);
+    }
+
+    private boolean materialize(CompoundTag tag, File directory, UUID id) {
         State state = readState(directory, id);
         if (state == null || !verifyData(directory, state)) {
             LOGGER.error("[{}] cannot materialize clone {}; keeping inline NBT/reference", logTag, id);
@@ -316,10 +342,12 @@ public final class NpcDataExternalStore {
         return true;
     }
 
-    public static void makeAllPortable(CompoundTag tag) {
+    public static boolean makeAllPortable(CompoundTag tag) {
+        boolean complete = true;
         for (NpcDataExternalStore store : new NpcDataExternalStore[]{SPAWNER, INVENTORY, SCRIPTS, ADVANCED, MODEL}) {
-            store.makePortable(tag);
+            complete &= store.makePortable(tag);
         }
+        return complete;
     }
 
     private static void writeCompressed(File target, CompoundTag tag) throws IOException {

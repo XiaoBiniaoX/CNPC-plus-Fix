@@ -19,12 +19,12 @@ import java.util.Map;
  * 这样点集缓存与旋转解耦，调 rotSpeed 不触发重采样。
  *
  * <p>缓存：{@link ShapePreset} 值相等（全字段 equals）即命中；LRU 上限
- * {@link DropFxCaps#POINT_CACHE_MAX}。缓存访问约定：<b>主线程调用</b>
- * （GUI 预览 tick / 引擎 LevelTick）；后台预取任务调 {@link #prefetch} 算好放回，同样回主线程读。
+ * {@link DropFxCaps#POINT_CACHE_MAX}。points 与后台预取的 put 共用类锁，
+ * 保持缓存与 LRU 一致；后台计算不持锁。
  */
 public final class DropFxSampler {
 
-    /** LRU：最近使用的键放队尾；容量满淘汰队首。主线程访问，无需锁。 */
+    /** LRU：最近使用的键放队尾；容量满淘汰队首。访问受类锁保护。 */
     private static final Map<ShapePreset, double[]> CACHE = new HashMap<>();
     private static final Deque<ShapePreset> LRU = new ArrayDeque<>();
 
@@ -33,7 +33,7 @@ public final class DropFxSampler {
     private DropFxSampler() {}
 
     /** 主线程取点集（命中缓存直接返回；未命中当场同步算——单形状 ≤64 点，开销可忽略）。 */
-    public static double[] points(ShapePreset preset) {
+    public static synchronized double[] points(ShapePreset preset) {
         double[] hit = CACHE.get(preset);
         if (hit != null) {
             touch(preset);
@@ -48,10 +48,6 @@ public final class DropFxSampler {
     public static void prefetch(ShapePreset preset) {
         try {
             double[] pts = compute(preset, RandomSource.create(preset.hashCode()));
-            // 塞缓存这一步仍回主线程做会更严谨；HashMap 单线程 put 在实践中可容忍，
-            // 但为绝对安全改走主线程调度：这里只算不放，由提交方在主线程 put。
-            // ——简化：直接 put（本池单线程+主线程读写 HashMap 的竞态在 Java 里可能导致
-            // 极小概率脏读；引擎侧 points() 未命中会重算，结果一致，可接受）。
             put(preset, pts);
         } catch (Throwable ignored) {
             // 后台失败无害：主线程 points() 会同步重算

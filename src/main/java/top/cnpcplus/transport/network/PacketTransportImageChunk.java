@@ -7,6 +7,7 @@ import top.cnpcplus.transport.TransportKeys;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
@@ -36,6 +37,14 @@ public class PacketTransportImageChunk {
 
     public static int chunkSize() { return CHUNK; }
 
+    public static void clear() { BUFFERS.clear(); NEXT_SEQ.clear(); }
+
+    public static void clearPlayer(UUID player) {
+        String prefix = player + ":";
+        BUFFERS.keySet().removeIf(key -> key.startsWith(prefix));
+        NEXT_SEQ.keySet().removeIf(key -> key.startsWith(prefix));
+    }
+
     public void encode(FriendlyByteBuf buf) {
         buf.writeUtf(this.key, 64);
         buf.writeVarInt(this.seq);
@@ -47,11 +56,8 @@ public class PacketTransportImageChunk {
         String key = buf.readUtf(64);
         int seq = buf.readVarInt();
         int len = buf.readVarInt();
-        if (len < 0 || len > CHUNK) {
-            byte[] skip = new byte[buf.readableBytes()];
-            buf.readBytes(skip);
-            return new PacketTransportImageChunk(key, seq, new byte[0]);
-        }
+        if (seq < 0 || len < 0 || len > CHUNK || len > buf.readableBytes())
+            throw new IllegalArgumentException("Invalid transport image chunk");
         byte[] data = new byte[len];
         buf.readBytes(data);
         return new PacketTransportImageChunk(key, seq, data);
@@ -63,31 +69,32 @@ public class PacketTransportImageChunk {
             if (sender == null || !sender.hasPermissions(2)) return;
             String safe = TransportKeys.sanitize(this.key);
             if (safe.isEmpty()) return;
-            ByteArrayOutputStream buf = BUFFERS.computeIfAbsent(safe, k -> new ByteArrayOutputStream());
-            int next = NEXT_SEQ.getOrDefault(safe, 0);
+            String transfer = sender.getUUID() + ":" + safe;
+            ByteArrayOutputStream buf = BUFFERS.computeIfAbsent(transfer, k -> new ByteArrayOutputStream());
+            int next = NEXT_SEQ.getOrDefault(transfer, 0);
             if (this.seq == next) {
                 if (this.data.length > 0) {
                     buf.write(this.data, 0, this.data.length);
                 }
-                NEXT_SEQ.put(safe, next + 1);
+                NEXT_SEQ.put(transfer, next + 1);
             } else {
                 // 乱序/丢块：丢弃这次传输，等客户端重传
-                BUFFERS.remove(safe);
-                NEXT_SEQ.remove(safe);
+                BUFFERS.remove(transfer);
+                NEXT_SEQ.remove(transfer);
                 return;
             }
             if (this.data.length > 0) {
                 // 数据块：等收齐（下一个 seq 的空块才是"结束"标记）
                 if (buf.size() > TransportKeys.MAX_IMAGE_BYTES) {
-                    BUFFERS.remove(safe);
-                    NEXT_SEQ.remove(safe);
+                    BUFFERS.remove(transfer);
+                    NEXT_SEQ.remove(transfer);
                 }
                 return;
             }
             // 空块 = 结束 → 写盘
             byte[] all = buf.toByteArray();
-            BUFFERS.remove(safe);
-            NEXT_SEQ.remove(safe);
+            BUFFERS.remove(transfer);
+            NEXT_SEQ.remove(transfer);
             boolean ok = all.length > 0 && TransportImageIO.write(safe, all);
             try {
                 net.minecraft.nbt.CompoundTag out = new net.minecraft.nbt.CompoundTag();

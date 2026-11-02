@@ -11,7 +11,7 @@ import noppes.npcs.controllers.data.DataTransform;
 public final class ArenaMigrationRegression {
     public static void main(String[] args) throws Exception {
         File evidence = new File(args[0]);
-        File root = new File(evidence, "migration-regression/" + UUID.randomUUID());
+        File root = new File(args.length > 1 ? new File(args[1]) : evidence, "migration-regression/" + UUID.randomUUID());
         CompoundTag original = NbtIo.readCompressed(new File(evidence, "target-npc-00.nbt"));
         UUID owner = original.getUUID("UUID");
         check(original.getCompound("TransformInv").getList("Weapons", 10).size() == 3,

@@ -37,6 +37,8 @@ public class PacketTransportImageResponse {
 
     public static int chunkSize() { return CHUNK; }
 
+    public static void clear() { BUFFERS.clear(); NEXT_SEQ.clear(); }
+
     public void encode(FriendlyByteBuf buf) {
         buf.writeUtf(this.key, 64);
         buf.writeVarInt(this.seq);
@@ -50,11 +52,8 @@ public class PacketTransportImageResponse {
         int seq = buf.readVarInt();
         boolean last = buf.readBoolean();
         int len = buf.readVarInt();
-        if (len < 0 || len > CHUNK) {
-            byte[] skip = new byte[buf.readableBytes()];
-            buf.readBytes(skip);
-            return new PacketTransportImageResponse(key, seq, false, new byte[0]);
-        }
+        if (seq < 0 || len < 0 || len > CHUNK || len > buf.readableBytes())
+            throw new IllegalArgumentException("Invalid transport image response");
         byte[] data = new byte[len];
         buf.readBytes(data);
         return new PacketTransportImageResponse(key, seq, last, data);

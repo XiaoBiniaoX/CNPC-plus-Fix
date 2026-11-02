@@ -28,6 +28,8 @@ public final class CnpcPlusClientInit {
             }
         });
         MinecraftForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandHitboxOverlay::render);
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) ->
+                top.cnpcplus.transport.client.TransportClientCache.clear());
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickItem event) -> {
             if (!event.getLevel().isClientSide || event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND
                     || event.getItemStack().getItem() != noppes.npcs.CustomItems.cloner) return;

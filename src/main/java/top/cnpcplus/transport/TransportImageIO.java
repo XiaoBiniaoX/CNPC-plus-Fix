@@ -48,11 +48,8 @@ public final class TransportImageIO {
                 out.write(data);
                 out.getFD().sync();
             }
-            if (f.exists() && !f.delete()) {
-                tmp.delete();
-                return false;
-            }
-            return tmp.renameTo(f) || f.exists();
+            top.cnpcplus.persist.FileReplacement.replace(tmp.toPath(), f.toPath());
+            return true;
         } catch (IOException e) {
             return false;
         }

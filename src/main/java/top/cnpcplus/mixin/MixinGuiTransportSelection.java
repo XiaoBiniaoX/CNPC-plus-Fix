@@ -139,7 +139,8 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         }
 
         this.cnpcplus$applyFilter();
-        TransportClientCache.setMetaListener(this::cnpcplus$applyFilter);
+        this.cnpcplus$metaListener = this::cnpcplus$applyFilter;
+        TransportClientCache.setMetaListener(this.cnpcplus$metaListener);
         // Native player screens can be reopened without a tracked NPC (e.g. dimension change).
         // Keep the available list/cache; never dereference a missing client entity or invent an id.
         if (self.npc != null) TransportClientCache.requestMeta(self.npc.getId());
@@ -531,7 +532,14 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
 
     @Inject(method = "save", at = @At("HEAD"), remap = false)
     private void cnpcplus$clearListener(CallbackInfo ci) {
-        TransportClientCache.setMetaListener(null);
+        TransportClientCache.clearMetaListener(this.cnpcplus$metaListener);
+    }
+
+    @Unique private Runnable cnpcplus$metaListener;
+
+    @Override public void removed() {
+        TransportClientCache.clearMetaListener(this.cnpcplus$metaListener);
+        super.removed();
     }
 
     @Override
