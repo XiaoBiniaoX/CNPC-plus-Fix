@@ -3,8 +3,12 @@ package top.cnpcplus.bossbar.client;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.BossEvent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
@@ -14,6 +18,10 @@ import top.cnpcplus.bossbar.BossBarPacket;
 
 @Mod.EventBusSubscriber(modid = "cnpcplus", value = Dist.CLIENT)
 public final class BossBarColors {
+    /** Vanilla boss bar sheet; every {@link BossEvent.BossBarColor} owns ten rows (frame + fill). */
+    private static final ResourceLocation GUI_BARS = new ResourceLocation("textures/gui/bars.png");
+    /** WHITE is the only untinted pair, so the RGB tint below stays faithful. */
+    private static final int WHITE_ROW = BossEvent.BossBarColor.WHITE.ordinal() * 10;
     private static final Map<UUID, Integer> COLORS = new HashMap<>();
     private BossBarColors() {}
 
@@ -39,11 +47,16 @@ public final class BossBarColors {
         graphics.drawString(font, name, graphics.guiWidth() / 2 - font.width(name) / 2, event.getY() - 9, 0xFFFFFF);
     }
 
+    /** Same geometry as vanilla {@code BossHealthOverlay}: 182x5 frame, fill = progress * 183. */
     public static void bar(GuiGraphics g, int x, int y, int rgb, float progress) {
-        int width = Math.round(Math.max(0, Math.min(1, progress)) * 180);
-        g.fill(x, y, x + 182, y + 5, 0xFF222222);
-        g.fill(x + 1, y + 1, x + 181, y + 4, 0xFF555555);
-        g.fill(x + 1, y + 1, x + 1 + width, y + 4, 0xFF000000 | rgb);
-        g.fill(x + 1, y + 1, x + 1 + width, y + 2, 0x55FFFFFF);
+        int width = (int) (Mth.clamp(progress, 0.0F, 1.0F) * 183.0F);
+        RenderSystem.setShaderColor(
+                ((rgb >> 16) & 0xFF) / 255.0F,
+                ((rgb >> 8) & 0xFF) / 255.0F,
+                (rgb & 0xFF) / 255.0F,
+                1.0F);
+        g.blit(GUI_BARS, x, y, 0, WHITE_ROW, 182, 5);
+        if (width > 0) g.blit(GUI_BARS, x, y, 0, WHITE_ROW + 5, width, 5);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 }
