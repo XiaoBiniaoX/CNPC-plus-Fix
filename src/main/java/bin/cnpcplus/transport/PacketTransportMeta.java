@@ -25,7 +25,7 @@ import noppes.npcs.roles.RoleTransporter;
 import java.util.TreeMap;
 
 public final class PacketTransportMeta implements IMessage {
-    public static final int PLAYER = 0, EDITOR = 1, SAVE = 2, STATE = 3, IMAGE = 4, ACK = 5, TRAVEL = 6;
+    public static final int PLAYER = 0, EDITOR = 1, SAVE = 2, STATE = 3, IMAGE = 4, ACK = 5, TRAVEL = 6, DELETED = 7;
     public int npcId, action;
     public NBTTagCompound data = new NBTTagCompound();
     public PacketTransportMeta() { }

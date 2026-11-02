@@ -40,5 +40,8 @@ public final class CraftingViewNetwork {
         CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportMeta.ClientHandler.class, bin.cnpcplus.transport.PacketTransportMeta.class, nextId++, Side.CLIENT);
         CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportImage.Handler.class, bin.cnpcplus.transport.PacketTransportImage.class, nextId++, Side.SERVER);
         CHANNEL.registerMessage(bin.cnpcplus.transport.PacketTransportImage.ClientHandler.class, bin.cnpcplus.transport.PacketTransportImage.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.bossbar.BossBarPacket.Handler.class, bin.cnpcplus.bossbar.BossBarPacket.class, nextId++, Side.CLIENT);
+        CHANNEL.registerMessage(bin.cnpcplus.wand.PacketWandNpc.Handler.class, bin.cnpcplus.wand.PacketWandNpc.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.wand.PacketWandNpc.ClientHandler.class, bin.cnpcplus.wand.PacketWandNpc.class, nextId++, Side.CLIENT);
     }
 }

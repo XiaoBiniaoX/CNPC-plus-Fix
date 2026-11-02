@@ -6,6 +6,8 @@
   "refmap": "refmap.cnpcplus.json",
   "mixins": [],
   "client": [
+    "MixinBossOverlayRgb",
+    "ITextFieldCursor",
     "MixinGuiScreenSubGuiWheel"
   ],
   "server": [],

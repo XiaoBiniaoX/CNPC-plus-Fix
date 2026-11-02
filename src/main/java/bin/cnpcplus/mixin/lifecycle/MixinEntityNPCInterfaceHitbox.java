@@ -28,6 +28,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public class MixinEntityNPCInterfaceHitbox implements bin.cnpcplus.common.INpcGroundNavigation {
+    @Inject(method = "updateHitbox", at = @At("HEAD"), require = 1)
+    private void cnpcplus$nativeBox(CallbackInfo ci) { bin.cnpcplus.data.NpcHitboxStore.beginRefresh((EntityNPCInterface) (Object) this); }
     @Inject(method = "reset", at = @At("TAIL"), remap = false)
     private void cnpcplus$restoreSpawnCycle(CallbackInfo ci) {
         RespawnCycleStore.restore((EntityNPCInterface) (Object) this);
@@ -87,5 +89,6 @@ public class MixinEntityNPCInterfaceHitbox implements bin.cnpcplus.common.INpcGr
         npc.setEntityBoundingBox(new AxisAlignedBB(npc.posX - width / 2.0, npc.posY,
             npc.posZ - width / 2.0, npc.posX + width / 2.0,
             npc.posY + height, npc.posZ + width / 2.0));
+        if (!(npc instanceof noppes.npcs.entity.EntityCustomNpc)) bin.cnpcplus.data.NpcHitboxStore.refresh(npc);
     }
 }

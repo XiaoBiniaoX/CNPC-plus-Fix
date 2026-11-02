@@ -1,6 +1,7 @@
 package bin.cnpcplus.mixin.lifecycle;
 
 import bin.cnpcplus.common.MountTargetStore;
+import bin.cnpcplus.clone.CloneMounts;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -44,15 +45,7 @@ public class MixinPacketHandlerServerMount {
             ci.cancel();
             return;
         }
-        // Strip inherited mount trees so cloned riders cannot duplicate passengers.
-        compound.removeTag("Passengers");
-        compound.removeTag("Riding");
-        Entity rider = EntityList.createEntityFromNBT(compound, (World) player.world);
-        if (rider != null && rider != player && rider != target && rider.world == player.world
-                && rider.isEntityAlive() && rider.getRidingEntity() == null && !rider.isRiding()) {
-            player.world.spawnEntity(rider);
-            rider.startRiding(target, true);
-        }
+        CloneMounts.spawn(compound, target.posX, target.posY, target.posZ, player.world, target);
         ci.cancel();
     }
 

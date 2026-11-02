@@ -26,6 +26,8 @@ public final class ScriptTextArea extends GuiTextArea {
     private TextContainer marked;
     private boolean jumped;
     private String status = "";
+    private String staticText, checkStatus = "";
+    private ScriptDiagnostic staticDiagnostic, markedRuntime;
 
     public ScriptTextArea(int id, int x, int y, int width, int height, String text, ScriptContainer owner, String context, String language) {
         super(id, x, y, width, Math.max(24, height - 24), text);
@@ -35,6 +37,13 @@ public final class ScriptTextArea extends GuiTextArea {
     }
     private IGuiTextAreaScriptAccess access() { return (IGuiTextAreaScriptAccess) (Object) this; }
     private FontRenderer font() { return Minecraft.getMinecraft().fontRenderer; }
+    public void resize(int x, int y, int width, int height) {
+        this.x = x; this.y = y; this.width = width; this.height = Math.max(24, height - 24);
+        access().cnpcplus$container().lines.clear();
+        access().cnpcplus$container().init(IGuiTextAreaScriptAccess.cnpcplus$font(), width, this.height);
+        access().cnpcplus$scroll(Math.max(0, Math.min(access().cnpcplus$scroll(), access().cnpcplus$container().linesCount - access().cnpcplus$container().visibleLines)));
+        clicked = clickScrolling = false;
+    }
     public boolean hasPopup() { return active && result != null && !result.entries.isEmpty(); }
 
     private void refresh(boolean force) {
@@ -42,7 +51,7 @@ public final class ScriptTextArea extends GuiTextArea {
         if (!force && cursor == checkedCursor && getText().equals(checkedText)) return;
         checkedCursor = cursor; checkedText = getText(); selected = 0;
         hints = javascript ? ScriptApiCompletion.hint(checkedText, cursor, context) : Collections.emptyList();
-        result = javascript ? ScriptApiCompletion.complete(checkedText, cursor, context) : null;
+        result = javascript ? ScriptApiCompletion.complete(checkedText, cursor, context, ScriptHooks.names(owner, context)) : null;
         if (!force && result != null && result.start == cursor && (cursor == 0 || checkedText.charAt(cursor - 1) != '.')) result = null;
         if (!force && cursor == dismissedCursor && checkedText.equals(dismissedText)) result = null;
     }
@@ -87,18 +96,41 @@ public final class ScriptTextArea extends GuiTextArea {
         checkedCursor = -1; return handled;
     }
 
-    private ScriptDiagnostic diagnostic() { return ScriptDiagnostics.get(owner); }
+    private ScriptDiagnostic diagnostic() {
+        ScriptDiagnostic runtime = ScriptDiagnostics.get(owner);
+        return runtime != null && runtime.matches(getText()) ? runtime : staticDiagnostic;
+    }
+    public void simpleCheck() {
+        staticText = getText();
+        staticDiagnostic = javascript ? ScriptStaticCheck.check(staticText, ScriptHooks.globals(owner), owner.scripts.isEmpty()) : null;
+        checkStatus = !javascript ? I18n.format("cnpcplus.script.check_skipped")
+                : staticDiagnostic != null ? I18n.format(staticDiagnostic.warningKey, staticDiagnostic.token, staticDiagnostic.line)
+                : !owner.scripts.isEmpty() ? I18n.format("cnpcplus.script.check_brackets_only") : I18n.format("cnpcplus.script.check_clear");
+        marked = null; clicked = false; active = true; dismiss();
+        if (staticDiagnostic != null) jumpToError();
+    }
     private void markError() {
-        ScriptDiagnostic d = diagnostic();
+        if (staticText != null && !getText().equals(staticText)) {
+            staticText = null; staticDiagnostic = null; checkStatus = ""; marked = null;
+        }
+        ScriptDiagnostic runtime = ScriptDiagnostics.get(owner);
         TextContainer container = access().cnpcplus$container();
-        if (container == marked) return;
-        marked = container;
-        status = "";
-        if (d == null) return;
-        if (!d.matches(getText())) { status = I18n.format("cnpcplus.script.error_stale"); return; }
-        int[] range = ScriptDiagnostic.range(getText(), d.line);
-        if (range[0] < 0 || d.line == 0) { status = I18n.format("cnpcplus.script.error_external"); return; }
-        status = I18n.format("cnpcplus.script.error_line", d.line);
+        if (container == marked && runtime == markedRuntime) return;
+        marked = container; markedRuntime = runtime;
+        container.makeup.clear(); container.formatCodeText(); status = checkStatus;
+        if (staticDiagnostic != null) {
+            int[] warning = ScriptDiagnostic.range(getText(), staticDiagnostic.line);
+            if (warning[0] >= 0) {
+                int start = Math.min(warning[1], warning[0] + staticDiagnostic.column - 1);
+                int end = Math.min(warning[1], start + staticDiagnostic.length);
+                if (end > start) container.addMakeUp(start, end, 'c', 90);
+            }
+        }
+        if (runtime == null) return;
+        if (!runtime.matches(getText())) { status = I18n.format("cnpcplus.script.error_stale"); return; }
+        int[] range = ScriptDiagnostic.range(getText(), runtime.line);
+        if (range[0] < 0 || runtime.line == 0) { status = I18n.format("cnpcplus.script.error_external"); return; }
+        status = I18n.format("cnpcplus.script.error_line", runtime.line);
         if (range[1] > range[0]) container.addMakeUp(range[0], range[1], 'c', 100);
         if (!jumped) { jumpToError(); jumped = true; }
     }
@@ -108,7 +140,8 @@ public final class ScriptTextArea extends GuiTextArea {
         int[] range = ScriptDiagnostic.range(getText(), d.line);
         if (range[0] < 0) return;
         IGuiTextAreaScriptAccess a = access();
-        a.cnpcplus$cursor(range[0], false);
+        int caret = Math.min(range[1], range[0] + Math.max(0, d.column - 1));
+        a.cnpcplus$cursor(caret, false);
         TextContainer container = a.cnpcplus$container();
         // LineData is package-private. Read its actual wrapped-row start; never assume a fixed-width font.
         try {
@@ -116,7 +149,7 @@ public final class ScriptTextArea extends GuiTextArea {
                 Object row = container.lines.get(i);
                 Field start = row.getClass().getDeclaredField("start"); start.setAccessible(true);
                 Field end = row.getClass().getDeclaredField("end"); end.setAccessible(true);
-                if (range[0] >= start.getInt(row) && range[0] < end.getInt(row)) {
+                if (caret >= start.getInt(row) && caret < end.getInt(row)) {
                     a.cnpcplus$scroll(Math.max(0, Math.min(i - 2, container.linesCount - container.visibleLines))); break;
                 }
             }

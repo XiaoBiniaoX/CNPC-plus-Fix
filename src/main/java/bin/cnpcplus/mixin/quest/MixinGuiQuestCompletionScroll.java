@@ -2,6 +2,11 @@ package bin.cnpcplus.mixin.quest;
 
 import net.minecraft.client.gui.FontRenderer;
 import noppes.npcs.client.gui.player.GuiQuestCompletion;
+import noppes.npcs.client.TextBlockClient;
+import noppes.npcs.api.handler.data.IQuest;
+import bin.cnpcplus.text.TextStyles;
+import bin.cnpcplus.text.client.StyledTextBlock;
+import org.spongepowered.asm.mixin.Shadow;
 import org.lwjgl.input.Mouse;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -42,6 +47,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(value = GuiQuestCompletion.class, remap = false)
 public class MixinGuiQuestCompletionScroll {
+    @Shadow private IQuest quest;
+    @Unique private StyledTextBlock cnpcplus$block;
+
+    @Redirect(method = "drawQuestText", at = @At(value = "NEW", target = "noppes/npcs/client/TextBlockClient"), require = 1)
+    private TextBlockClient cnpcplus$styledBlock(String text, int width, boolean mcFont, Object[] context) {
+        cnpcplus$block = new StyledTextBlock(null, TextStyles.get(quest, TextStyles.COMPLETE, text), width, 0, mcFont, context);
+        return cnpcplus$block;
+    }
 
     /**
      * 可见行数。
@@ -106,6 +119,7 @@ public class MixinGuiQuestCompletionScroll {
                 || index >= this.cnpcplus$rowStart + CNPCPLUS_VISIBLE_LINES) {
             return 0;
         }
-        return font.drawString(text, x, y - this.cnpcplus$rowStart * font.FONT_HEIGHT, color);
+        cnpcplus$block.draw(index, x, y - this.cnpcplus$rowStart * font.FONT_HEIGHT, font.FONT_HEIGHT, color);
+        return 0;
     }
 }

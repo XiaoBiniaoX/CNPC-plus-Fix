@@ -101,8 +101,10 @@ public final class TransportData {
         int size = source.hasKey("TextSize", 99) ? source.getInteger("TextSize") : -1;
         tag.setInteger("TextSize", size <= 0 ? -1 : Math.max(6, Math.min(48, size)));
         tag.setInteger(NAME_STAMP, Math.max(0, source.getInteger(NAME_STAMP)));
+        if (source.hasUniqueId(TransportOwnership.KEY)) tag.setUniqueId(TransportOwnership.KEY, source.getUniqueId(TransportOwnership.KEY));
         // -1 = 没被拖动过，客户端按名字 A-Z 排；拖动后写 0..n-1，随 transport.dat 落盘。
-        tag.setInteger("Order", source.hasKey("Order", 99) ? integer(source, "Order", -1, -1, 100000) : -1);
+        if (source.hasKey("Order", 99) && source.getInteger("Order") >= 0)
+            tag.setInteger("Order", integer(source, "Order", -1, -1, 100000));
         return tag;
     }
     public static NBTTagCompound cleanPanel(NBTTagCompound source) {
@@ -126,7 +128,13 @@ public final class TransportData {
         NBTTagCompound tag = LOCATIONS.get(location);
         return tag == null ? cleanEntry(new NBTTagCompound()) : tag.copy();
     }
-    public static void setLocation(TransportLocation location, NBTTagCompound tag) { LOCATIONS.put(location, cleanEntry(tag)); }
+    public static void setLocation(TransportLocation location, NBTTagCompound tag) {
+        NBTTagCompound clean = cleanEntry(tag);
+        NBTTagCompound previous = LOCATIONS.get(location);
+        if (previous != null && previous.hasUniqueId(TransportOwnership.KEY))
+            clean.setUniqueId(TransportOwnership.KEY, previous.getUniqueId(TransportOwnership.KEY));
+        LOCATIONS.put(location, clean);
+    }
     public static int stamp(TransportLocation location) {
         NBTTagCompound tag = LOCATIONS.get(location);
         return tag == null ? 0 : Math.max(0, tag.getInteger(NAME_STAMP));
@@ -151,6 +159,7 @@ public final class TransportData {
     public static void setPanel(TransportCategory category, NBTTagCompound tag) { PANELS.put(category, cleanPanel(tag)); }
     public static NBTTagCompound meta(TransportLocation location) {
         NBTTagCompound tag = location(location);
+        if (!tag.hasKey("Order")) tag.setInteger("Order", -1); // UI sentinel only, not transport.dat.
         tag.setInteger("Id", location.id);
         tag.setString("Name", location.name);
         tag.setInteger(NAME_STAMP, stamp(location));

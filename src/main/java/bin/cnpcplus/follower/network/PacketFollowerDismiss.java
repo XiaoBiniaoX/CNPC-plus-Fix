@@ -26,6 +26,7 @@ public class PacketFollowerDismiss implements IMessage {
                     EntityPlayerMP owner = role.getOwner() instanceof EntityPlayerMP
                             ? (EntityPlayerMP) role.getOwner() : null;
                     if (owner == null || !owner.getUniqueID().equals(player.getUniqueID())) return;
+                    bin.cnpcplus.follower.FollowerMessages.say(role, player, bin.cnpcplus.follower.FollowerMessages.get(role).dismiss);
                     role.killed();
                     role.owner = null;
                     role.npc.updateClient = true;

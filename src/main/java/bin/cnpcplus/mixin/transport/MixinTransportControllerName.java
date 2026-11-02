@@ -46,6 +46,9 @@ public abstract class MixinTransportControllerName {
         int incoming = Math.max(0, compound.getInteger(TransportData.NAME_STAMP));
         int known = TransportData.stamp(current);
         String name = compound.getString("Name");
+        NBTTagCompound meta = TransportData.location(current);
+        if (meta.hasUniqueId(bin.cnpcplus.transport.TransportOwnership.KEY))
+            compound.setUniqueId(bin.cnpcplus.transport.TransportOwnership.KEY, meta.getUniqueId(bin.cnpcplus.transport.TransportOwnership.KEY));
         if (incoming < known) {
             compound.setString("Name", current.name);
             compound.setInteger(TransportData.NAME_STAMP, known);

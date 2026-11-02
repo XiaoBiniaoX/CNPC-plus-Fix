@@ -29,6 +29,10 @@ public final class ScriptApiCompletion {
     }
 
     public static Result complete(String text, int cursor, String context) {
+        return complete(text, cursor, context, Collections.emptyList());
+    }
+
+    public static Result complete(String text, int cursor, String context, List<String> hooks) {
         cursor = Math.max(0, Math.min(text.length(), cursor));
         String code = mask(text);
         if (mask(text.substring(0, cursor) + "X").charAt(cursor) != 'X') return new Result(cursor, Collections.emptyList());
@@ -42,9 +46,22 @@ public final class ScriptApiCompletion {
             Type owner = resolve(expressionBefore(code, dot), roots, 0);
             choices.addAll(members(raw(owner)));
         } else {
-            for (Map.Entry<String, Type> root : roots.entrySet()) choices.add(new Entry(root.getKey(), root.getKey(), root.getKey() + " : " + label(root.getValue()), root.getValue(), false));
-            choices.add(new Entry("log", "log(", "log(Object) : void", Void.TYPE, true));
-            choices.add(new Entry("dump", "dump(", "dump(Object) : String", String.class, true));
+            boolean declaration = code.substring(0, start).matches("(?s).*\\bfunction\\s+");
+            Map<String, Entry> functions = new LinkedHashMap<>();
+            for (String hook : hooks) if (hook.matches("[$_\\p{L}][$_\\p{L}\\p{N}\\p{M}]*"))
+                functions.put(hook, new Entry(hook, declaration ? hook : hook + "(", hook + "(event) [CNPC hook]", null, !declaration));
+            Matcher named = Pattern.compile("\\bfunction\\s+([$_\\p{L}][$_\\p{L}\\p{N}\\p{M}]*)\\s*\\(").matcher(code);
+            while (named.find()) {
+                String name = named.group(1);
+                functions.putIfAbsent(name, new Entry(name, declaration ? name : name + "(", name + "(...) [script]", null, !declaration));
+            }
+            choices.addAll(functions.values());
+            if (!declaration) {
+                for (Map.Entry<String, Type> root : roots.entrySet()) if (root.getKey().indexOf('.') < 0)
+                    choices.add(new Entry(root.getKey(), root.getKey(), root.getKey() + " : " + label(root.getValue()), root.getValue(), false));
+                choices.add(new Entry("log", "log(", "log(Object) : void", Void.TYPE, true));
+                choices.add(new Entry("dump", "dump(", "dump(Object) : String", String.class, true));
+            }
         }
         choices.removeIf(e -> !e.name.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)));
         choices.sort(Comparator.comparing((Entry e) -> !e.name.startsWith(prefix)).thenComparing(e -> e.name).thenComparing(e -> e.signature));
@@ -73,7 +90,7 @@ public final class ScriptApiCompletion {
 
     private static Map<String, Type> roots(String code, int cursor, String context) {
         Map<String, Type> roots = new LinkedHashMap<>();
-        Class<?> base = load(API + "event." + context);
+        Class<?> base = load(API + "event." + (context.equals("BlockDoorEvent") ? "BlockEvent" : context));
         String eventName = "event", function = "";
         int scope = 0;
         Matcher m = FUNCTION.matcher(code);
@@ -83,6 +100,8 @@ public final class ScriptApiCompletion {
         }
         Class<?> event = eventClass(base, function);
         if (event != null) roots.put(eventName, event);
+        if (context.equals("BlockEvent") || context.equals("BlockDoorEvent"))
+            roots.put(eventName + ".block", load(API + "block." + (context.equals("BlockDoorEvent") ? "IBlockScriptedDoor" : "IBlockScripted")));
         roots.put("PosZero", load(API + "IPos"));
         for (String name : new String[]{"AnimationType", "EntityType", "RoleType", "JobType", "SideType", "TacticalType", "ParticleType"}) roots.put(name, load(API + "constants." + name));
         // ponytail: local declarations and API chains, not a JS type checker. Unknown/dynamic values stay unknown.
@@ -131,11 +150,49 @@ public final class ScriptApiCompletion {
         List<Entry> cached = CACHE.get(owner);
         if (cached != null) return cached;
         Map<String, Entry> entries = new TreeMap<>();
-        for (Field field : owner.getFields()) {
-            Entry e = new Entry(field.getName(), field.getName(), field.getName() + " : " + label(field.getGenericType()), field.getGenericType(), false);
-            entries.put(e.signature, e);
+        collectMembers(owner, entries);
+        Class<?> runtime = runtimeWrapper(owner);
+        if (runtime != null) collectMembers(runtime, entries);
+        if (owner.isArray()) entries.put("length", new Entry("length", "length", "length : int", Integer.TYPE, false));
+        cached = Collections.unmodifiableList(new ArrayList<>(entries.values()));
+        CACHE.put(owner, cached);
+        return cached;
+    }
+
+    /** CNPC naming only. Addon public methods are reflected after Mixin transformation. */
+    public static Class<?> runtimeWrapper(Class<?> owner) {
+        if (owner == null) return null;
+        if (owner.getName().equals(API + "NpcAPI")) return load(API + "wrapper.WrapperNpcAPI");
+        if (!owner.isInterface() || !owner.getName().startsWith(API) || !owner.getSimpleName().startsWith("I")) return null;
+        String wrapper;
+        switch (owner.getSimpleName()) {
+            case "ICustomNpc": wrapper = "NPCWrapper"; break;
+            case "IEntity": wrapper = "EntityWrapper"; break;
+            case "IEntityLiving": wrapper = "EntityLivingBaseWrapper"; break;
+            case "IMob": wrapper = "EntityLivingWrapper"; break;
+            case "IItemStack": wrapper = "ItemStackWrapper"; break;
+            case "INbt": wrapper = "NBTWrapper"; break;
+            case "IPos": wrapper = "BlockPosWrapper"; break;
+            default: wrapper = owner.getSimpleName().substring(1) + "Wrapper";
         }
-        for (Method method : owner.getMethods()) {
+        Class<?> runtime = load(API + "wrapper." + wrapper);
+        if (runtime != null && owner.isAssignableFrom(runtime)) return runtime;
+        for (Class<?> parent : owner.getInterfaces()) {
+            runtime = runtimeWrapper(parent);
+            if (runtime != null) return runtime;
+        }
+        return null;
+    }
+
+    private static void collectMembers(Class<?> owner, Map<String, Entry> entries) {
+        Field[] fields; Method[] methods;
+        try { fields = owner.getFields(); methods = owner.getMethods(); }
+        catch (LinkageError | SecurityException unavailable) { return; }
+        for (Field field : fields) {
+            Entry e = new Entry(field.getName(), field.getName(), field.getName() + " : " + label(field.getGenericType()), field.getGenericType(), false);
+            entries.putIfAbsent("field:" + field.getName(), e);
+        }
+        for (Method method : methods) {
             if (method.getDeclaringClass() == Object.class || method.isSynthetic() || method.isBridge()) continue;
             StringBuilder signature = new StringBuilder(method.getName()).append('(');
             Type[] params = method.getGenericParameterTypes();
@@ -146,27 +203,14 @@ public final class ScriptApiCompletion {
             }
             signature.append(") : ").append(label(method.getGenericReturnType()));
             Entry e = new Entry(method.getName(), method.getName() + (params.length == 0 ? "()" : "("), signature.toString(), method.getGenericReturnType(), true);
-            entries.put(e.signature, e);
+            String key = method.getName() + Arrays.toString(method.getParameterTypes());
+            entries.putIfAbsent(key, e);
             if (params.length == 0 && method.getName().startsWith("get") && method.getName().length() > 3 && method.getReturnType() != Void.TYPE) {
                 String property = Character.toLowerCase(method.getName().charAt(3)) + method.getName().substring(4);
                 Entry p = new Entry(property, property, property + " : " + label(e.type) + " [" + method.getName() + "()]", e.type, false);
-                entries.put(p.signature, p);
+                entries.putIfAbsent("field:" + property, p);
             }
         }
-        // CNPCPlus adds these to the runtime wrappers rather than to IEntity/IBlock/IItemScripted.
-        String wrapper = null;
-        Class<?> entity = load(API + "entity.IEntity"), block = load(API + "block.IBlock"), item = load(API + "item.IItemScripted");
-        if (owner.isInterface() && entity != null && entity.isAssignableFrom(owner)) wrapper = "EntityWrapper";
-        else if (owner.isInterface() && block != null && block.isAssignableFrom(owner)) wrapper = "BlockWrapper";
-        else if (owner.isInterface() && item != null && item.isAssignableFrom(owner)) wrapper = "ItemScriptedWrapper";
-        if (wrapper != null) {
-            Class<?> runtime = load(API + "wrapper." + wrapper);
-            if (runtime != null) for (Entry e : members(runtime)) if (e.name.startsWith("spawn") && e.name.endsWith("Particle")) entries.put(e.signature, e);
-        }
-        if (owner.isArray()) entries.put("length", new Entry("length", "length", "length : int", Integer.TYPE, false));
-        cached = Collections.unmodifiableList(new ArrayList<>(entries.values()));
-        CACHE.put(owner, cached);
-        return cached;
     }
 
     private static Type resolve(String expression, Map<String, Type> roots, int depth) {
@@ -175,6 +219,12 @@ public final class ScriptApiCompletion {
         int i = 0;
         while (i < expression.length() && identifier(expression.charAt(i))) i++;
         Type type = roots.get(expression.substring(0, i));
+        // Only the current event's block is known to be scripted, not every world block.
+        for (Map.Entry<String, Type> root : roots.entrySet()) if (root.getKey().indexOf('.') >= 0
+                && expression.startsWith(root.getKey()) && (expression.length() == root.getKey().length()
+                || !identifier(expression.charAt(root.getKey().length())))) {
+            type = root.getValue(); i = root.getKey().length(); break;
+        }
         while (type != null && i < expression.length()) {
             while (i < expression.length() && Character.isWhitespace(expression.charAt(i))) i++;
             if (i == expression.length()) break;
@@ -259,21 +309,8 @@ public final class ScriptApiCompletion {
         return count;
     }
 
-    /** Preserve offsets while masking JS strings, templates and comments. */
+    /** Preserve offsets, including regex literals and template interpolation code. */
     public static String mask(String text) {
-        char[] out = text.toCharArray();
-        char quote = 0; boolean line = false, block = false;
-        for (int i = 0; i < out.length; i++) {
-            char c = text.charAt(i), next = i + 1 < out.length ? text.charAt(i + 1) : 0;
-            if (line && c == '\n') line = false;
-            if (line || block || quote != 0) {
-                if (c != '\n') out[i] = ' ';
-                if (block && c == '*' && next == '/') { out[++i] = ' '; block = false; }
-                else if (quote != 0 && c == '\\' && i + 1 < out.length) { out[++i] = ' '; }
-                else if (quote != 0 && c == quote) quote = 0;
-            } else if (c == '/' && (next == '/' || next == '*')) { out[i] = out[++i] = ' '; line = next == '/'; block = next == '*'; }
-            else if (c == '\'' || c == '"' || c == '`') { quote = c; out[i] = '0'; }
-        }
-        return new String(out);
+        return ScriptLexical.mask(text);
     }
 }

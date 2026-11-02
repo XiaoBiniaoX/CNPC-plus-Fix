@@ -100,6 +100,15 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
     /** 材质包换图后 PNG 尺寸缓存必须失效，否则新图仍按旧尺寸画。 */
     @SubscribeEvent public static void reload(TextureStitchEvent.Post event) { TransportAssets.clear(); }
     public static void receive(PacketTransportMeta message) {
+        if (message.action == PacketTransportMeta.DELETED) {
+            if (active == null || active.closed || message.data == null) return;
+            for (int id : message.data.getIntArray("Deleted")) {
+                active.entries.remove(id); active.dirtyEntries.remove(id); active.savingIds.remove(id);
+                if (active.selected == id) active.selected = active.current.getInteger("Id");
+            }
+            active.applyFilter(); active.syncWidgets();
+            return;
+        }
         if (active == null || message.npcId != active.npcId || message.data == null) return;
         if (message.action == PacketTransportMeta.STATE) active.setGuiData(message.data);
         else if (message.action == PacketTransportMeta.ACK) active.acknowledge(message.data);

@@ -13,10 +13,16 @@ public final class ScriptDiagnostic {
     private static final Pattern LOCATION = Pattern.compile("(?:<eval>|<Unknown source>|<script>|Script|script|Unknown Source):(\\d+)(?::(\\d+))?|(?:line number|line|行号)\\s*[:=]?\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
     public final int line, column;
     public final String hash, message;
+    public final String warningKey, token;
+    public final int length;
 
     public ScriptDiagnostic(int line, int column, String hash, String message) {
+        this(line, column, hash, message, "", "", 0);
+    }
+    public ScriptDiagnostic(int line, int column, String hash, String message, String warningKey, String token, int length) {
         this.line = Math.max(0, line); this.column = Math.max(0, column);
         this.hash = hash; this.message = message.length() > 2048 ? message.substring(0, 2048) : message;
+        this.warningKey = warningKey; this.token = token; this.length = length;
     }
     public static ScriptDiagnostic capture(Throwable error, String script) {
         int line = 0, column = 0;

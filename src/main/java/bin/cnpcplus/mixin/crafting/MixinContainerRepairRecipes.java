@@ -88,7 +88,8 @@ public abstract class MixinContainerRepairRecipes extends Container implements I
         listener.sendWindowProperty(this, 1, this.cnpcplus$customRecipe ? 1 : 0);
     }
 
-    @Inject(method = "updateProgressBar", at = @At("HEAD"), cancellable = true, require = 1)
+    // 原生方法标注 @SideOnly(CLIENT)，专用服务端会剥离；仅此客户端接收入口允许无目标。
+    @Inject(method = "updateProgressBar", at = @At("HEAD"), cancellable = true, require = 0)
     private void cnpcplus$receiveMode(int id, int value, CallbackInfo ci) {
         if (id == 1) { this.cnpcplus$customRecipe = value != 0; ci.cancel(); }
     }

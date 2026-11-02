@@ -8,6 +8,8 @@ public class CnpcPlusConfig {
     public static String recipeFuzzyMatchRules = "tacz:modern_kinetic_gun|GunId;slashblade:slashblade|";
 
     private static Configuration config;
+    private static File configFile;
+    private static long lastModified;
 
     public static boolean isTargetSearchOptimized() {
         return config == null || config.getBoolean("npcTargetSearchOptimize", "performance", true,
@@ -15,6 +17,7 @@ public class CnpcPlusConfig {
     }
 
     public static void init(File file) {
+        configFile = file;
         config = new Configuration(file);
         load();
     }
@@ -104,13 +107,46 @@ public class CnpcPlusConfig {
                 "Max distance (blocks) to render the <title> line above npc names (client). 0 = hide titles");
         config.getInt("playerDataAutoSaveSeconds", "playerdata", 300, 0, 86400,
                 "Seconds between automatic CNPC player data saves (quests/dialogs/transports). 0 = off");
+        config.getBoolean("InventoryFactionTab", "client", true,
+                "Show CNPC faction tab in survival inventory; Quest Log opened by its key is unchanged");
+        config.getBoolean("InventoryQuestTab", "client", true,
+                "Show CNPC quest tab in survival inventory; Quest Log opened by its key is unchanged");
+        config.getBoolean("IndependentRespawnClock", "respawn", true,
+                "Persist an independent in-game respawn clock, paused while doDaylightCycle is false; off restores wall-time countdowns");
+        config.getBoolean("WandNpcHitboxes", "client", true,
+                "Show actual NPC collision boxes within 30 blocks while holding an NPC, clone or script wand");
         if (config.hasChanged()) {
             config.save();
         }
+        lastModified = configFile.lastModified();
+    }
+
+    /** Reload file edits when opening the inventory; no watcher thread or restart required. */
+    public static void refreshInventoryOptions() {
+        if (configFile != null && configFile.lastModified() != lastModified) load();
+    }
+
+    public static boolean showInventoryFactionTab() {
+        return config == null || config.getBoolean("InventoryFactionTab", "client", true,
+                "Show CNPC faction tab in survival inventory; Quest Log opened by its key is unchanged");
+    }
+
+    public static boolean showInventoryQuestTab() {
+        return config == null || config.getBoolean("InventoryQuestTab", "client", true,
+                "Show CNPC quest tab in survival inventory; Quest Log opened by its key is unchanged");
     }
 
     public static Configuration getConfig() {
         return config;
+    }
+
+    public static boolean independentRespawnClock() {
+        return config == null || config.getBoolean("IndependentRespawnClock", "respawn", true,
+                "Persist an independent in-game respawn clock, paused while doDaylightCycle is false; off restores wall-time countdowns");
+    }
+    public static boolean wandNpcHitboxes() {
+        return config == null || config.getBoolean("WandNpcHitboxes", "client", true,
+                "Show actual NPC collision boxes within 30 blocks while holding an NPC, clone or script wand");
     }
 
     public static boolean isRealArmorEnabled() {

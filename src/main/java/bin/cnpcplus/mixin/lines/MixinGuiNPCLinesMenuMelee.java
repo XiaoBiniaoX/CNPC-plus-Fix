@@ -1,12 +1,10 @@
 package bin.cnpcplus.mixin.lines;
 
-import bin.cnpcplus.lines.MeleeLineStore;
+import bin.cnpcplus.lines.client.GuiLinesArrayEditor;
 import net.minecraft.client.gui.GuiButton;
 import noppes.npcs.client.NoppesUtil;
-import noppes.npcs.client.gui.GuiNPCLinesEdit;
 import noppes.npcs.client.gui.advanced.GuiNPCLinesMenu;
 import noppes.npcs.client.gui.util.GuiNpcButton;
-import noppes.npcs.controllers.data.Lines;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -63,15 +61,20 @@ public class MixinGuiNPCLinesMenuMelee {
 
     @Inject(method = "func_146284_a", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
     private void cnpcplus$openMeleeLines(GuiButton button, CallbackInfo ci) {
-        if (button == null || button.id != CNPCPLUS_MELEE_BUTTON) {
-            return;
+        int type;
+        switch (button.id) {
+            case 0: type = 2; break;
+            case 1: type = 1; break;
+            case 2: type = 0; break;
+            case 5: type = 3; break;
+            case 6: type = 4; break;
+            case 7: type = 5; break;
+            case CNPCPLUS_MELEE_BUTTON: type = 6; break;
+            default: return;
         }
         GuiNPCLinesMenu self = (GuiNPCLinesMenu) (Object) this;
-        Lines lines = MeleeLineStore.get(self.npc.advanced);
-        if (lines == null) {
-            return;
-        }
-        NoppesUtil.openGUI(self.player, new GuiNPCLinesEdit(self.npc, lines));
+        self.save();
+        NoppesUtil.openGUI(self.player, new GuiLinesArrayEditor(self.npc, type));
         ci.cancel();
     }
 }

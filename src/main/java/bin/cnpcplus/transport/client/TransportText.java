@@ -2,25 +2,13 @@ package bin.cnpcplus.transport.client;
 
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
-import java.util.Arrays;
+import bin.cnpcplus.text.TextSpans;
 
 /** 样式与正文分离：start,end,RGB,flags；格式只在绘制时使用，不写进用户文本。 */
 public final class TransportText {
     private TransportText() { }
     private static int[][] styles(String raw, int length) {
-        int[][] styles = new int[2][length]; Arrays.fill(styles[0], -1);
-        if (raw == null || raw.isEmpty()) return styles;
-        int count = 0;
-        for (String part : raw.split(";")) {
-            if (++count > 512) break;
-            String[] fields = part.split(","); if (fields.length != 4) continue;
-            try {
-                int start = Math.max(0, Integer.parseInt(fields[0].trim())), end = Math.min(length, Integer.parseInt(fields[1].trim()));
-                int rgb = Integer.parseInt(fields[2].trim()), flags = Integer.parseInt(fields[3].trim()) & 7;
-                for (int i = start; i < end; i++) { if (rgb >= 0) styles[0][i] = rgb & 0xFFFFFF; styles[1][i] |= flags; }
-            } catch (NumberFormatException ignored) { }
-        }
-        return styles;
+        return TextSpans.read(raw == null ? "" : raw, length);
     }
     /** 文本长度变化后把样式裁到新长度：否则删掉的字数会把旧颜色留给之后新输入的字。 */
     public static String trim(String raw, int length) {
@@ -33,45 +21,19 @@ public final class TransportText {
     }
     /** 清除选区颜色（IBE 的 removeColorFormatting）：把这段从颜色区间里挖掉，其余颜色保留。 */
     public static String clear(String raw, int length, int start, int end) {
-        start = Math.max(0, Math.min(length, start)); end = Math.max(start, Math.min(length, end));
-        if (start >= end) return raw;
-        int[][] styles = styles(raw, length);
-        for (int i = start; i < end; i++) styles[0][i] = -1;
-        return serialize(styles, length);
+        return TextSpans.apply(raw, length, start, end, -2, 0, false);
     }
     /** 切换选区样式；reset=true 时把选区恢复成默认（颜色 + 全部样式）。 */
     public static String style(String raw, int length, int start, int end, int flag, boolean reset) {
         return apply(raw, length, start, end, -1, flag, reset);
     }
     public static String apply(String raw, int length, int start, int end, int color, int flag, boolean reset) {
-        start = Math.max(0, Math.min(length, start)); end = Math.max(start, Math.min(length, end));
-        if (start >= end) return raw;
-        int[][] styles = styles(raw, length);
-        boolean remove = flag != 0;
-        for (int i = start; i < end; i++) remove &= (styles[1][i] & flag) == flag;
-        for (int i = start; i < end; i++) {
-            if (reset) { styles[0][i] = -1; styles[1][i] = 0; }
-            else {
-                if (color >= 0) styles[0][i] = color & 0xFFFFFF;
-                if (flag != 0) styles[1][i] = remove ? styles[1][i] & ~flag : styles[1][i] | flag;
-            }
-        }
-        return serialize(styles, length);
+        return TextSpans.apply(raw, length, start, end, color, flag, reset);
     }
 
     /** 逐字符样式重新压成区间串；相邻同值自动合并，越界区间自然消失。 */
     private static String serialize(int[][] styles, int length) {
-        StringBuilder result = new StringBuilder();
-        for (int from = 0; from < length;) {
-            int to = from + 1;
-            while (to < length && styles[0][to] == styles[0][from] && styles[1][to] == styles[1][from]) to++;
-            if (styles[0][from] >= 0 || styles[1][from] != 0) {
-                if (result.length() > 0) result.append(';');
-                result.append(from).append(',').append(to).append(',').append(styles[0][from]).append(',').append(styles[1][from]);
-            }
-            from = to;
-        }
-        return result.toString();
+        return TextSpans.write(styles);
     }
 
     public static void draw(FontRenderer font, String text, String spans, int x, int y, int size, int color, int maxWidth) {

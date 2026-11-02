@@ -24,7 +24,7 @@ import org.apache.logging.log4j.Logger;
 public class CnpcPlus {
     public static final String MODID = "cnpcplus";
     public static final String NAME = "CNPCPlus";
-    public static final String VERSION = "4.0.5";
+    public static final String VERSION = "4.0.6";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.EventHandler
@@ -44,6 +44,7 @@ public class CnpcPlus {
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.crafting.DropCrafting.class);
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.crafting.network.PacketRecipeUpload.class);
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.transport.TransportImages.class);
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.respawn.RespawnClock.class);
         SmeltingGuiOpener.register();
     }
 
@@ -58,6 +59,7 @@ public class CnpcPlus {
         bin.cnpcplus.data.NpcExternalData.clear();
         bin.cnpcplus.villagertrade.TradeStore.clear();
         bin.cnpcplus.transport.TransportImages.clear();
+        bin.cnpcplus.respawn.RespawnClock.clear();
     }
 
     @Mod.EventHandler

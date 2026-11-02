@@ -8,6 +8,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import noppes.npcs.CustomNpcs;
 import noppes.npcs.entity.EntityNPCInterface;
+import noppes.npcs.entity.EntityCustomNpc;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -22,7 +23,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * NPC 的掉落物/脚本/商人/召唤师数据按内容哈希外置到世界存档目录，实体 NBT 里只留引用。
+ * NPC 的装备/脚本/商人/召唤师/高级/模型数据按内容哈希外置，实体 NBT 里只留引用。
  * 摘除点挂 {@code EntityNPCInterface.writeEntityToNBT} 的出口，和 1.20.1 的
  * {@code m_7380_} 一致：区块存档、克隆、灵魂石、任何读取实体 NBT 的工具都会经过这里。
  * 组件直写的快照（LinkedNpcController.readNpcData、GUI 同步包）不经过实体存档，仍拿内联数据。
@@ -33,13 +34,18 @@ public final class NpcExternalData {
     private enum Group {
         SCRIPTS("scripts", "CNPCPlusScriptsRef", "", new String[]{"Scripts", "ScriptLanguage", "ScriptEnabled"}),
         SPAWNER("spawner", "CNPCPlusSpawnerRef", "", new String[]{"CNPCPlusSpawnerEntries", "SpawnerNBT1", "SpawnerNBT2", "SpawnerNBT3", "SpawnerNBT4", "SpawnerNBT5", "SpawnerNBT6"}),
-        INVENTORY("inventory", "CNPCPlusInventoryRef", "", new String[]{"NpcInv", "DropChance", "Armor", "Weapons", "LootMode", "MinExp", "MaxExp"}),
+        INVENTORY("inventory", "CNPCPlusInventoryRef", "", new String[]{"NpcInv", "DropChance", "Armor", "Weapons", "LootMode", "MinExp", "MaxExp", "TransformInv"}),
         // RoleTrader.writeToNBT 直接写在**顶层**实体标签上（javap 证据：
         // EntityNPCInterface.func_70014_b 里 roleInterface.writeToNBT(aload_1)，
         // 只有 role==6 的 Companion 才另开 "Companion" 子复合）。
         // 顶层的 "Role" 是个 int（DataAdvanced.role 角色编号），不是复合标签，
         // 所以以前 parent="Role" 让 host() 恒为 null —— 商人 NBT 从来没被分离过。
-        TRADER("trader", "CNPCPlusTraderRef", "", new String[]{"TraderMarket", "TraderCurrency", "TraderSold", "TraderIgnoreDamage", "TraderIgnoreNBT"});
+        TRADER("trader", "CNPCPlusTraderRef", "", new String[]{"TraderMarket", "TraderCurrency", "TraderSold", "TraderIgnoreDamage", "TraderIgnoreNBT"}),
+        ADVANCED("advanced", "CNPCPlusAdvancedRef", "", new String[]{"NpcLines", "NpcKilledLines", "NpcInteractLines", "NpcAttackLines",
+                "NpcKillLines", "NpcInteractNPCLines", "CNPCPlusMeleeLines", "OrderedLines", "NpcIdleSound", "NpcAngrySound",
+                "NpcHurtSound", "NpcDeathSound", "NpcStepSound", "DisablePitch", "CNPCPlusSoundArrays", "NPCDialogOptions",
+                "BossBar", "BossColor", "CNPCPlusBossbar", "TransformAdvanced", "TransformRole"}),
+        MODEL("model", "CNPCPlusModelRef", "", new String[]{"NpcModelData", "TransformDisplay", "TransformJob"});
         final String folder, reference, parent;
         final String[] keys;
         Group(String folder, String reference, String parent, String[] keys) {
@@ -49,6 +55,11 @@ public final class NpcExternalData {
             if (parent.isEmpty()) return tag;
             NBTBase base = tag.getTag(parent);
             return base instanceof NBTTagCompound ? (NBTTagCompound) base : null;
+        }
+        boolean includes(String key) {
+            for (String value : keys) if (value.equals(key)) return true;
+            return this == MODEL && (key.startsWith("Puppet") || key.startsWith("CNPCPlusPuppet"))
+                    || this == ADVANCED && (key.startsWith("Mercenary") || key.startsWith("CNPCPlusFollower"));
         }
     }
     private static final class State {
@@ -84,44 +95,64 @@ public final class NpcExternalData {
     public static synchronized void load(EntityNPCInterface npc, NBTTagCompound tag) {
         if (npc.world == null || npc.world.isRemote) return;
         for (Group group : Group.values()) {
-            NBTTagCompound host = group.host(tag);
-            if (host == null) continue;
-            String hash = host.getString(group.reference);
-            boolean inline = hasInline(host, group);
-            if (inline) { migrateLegacy(npc, host, group, hash); continue; }
-            if (!hash.matches(HASH)) continue;
-            State state = new State();
-            try {
-                Path file = path(group, hash);
-                if (!Files.isRegularFile(file)) throw new IOException("Missing external NPC data: " + file);
-                state.data = READS.get(file);
-                if (state.data == null) { state.data = NbtFiles.read(file); READS.put(file, state.data); }
-                state.hash = hash;
-                state.persisted = CompletableFuture.completedFuture(null);
-                WRITES.putIfAbsent(file, state.persisted);
-                for (String key : group.keys) if (state.data.hasKey(key)) host.setTag(key, state.data.getTag(key).copy());
-            } catch (Exception error) {
-                state.failedReference = hash;
-                CnpcPlus.LOGGER.error("Cannot restore NPC {} {} data; retaining reference", npc.getUniqueID(), group.folder, error);
-            }
-            states(npc).put(group, state);
+            if (group != Group.MODEL || !(npc instanceof EntityCustomNpc)) load(npc, tag, group);
         }
+    }
+
+    /** EntityCustomNpc reads its model before its parent reads the other components. */
+    public static synchronized void loadModel(EntityNPCInterface npc, NBTTagCompound tag) {
+        if (npc.world != null && !npc.world.isRemote) load(npc, tag, Group.MODEL);
+    }
+
+    private static void load(EntityNPCInterface npc, NBTTagCompound tag, Group group) {
+        states(npc).remove(group);
+        NBTTagCompound host = group.host(tag);
+        if (host == null) return;
+        String hash = host.getString(group.reference);
+        boolean inline = hasInline(host, group);
+        if (inline) { migrateLegacy(npc, host, group, hash); return; }
+        if (!hash.matches(HASH)) {
+            if (host.hasKey(group.reference)) {
+                State state = new State();
+                state.failedReference = hash;
+                state.data = extract(host, group);
+                states(npc).put(group, state);
+            }
+            return;
+        }
+        State state = new State();
+        try {
+            Path file = path(group, hash);
+            if (!Files.isRegularFile(file)) throw new IOException("Missing external NPC data: " + file);
+            state.data = READS.get(file);
+            if (state.data == null) { state.data = NbtFiles.read(file); READS.put(file, state.data); }
+            state.hash = hash;
+            state.persisted = CompletableFuture.completedFuture(null);
+            WRITES.putIfAbsent(file, state.persisted);
+            for (String key : state.data.getKeySet()) if (group.includes(key)) host.setTag(key, state.data.getTag(key).copy());
+        } catch (Exception error) {
+            state.failedReference = hash;
+            state.data = extract(host, group);
+            CnpcPlus.LOGGER.error("Cannot restore NPC {} {} data; retaining reference", npc.getUniqueID(), group.folder, error);
+        }
+        states(npc).put(group, state);
     }
 
     /** 旧档迁移：内联数据先落到世界目录，引用写回 NBT；内联等下一次保存再摘。 */
     private static void migrateLegacy(Entity npc, NBTTagCompound host, Group group, String reference) {
+        NBTTagCompound original = extract(host, group);
         try {
+            if (host.hasKey(group.reference) && !reference.matches(HASH)) throw new IOException("Invalid NPC snapshot reference: " + reference);
             // 旧版本可能只摘了部分键（例如只摘 NpcInv/DropChance，Armor/Weapons 仍内联）。
             // 迁移前先把引用文件里、当前 NBT 缺失的键补回来，否则生成的新快照会丢掉
             // 引用文件中的内容 —— 表现为 NPC 掉落物/装备凭空消失。
             if (reference.matches(HASH)) {
                 Path previous = path(group, reference);
-                if (Files.isRegularFile(previous)) {
-                    NBTTagCompound referenced = READS.get(previous);
-                    if (referenced == null) { referenced = NbtFiles.read(previous); READS.put(previous, referenced); }
-                    for (String key : group.keys) {
-                        if (!host.hasKey(key) && referenced.hasKey(key)) host.setTag(key, referenced.getTag(key).copy());
-                    }
+                if (!Files.isRegularFile(previous)) throw new IOException("Missing external NPC data: " + previous);
+                NBTTagCompound referenced = READS.get(previous);
+                if (referenced == null) { referenced = NbtFiles.read(previous); READS.put(previous, referenced); }
+                for (String key : referenced.getKeySet()) {
+                    if (group.includes(key) && !host.hasKey(key)) host.setTag(key, referenced.getTag(key).copy());
                 }
             }
             NBTTagCompound payload = extract(host, group);
@@ -140,13 +171,20 @@ public final class NpcExternalData {
             WRITES.putIfAbsent(file, state.persisted);
             host.setString(group.reference, hash);
         } catch (Exception error) {
+            if (host.hasKey(group.reference)) {
+                State state = new State();
+                state.failedReference = reference;
+                state.data = original;
+                states(npc).put(group, state);
+            }
             CnpcPlus.LOGGER.error("Cannot migrate NPC {} {} data; inline NBT retained", npc.getUniqueID(), group.folder, error);
         }
     }
 
     private static NBTTagCompound extract(NBTTagCompound host, Group group) {
         NBTTagCompound payload = new NBTTagCompound();
-        for (String key : group.keys) {
+        for (String key : host.getKeySet()) {
+            if (!group.includes(key)) continue;
             NBTBase value = host.getTag(key);
             if (value != null) payload.setTag(key, value.copy());
         }
@@ -168,7 +206,7 @@ public final class NpcExternalData {
     }
 
     private static boolean hasInline(NBTTagCompound tag, Group group) {
-        for (String key : group.keys) if (tag.hasKey(key)) return true;
+        for (String key : tag.getKeySet()) if (group.includes(key)) return true;
         return false;
     }
 
@@ -180,7 +218,11 @@ public final class NpcExternalData {
     public static synchronized void saveTree(Entity entity, NBTTagCompound tag) {
         if (entity.world == null || entity.world.isRemote) return;
         if (!(entity instanceof EntityNPCInterface)) return;
-        for (Group group : Group.values()) save(entity, tag, group);
+        for (Group group : Group.values()) if (group != Group.MODEL || !(entity instanceof EntityCustomNpc)) save(entity, tag, group);
+    }
+
+    public static synchronized void saveModel(EntityNPCInterface npc, NBTTagCompound tag) {
+        if (npc.world != null && !npc.world.isRemote) save(npc, tag, Group.MODEL);
     }
 
     private static void save(Entity npc, NBTTagCompound tag, Group group) {
@@ -188,6 +230,13 @@ public final class NpcExternalData {
             NBTTagCompound host = group.host(tag);
             if (host == null) return;
             State state = states(npc).get(group);
+            if (state != null && state.failedReference != null) {
+                // Native defaults cannot replace an unreadable original snapshot.
+                strip(host, group);
+                host.merge(state.data.copy());
+                host.setString(group.reference, state.failedReference);
+                return;
+            }
             // 没有内联 = 已经被摘除（自己或别的挂钩先跑过）。只补引用，绝不用空数据覆盖文件，
             // 否则重复挂钩会把内容文件洗成空文件。
             if (!hasInline(host, group)) {
@@ -196,11 +245,6 @@ public final class NpcExternalData {
             }
             NBTTagCompound payload = extract(host, group);
             boolean nonempty = nonempty(payload);
-            if (state != null && state.failedReference != null && !nonempty) {
-                host.setString(group.reference, state.failedReference);
-                strip(host, group);
-                return;
-            }
             if (state == null && !nonempty) return;
             if (state == null || state.data == null || !state.data.equals(payload)) {
                 String hash = hash(payload);
@@ -228,7 +272,33 @@ public final class NpcExternalData {
     }
 
     private static void strip(NBTTagCompound host, Group group) {
-        for (String key : group.keys) host.removeTag(key);
+        for (String key : new java.util.ArrayList<>(host.getKeySet())) if (group.includes(key)) host.removeTag(key);
+    }
+
+    /** Detached snapshot before CNPC cleanTags removes UUID; immutable blobs never become clone identity. */
+    public static synchronized boolean makePortable(NBTTagCompound tag) {
+        boolean complete = true;
+        for (Group group : Group.values()) {
+            NBTTagCompound host = group.host(tag);
+            if (host == null || !host.hasKey(group.reference)) continue;
+            String reference = host.getString(group.reference);
+            try {
+                if (!reference.matches(HASH)) throw new IOException("Invalid NPC snapshot reference: " + reference);
+                Path file = path(group, reference);
+                if (!Files.isRegularFile(file)) throw new IOException("Missing external NPC data: " + file);
+                NBTTagCompound data = NbtFiles.read(file);
+                for (String key : data.getKeySet()) {
+                    if (group.includes(key) && !host.hasKey(key)) host.setTag(key, data.getTag(key).copy());
+                }
+                host.removeTag(group.reference);
+            } catch (IOException | IllegalStateException error) {
+                complete = false;
+                CnpcPlus.LOGGER.error("Cannot export NPC {} snapshot; retaining inline NBT/reference {}", group.folder, reference, error);
+            }
+        }
+        NBTTagList passengers = tag.getTagList("Passengers", 10);
+        for (int i = 0; i < passengers.tagCount(); i++) complete &= makePortable(passengers.getCompoundTagAt(i));
+        return complete;
     }
 
     private static String hash(NBTTagCompound tag) throws Exception {

@@ -5,7 +5,6 @@ import bin.cnpcplus.common.IRoleFollowerOwnerAccess;
 import net.minecraft.world.WorldServer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.text.TextComponentString;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.RoleFollower;
 
@@ -38,11 +37,7 @@ public final class FollowerHireLimit {
         }
         if (count < max) return false;
 
-        String message = CnpcPlusConfig.getHireLimitMessage();
-        if (message == null || message.trim().isEmpty()) {
-            message = "你雇佣的人过多";
-        }
-        player.sendMessage(new TextComponentString(message));
+        FollowerMessages.say(role, player, FollowerMessages.get(role).limit);
         return true;
     }
 }

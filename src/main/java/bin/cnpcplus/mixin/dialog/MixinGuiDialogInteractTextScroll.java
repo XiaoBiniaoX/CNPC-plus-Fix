@@ -1,6 +1,10 @@
 package bin.cnpcplus.mixin.dialog;
 
 import noppes.npcs.client.ClientProxy;
+import noppes.npcs.client.TextBlockClient;
+import noppes.npcs.client.gui.util.GuiNPCInterface;
+import bin.cnpcplus.text.client.StyledTextBlock;
+import java.util.List;
 import noppes.npcs.client.gui.player.GuiDialogInteract;
 import org.lwjgl.input.Mouse;
 import org.spongepowered.asm.mixin.Mixin;
@@ -59,6 +63,7 @@ public class MixinGuiDialogInteractTextScroll {
 
     @Shadow(remap = false)
     private int dialogHeight;
+    @Shadow private List<TextBlockClient> lines;
 
     @Inject(method = "func_73863_a", at = @At("HEAD"), remap = false, require = 1)
     private void cnpcplus$scrollText(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
@@ -104,6 +109,21 @@ public class MixinGuiDialogInteractTextScroll {
         int fontHeight = ClientProxy.Font.height(null);
         if (fontHeight > 0 && height * fontHeight >= this.dialogHeight) {
             ci.cancel();
+            return;
+        }
+        if (left == 0) {
+            int offset = 0;
+            for (TextBlockClient block : lines) {
+                if (count >= offset && count < offset + block.lines.size()) {
+                    if (block instanceof StyledTextBlock) {
+                        GuiNPCInterface gui = (GuiNPCInterface) (Object) this;
+                        ((StyledTextBlock) block).draw(count - offset, gui.guiLeft, gui.guiTop + height * fontHeight, fontHeight, color);
+                        ci.cancel();
+                    }
+                    break;
+                }
+                offset += block.lines.size() + 1;
+            }
         }
     }
 }
