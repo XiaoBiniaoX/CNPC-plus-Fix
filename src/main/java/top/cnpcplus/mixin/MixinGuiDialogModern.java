@@ -67,12 +67,15 @@ public class MixinGuiDialogModern {
         return s == 1.0f ? posX : posX / s;
     }
 
+    /**
+     * 框宽 223 未随选项缩放除 s，绘制右缘是 (posX / s + 223) * w；
+     * 命中右缘必须用同一式子，否则 s&lt;1 右侧点不到、s&gt;1 右侧越界。
+     */
     @ModifyConstant(method = "m_88315_", constant = @Constant(doubleValue = 946.0))
     private double cnpcplus$hitRight(double d) {
         float s = cnpcplus$optS();
         int posX = CnpcPlusConfigData.DialogOptionPosX.get();
-        double v = posX + 223.0;
-        return s == 1.0f ? v : v / s;
+        return s == 1.0f ? posX + 223.0 : posX / s + 223.0;
     }
 
     // === 3. 选项间距 ===

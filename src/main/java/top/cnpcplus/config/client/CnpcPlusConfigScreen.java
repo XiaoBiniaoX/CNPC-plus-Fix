@@ -43,8 +43,12 @@ public class CnpcPlusConfigScreen extends Screen {
     }
 
     public CnpcPlusConfigScreen(Screen parent) {
-        super(Component.literal("CNPCplus 配置"));
+        super(Component.translatable("cnpcplus.config.client.title"));
         this.parent = parent;
+    }
+
+    private static String tr(String key) {
+        return Component.translatable(key).getString();
     }
 
     @Override
@@ -52,51 +56,51 @@ public class CnpcPlusConfigScreen extends Screen {
         rows.clear();
         scroll = 0;
 
-        addHeader("主配置 cnpcplus.toml");
-        addBool("合成视图侧栏", CnpcPlusConfigData.CraftingViewEnabled);
-        addBool("背包CNPC旗帜标签", CnpcPlusConfigData.InventoryFactionTab);
-        addBool("背包CNPC任务书标签", CnpcPlusConfigData.InventoryQuestTab);
-        addBool("魔杖30格NPC真实碰撞框", CnpcPlusConfigData.WandNpcHitboxes);
-        addString("合成分类", CnpcPlusConfigData.CraftingCategories);
-        addString("配方模糊规则", CnpcPlusConfigData.RecipeFuzzyMatchRules);
-        addDouble("对话框NPC缩放", CnpcPlusConfigData.DialogNpcScale);
-        addInt("对话框NPC X", CnpcPlusConfigData.DialogNpcPosX);
-        addInt("对话框NPC Y", CnpcPlusConfigData.DialogNpcPosY);
-        addDouble("对话框选项缩放", CnpcPlusConfigData.DialogOptionScale);
-        addInt("对话框选项 X", CnpcPlusConfigData.DialogOptionPosX);
-        addInt("对话框选项 Y", CnpcPlusConfigData.DialogOptionPosY);
-        addInt("对话框选项间距", CnpcPlusConfigData.DialogOptionSpacing);
-        addDouble("诗人口量 0~1", CnpcPlusConfigData.BardVolume);
-        addInt("诗人看门狗秒", CnpcPlusConfigData.BardWatchdogSeconds);
+        addHeader(tr("cnpcplus.config.client.header.main"));
+        addBool(tr("cnpcplus.config.client.main.craftingView"), CnpcPlusConfigData.CraftingViewEnabled);
+        addBool(tr("cnpcplus.config.client.main.inventoryFaction"), CnpcPlusConfigData.InventoryFactionTab);
+        addBool(tr("cnpcplus.config.client.main.inventoryQuest"), CnpcPlusConfigData.InventoryQuestTab);
+        addBool(tr("cnpcplus.config.client.main.wandHitbox"), CnpcPlusConfigData.WandNpcHitboxes);
+        addString(tr("cnpcplus.config.client.main.craftingCategories"), CnpcPlusConfigData.CraftingCategories);
+        addString(tr("cnpcplus.config.client.main.recipeFuzzy"), CnpcPlusConfigData.RecipeFuzzyMatchRules);
+        addDouble(tr("cnpcplus.config.client.main.dialogNpcScale"), CnpcPlusConfigData.DialogNpcScale);
+        addInt(tr("cnpcplus.config.client.main.dialogNpcX"), CnpcPlusConfigData.DialogNpcPosX);
+        addInt(tr("cnpcplus.config.client.main.dialogNpcY"), CnpcPlusConfigData.DialogNpcPosY);
+        addDouble(tr("cnpcplus.config.client.main.dialogOptionScale"), CnpcPlusConfigData.DialogOptionScale);
+        addInt(tr("cnpcplus.config.client.main.dialogOptionX"), CnpcPlusConfigData.DialogOptionPosX);
+        addInt(tr("cnpcplus.config.client.main.dialogOptionY"), CnpcPlusConfigData.DialogOptionPosY);
+        addInt(tr("cnpcplus.config.client.main.dialogOptionSpacing"), CnpcPlusConfigData.DialogOptionSpacing);
+        addDouble(tr("cnpcplus.config.client.main.bardVolume"), CnpcPlusConfigData.BardVolume);
+        addInt(tr("cnpcplus.config.client.main.bardWatchdog"), CnpcPlusConfigData.BardWatchdogSeconds);
 
         serverEditable = minecraft != null && minecraft.level != null && minecraft.getConnection() != null;
-        addHeader(serverEditable
-                ? "服务端配置 cnpcplus-server.toml（需管理员）"
-                : "服务端配置（进入世界后可改）");
-        addServerBool("（NPC）真实护甲值",
+        addHeader(tr(serverEditable
+                ? "cnpcplus.config.client.header.server"
+                : "cnpcplus.config.client.header.serverLocked"));
+        addServerBool(tr("cnpcplus.config.client.server.realArmor"),
                 ServerConfigAccess.bool(CnpcPlusServerConfig.RealArmorEnabled, false));
-        serverTeleportRangeBox = addServerInt("随从瞬移跟随距离",
+        serverTeleportRangeBox = addServerInt(tr("cnpcplus.config.client.server.followerRange"),
                 ServerConfigAccess.integer(CnpcPlusServerConfig.FollowerTeleportRange, 12));
-        serverMaxHiredBox = addServerInt("玩家最大雇佣NPC数",
+        serverMaxHiredBox = addServerInt(tr("cnpcplus.config.client.server.maxHired"),
                 ServerConfigAccess.integer(CnpcPlusServerConfig.MaxHiredNpcs, 30));
 
-        addHeader("性能配置 cnpcplus-perf.toml");
-        addDouble("阴影半径上限", Config.shadowValue());
-        addBool("轮廓缓存", Config.outlineEnabledValue());
-        addInt("轮廓缓存项数", Config.outlineCapacityValue());
-        addBool("蓝图预览缓存", Config.previewEnabledValue());
-        addDouble("预览每帧毫秒", Config.budgetMillisValue());
-        addInt("预览每帧方块", Config.blocksPerFrameValue());
+        addHeader(tr("cnpcplus.config.client.header.perf"));
+        addDouble(tr("cnpcplus.config.client.perf.shadow"), Config.shadowValue());
+        addBool(tr("cnpcplus.config.client.perf.outline"), Config.outlineEnabledValue());
+        addInt(tr("cnpcplus.config.client.perf.outlineCapacity"), Config.outlineCapacityValue());
+        addBool(tr("cnpcplus.config.client.perf.preview"), Config.previewEnabledValue());
+        addDouble(tr("cnpcplus.config.client.perf.budget"), Config.budgetMillisValue());
+        addInt(tr("cnpcplus.config.client.perf.blocks"), Config.blocksPerFrameValue());
 
-        addHeader("NPC AI 优化（cnpcplus-npcfix.toml）");
-        addBool("NPC AI 优化总开关", NpcAiOptimizerConfig.ENABLED);
-        addInt("仇恨搜索间隔 tick", NpcAiOptimizerConfig.TARGET_SEARCH_INTERVAL_TICKS);
-        addBool("仇恨搜索错峰", NpcAiOptimizerConfig.STAGGER_TARGET_SEARCHES);
-        addInt("有效仇恨范围上限", NpcAiOptimizerConfig.MAX_EFFECTIVE_AGGRO_RANGE);
-        addBool("脚本关闭仍触发 UpdateEvent", NpcAiOptimizerConfig.UPDATE_EVENT_WHEN_SCRIPTS_DISABLED);
-        addInt("UpdateEvent 间隔 tick", NpcAiOptimizerConfig.UPDATE_EVENT_INTERVAL_TICKS);
-        addBool("脚本关闭仍扫描碰撞", NpcAiOptimizerConfig.COLLIDE_SCAN_WHEN_SCRIPTS_DISABLED);
-        addInt("碰撞扫描间隔 tick", NpcAiOptimizerConfig.COLLIDE_SCAN_INTERVAL_TICKS);
+        addHeader(tr("cnpcplus.config.client.header.npcai"));
+        addBool(tr("cnpcplus.config.client.ai.enabled"), NpcAiOptimizerConfig.ENABLED);
+        addInt(tr("cnpcplus.config.client.ai.targetInterval"), NpcAiOptimizerConfig.TARGET_SEARCH_INTERVAL_TICKS);
+        addBool(tr("cnpcplus.config.client.ai.stagger"), NpcAiOptimizerConfig.STAGGER_TARGET_SEARCHES);
+        addInt(tr("cnpcplus.config.client.ai.aggroCap"), NpcAiOptimizerConfig.MAX_EFFECTIVE_AGGRO_RANGE);
+        addBool(tr("cnpcplus.config.client.ai.updateEvent"), NpcAiOptimizerConfig.UPDATE_EVENT_WHEN_SCRIPTS_DISABLED);
+        addInt(tr("cnpcplus.config.client.ai.updateInterval"), NpcAiOptimizerConfig.UPDATE_EVENT_INTERVAL_TICKS);
+        addBool(tr("cnpcplus.config.client.ai.collideScan"), NpcAiOptimizerConfig.COLLIDE_SCAN_WHEN_SCRIPTS_DISABLED);
+        addInt(tr("cnpcplus.config.client.ai.collideInterval"), NpcAiOptimizerConfig.COLLIDE_SCAN_INTERVAL_TICKS);
 
         contentHeight = rows.size() * ROW_H;
 

@@ -28,6 +28,6 @@ public abstract class MixinMounterCloneMount extends PacketServerBasic {
         if (vehicle == null) return;
         CompoundTag tag = type == 0 ? compound : ServerCloneController.Instance.getCloneData(player.createCommandSourceStack(), name, tab);
         if (CloneMounts.spawn(tag, vehicle.getX(), vehicle.getY(), vehicle.getZ(), player.level(), vehicle) == null)
-            player.sendSystemMessage(Component.literal("骑乘克隆生成失败，未保留不完整组合"));
+            player.sendSystemMessage(Component.translatable("cnpcplus.clone.mountSpawnFailed"));
     }
 }

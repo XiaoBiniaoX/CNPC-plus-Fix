@@ -27,9 +27,9 @@ public class GuiTestProfession extends GuiNPCInterface2 implements ITextfieldLis
     public void m_7856_() {
         super.m_7856_();
         int y = this.guiTop + 20;
-        this.addLabel(new GuiLabel(0, "测试职业配置", this.guiLeft + 10, y));
+        this.addLabel(new GuiLabel(0, "cnpcplus.testprofession.title", this.guiLeft + 10, y));
         y += 22;
-        this.addLabel(new GuiLabel(1, "消息内容:", this.guiLeft + 10, y + 5));
+        this.addLabel(new GuiLabel(1, "cnpcplus.testprofession.message", this.guiLeft + 10, y + 5));
         this.addTextField(new GuiTextFieldNop(0, this, this.guiLeft + 80, y, 200, 20, this.job.testMessage));
         y += 30;
         this.addButton(new GuiButtonNop(this, 1, this.guiLeft + 10, y, 60, 20, "gui.done"));

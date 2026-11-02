@@ -57,7 +57,7 @@ public class PacketUpdateServerConfig {
                 CnpcPlusServerConfig.MaxHiredNpcs.set(maxHired);
                 CnpcPlusServerConfig.RealArmorEnabled.save();
             } catch (Throwable t) {
-                player.displayClientMessage(Component.literal("[CNPCplus] 保存服务端配置失败"), false);
+                player.displayClientMessage(Component.translatable("cnpcplus.config.server.saveFailed"), false);
                 return;
             }
 

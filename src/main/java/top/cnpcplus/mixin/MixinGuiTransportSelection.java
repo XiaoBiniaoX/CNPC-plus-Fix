@@ -9,6 +9,7 @@ import java.util.Vector;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.nbt.CompoundTag;
 import noppes.npcs.client.gui.player.GuiTransportSelection;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
@@ -299,7 +300,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
                 TransportLayout.CURRENT_ICON_X + (TransportLayout.CURRENT_ICON - curIconSize) / 2,
                 TransportLayout.CURRENT_ICON_Y + (TransportLayout.CURRENT_ICON - curIconSize) / 2,
                 curIconSize, icon);
-        graphics.drawString(font, "当前位置：",
+        graphics.drawString(font, I18n.get("cnpcplus.transporter.currentLabel"),
                 TransportLayout.CURRENT_LABEL_X + top.cnpcplus.transport.TransportPanelStyle.curX(style),
                 TransportLayout.CURRENT_LABEL_Y + top.cnpcplus.transport.TransportPanelStyle.curY(style),
                 0xFF444444, false);
@@ -396,7 +397,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         int offX = top.cnpcplus.transport.TransportPanelStyle.introX(style);
         int offY = top.cnpcplus.transport.TransportPanelStyle.introY(style);
         if (desc.isEmpty()) {
-            top.cnpcplus.transport.client.TransportText.draw(graphics, font, "无文本填充",
+            top.cnpcplus.transport.client.TransportText.draw(graphics, font, I18n.get("cnpcplus.transporter.editor.noText"),
                     TransportLayout.INTRO_TEXT_X + offX, TransportLayout.INTRO_TEXT_Y + offY,
                     introSize, 0xFF777777);
             return;

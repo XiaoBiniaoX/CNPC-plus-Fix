@@ -10,12 +10,14 @@ import noppes.npcs.client.gui.player.GuiDialogInteract;
 import noppes.npcs.client.gui.player.GuiQuestCompletion;
 import noppes.npcs.client.gui.player.GuiQuestLog;
 import noppes.npcs.client.gui.player.moderngui.GuiDialogModern;
+import noppes.npcs.client.gui.player.moderngui.GuiQuestModern;
 import noppes.npcs.controllers.data.Dialog;
 import noppes.npcs.controllers.data.Quest;
 import noppes.npcs.entity.EntityCustomNpc;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.shared.client.gui.components.GuiBasic;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
+import top.cnpcplus.gui.ModernDialogScrollAccess;
 import top.cnpcplus.text.PreviewTextData;
 import top.cnpcplus.text.StyledText;
 
@@ -27,7 +29,11 @@ public final class PlayerTextPreview {
         EntityNPCInterface npc = npc(source);
         if (npc == null) return null;
         Dialog copy = PreviewTextData.dialog(dialog, text);
-        return CustomNpcs.EnableNewDialogSystem ? new ModernDialog(npc, copy) : new TraditionalDialog(npc, copy);
+        if (!CustomNpcs.EnableNewDialogSystem) return new TraditionalDialog(npc, copy);
+        // PacketDialog.openDialog sends a quest dialog to GuiQuestModern first; the accept button then
+        // opens GuiDialogModern locally (optionId -2 sends nothing).
+        Quest quest = copy.getQuest();
+        return quest == null ? new ModernDialog(npc, copy) : new QuestOffer(npc, quest, copy);
     }
 
     public static Screen quest(Quest source, StyledText text, boolean log) {
@@ -94,9 +100,57 @@ public final class PlayerTextPreview {
         ModernDialog(EntityNPCInterface npc, Dialog dialog) { super(npc, dialog); }
         @Override public void grabMouse(boolean grab) {}
         @Override public void m_7856_() { super.m_7856_(); back(this); }
-        @Override public boolean m_6375_(double x, double y, int button) { return clickBack(this, x, y, button); }
+        @Override public boolean m_6375_(double x, double y, int button) {
+            // The subclass override would otherwise hide MixinGuiDialogModernScroll's HEAD injection.
+            if (((ModernDialogScrollAccess)(Object)this).cnpcplus$scrollbarClick(x, y, button)) return true;
+            return clickBack(this, x, y, button);
+        }
         @Override public boolean m_7933_(int key, int scan, int modifiers) { return key(this, key); }
         @Override public void buttonEvent(GuiButtonNop button) { if (button.id == 900) close(); }
+    }
+
+    /**
+     * Quest dialogs never show GuiDialogModern first: the native screen is the quest offer, whose accept
+     * button re-opens the dialog locally with optionId -2 (no packet). Mirror that, minus every packet.
+     */
+    public static final class QuestOffer extends GuiQuestModern {
+        private final EntityNPCInterface npc;
+        private final Dialog dialog;
+
+        QuestOffer(EntityNPCInterface npc, Quest quest, Dialog dialog) {
+            super(npc, quest, dialog, -2);
+            this.npc = npc;
+            this.dialog = dialog;
+        }
+
+        @Override public void grabMouse(boolean grab) {}
+        @Override public void m_7856_() { super.m_7856_(); back(this); }
+
+        @Override public boolean m_6375_(double x, double y, int button) {
+            double scale = Math.max(1.0E-4D, (double) width / 960.0D);
+            double gx = x / scale;
+            double gy = y / scale;
+            if (button == 0) {
+                if (inside(720, 326, 78, 20, gx, gy)) { close(); return true; }
+                if (inside(812, 326, 78, 20, gx, gy)) { openDialogPage(); return true; }
+            }
+            return clickBack(this, x, y, button);
+        }
+
+        /** Replace this page in the hosting editor, exactly like a follow-up screen; never send a packet. */
+        private void openDialogPage() {
+            ModernDialog next = new ModernDialog(npc, dialog);
+            Screen parent = getParent();
+            if (parent instanceof GuiBasic host && parent != this) host.setSubGui(next);
+            else Minecraft.getInstance().setScreen(next);
+        }
+
+        @Override public boolean m_7933_(int key, int scan, int modifiers) { return key(this, key); }
+        @Override public void buttonEvent(GuiButtonNop button) { if (button.id == 900) close(); }
+    }
+
+    private static boolean inside(int x, int y, int width, int height, double mouseX, double mouseY) {
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
 
     public static final class QuestLog extends GuiQuestLog {

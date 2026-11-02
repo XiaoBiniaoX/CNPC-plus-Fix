@@ -36,7 +36,8 @@ public final class CmdPlayerData {
             // 从磁盘读取
             net.minecraft.nbt.CompoundTag tag = PlayerData.loadPlayerData(target.getUUID().toString());
             if (tag.isEmpty()) {
-                source.sendFailure(Component.literal("磁盘上没有 " + target.getGameProfile().getName() + " 的 CNPC 数据文件"));
+                source.sendFailure(Component.translatable("cnpcplus.command.playerdata.missing",
+                        target.getGameProfile().getName()));
                 return 0;
             }
 
@@ -44,10 +45,12 @@ public final class CmdPlayerData {
             current.setNBT(tag);
             current.updateClient = true;
 
-            source.sendSuccess(() -> Component.literal("已从磁盘重载 " + target.getGameProfile().getName() + " 的 CNPC 数据"), true);
+            source.sendSuccess(() -> Component.translatable("cnpcplus.command.playerdata.reloaded",
+                    target.getGameProfile().getName()), true);
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("读档失败: " + e.getMessage()));
+            source.sendFailure(Component.translatable("cnpcplus.command.playerdata.readFailed",
+                    String.valueOf(e.getMessage())));
             return 0;
         }
     }

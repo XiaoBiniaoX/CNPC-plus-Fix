@@ -20,7 +20,8 @@ public abstract class MixinClonerMountCapture {
             for (String key : captured.getAllKeys()) destination.put(key, captured.get(key));
             return true;
         } catch (Exception | LinkageError e) {
-            event.getEntity().sendSystemMessage(Component.literal("复制失败，原克隆保留：" + e.getMessage()));
+            event.getEntity().sendSystemMessage(
+                    Component.translatable("cnpcplus.clone.mountCopyFailed", String.valueOf(e.getMessage())));
             org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[clone] 骑乘复制失败", e);
             return false;
         }
