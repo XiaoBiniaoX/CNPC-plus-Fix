@@ -85,6 +85,7 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
     @Shadow(remap = false) private int endSelection;
     @Shadow(remap = false) private int cursorPosition;
     @Shadow(remap = false) private TextContainer container;
+    @Shadow(remap = false) private int scrolledLine;
     @Unique private TextContainer cnpcplus$markedContainer;
     @Shadow(remap = false) protected abstract int getSelectionPos(double mouseX, double mouseY);
 
@@ -119,6 +120,21 @@ public abstract class MixinGuiTextAreaRender implements TextAreaSelectionAccess 
 
     @Override
     public int cnpcplus$cursor() { return cursorPosition; }
+
+    @Override public TextContainer cnpcplus$container() { return container; }
+    @Override public int cnpcplus$scroll() { return scrolledLine; }
+    @Override public void cnpcplus$scroll(int row) {
+        scrolledLine = Math.max(0, Math.min(row, container.linesCount - container.visibleLines));
+    }
+
+    @Redirect(method = "render", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/shared/client/util/TrueTypeFont;draw(Lcom/mojang/blaze3d/vertex/PoseStack;Ljava/lang/String;FFI)V"), require = 1)
+    private void cnpcplus$styledGlyphs(noppes.npcs.shared.client.util.TrueTypeFont font,
+            com.mojang.blaze3d.vertex.PoseStack pose, String text, float x, float y, int color,
+            net.minecraft.client.gui.GuiGraphics graphics, int mouseX, int mouseY) {
+        if ((Object) this instanceof top.cnpcplus.text.client.StyledTextArea styled) styled.drawLine(graphics, font, (int) x, (int) y, color);
+        else font.draw(pose, text, x, y, color);
+    }
 
     @Override
     public void cnpcplus$highlightError(int start, int end) {

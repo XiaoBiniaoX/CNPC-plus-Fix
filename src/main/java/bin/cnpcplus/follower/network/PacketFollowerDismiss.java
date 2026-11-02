@@ -30,6 +30,8 @@ public record PacketFollowerDismiss() implements CustomPacketPayload {
             if (role == null || role.npc == null || role.npc.role != role || role.getType() != 2) return;
             Player owner = role.getOwner();
             if (owner == null || !owner.getUUID().equals(player.getUUID())) return;
+            top.cnpcplus.follower.FollowerMessages.say(role, player,
+                    top.cnpcplus.follower.FollowerMessages.get(role).dismiss());
             role.killed();
             role.owner = null;
             role.npc.updateClient = true;

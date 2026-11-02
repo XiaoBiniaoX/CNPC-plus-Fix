@@ -6,6 +6,7 @@ import bin.cnpcplus.util.FormatUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import noppes.npcs.client.ClientProxy;
+import noppes.npcs.client.TextBlockClient;
 import noppes.npcs.client.gui.player.GuiDialogInteract;
 import noppes.npcs.controllers.data.DialogOption;
 import noppes.npcs.shared.client.util.NoppesStringUtils;
@@ -30,6 +31,8 @@ public class GuiDialogInteractMixin {
 
     @Shadow(remap = false)
     private int dialogHeight;
+
+    @Shadow(remap = false) private java.util.List<TextBlockClient> lines;
 
     /**
      * 行高必须用 CNPC 自己的字体，不能用原版 font.lineHeight（恒为 9）。
@@ -79,7 +82,19 @@ public class GuiDialogInteractMixin {
         int clipTop = Math.max(0, self.guiTop - this.rowStart * lineHeight);
         graphics.enableScissor(clipLeft, clipTop, clipRight, self.guiTop + this.dialogHeight);
         try {
-            graphics.drawString(Minecraft.getInstance().font, drawn, x, y, drawColor, false);
+            net.minecraft.network.chat.Component styled = null;
+            if (left == 0) {
+                int index = 0;
+                for (TextBlockClient block : lines) {
+                    if (count >= index && count < index + block.lines.size()) {
+                        if (block instanceof top.cnpcplus.text.client.StyledTextBlock) styled = block.lines.get(count - index);
+                        break;
+                    }
+                    index += block.lines.size() + 1;
+                }
+            }
+            if (styled != null) top.cnpcplus.text.client.StyledTextRender.draw(graphics, styled, x, y, drawColor, false);
+            else graphics.drawString(Minecraft.getInstance().font, drawn, x, y, drawColor, false);
         } finally {
             graphics.disableScissor();
         }

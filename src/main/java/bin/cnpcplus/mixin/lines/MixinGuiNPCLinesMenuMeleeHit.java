@@ -59,10 +59,7 @@ public class MixinGuiNPCLinesMenuMeleeHit {
             // 打开近战打击台词编辑界面。
             NoppesUtil.openGUI(
                     self.player,
-                    new GuiNPCLinesEdit(
-                            self.npc,
-                            ((MeleeHitLinesAccess) self.npc.advanced).cnpcplus$getMeleeHitLines()
-                    )
+                    new top.cnpcplus.lines.client.GuiLinesArrayEditor(self.npc, 6)
             );
             ci.cancel();
         }

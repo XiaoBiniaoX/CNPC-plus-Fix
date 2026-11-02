@@ -6,6 +6,8 @@ package top.cnpcplus.transport;
  * 禁止 mixin class 互转。
  */
 public interface TransportVisualMeta {
+    java.util.UUID cnpcplus$getOwner();
+    void cnpcplus$setOwner(java.util.UUID owner);
     String cnpcplus$getIcon();
     void cnpcplus$setIcon(String v);
     String cnpcplus$getIconSel();

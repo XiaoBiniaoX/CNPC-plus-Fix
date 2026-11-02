@@ -74,7 +74,7 @@ public record ScriptError(int line, String sourceHash, String message) {
         return new ScriptError(line, hash, message);
     }
 
-    private static String hash(String source) {
+    public static String hash(String source) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(source.getBytes(StandardCharsets.UTF_8)));

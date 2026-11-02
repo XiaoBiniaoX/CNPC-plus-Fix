@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -19,57 +20,57 @@ import noppes.npcs.entity.EntityNPCInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * NPC 局部数据键的通用外置存储（240 #2/#3），逻辑逐行照 {@link NpcScriptExternalStore} 模板：
- * 状态机 1-5、稳定 UUID、失败保留旧 NBT、零 IO 快路径、仅 ERROR 日志。
- *
- * <p>两个实例（键集/目录/ID 指针互不相干，各自持有独立 ACTIVE 表）：
- * <ul>
- *   <li>{@link #SPAWNER}：召唤师 {@code SpawnerData}（ListTag），目录 {@code data/cnpcplus/spawner}。</li>
- *   <li>{@link #INVENTORY}：掉落物两键 {@code NpcInv} + {@code DropChance}（均 ListTag），
- *       目录 {@code data/cnpcplus/inventory}；Armor/Weapons/MinExp/MaxExp/LootMode 等仍留 NBT。</li>
- * </ul>
- *
- * <p>与 scripts 的唯一结构性差异是注入时机：prepareLoad 挂在 m_7378_ 内
- * {@code DataScript.load} 的 INVOKE（super 读 UUID 之后、原生 job.load/inventory.load
- * 与 linked loadNpcData 之前）——贴键后原生 load 自然读到，无需补 load 调用；
- * linked 快照仍在其后覆盖（linked 权威顺序不变）。故返回值调用方不消费。
- *
- * <p>失败口径同 scripts：读档文件不可读 → 不动文件不贴键，原生存档 NBT 照常走；
- * 内存无数据且磁盘有数据 → 跳过写盘绝不覆盖；内容与磁盘一致 → 零 IO 快路径
- * （全 NPC 每次世界存档都走这里）；空数据 NPC 不建文件（键留在 NBT，几字节）。
- */
+/** Atomic, verified blobs. Inline data survives failed IO and portable export. */
 public final class NpcDataExternalStore {
-    /** 召唤师 SpawnerData（CloneSpawnData.save 的 ListTag：slot/tab/name 条目）。 */
     public static final NpcDataExternalStore SPAWNER = new NpcDataExternalStore(
         "spawner", "CNPCPlusSpawnerId", "CNPCPlusSpawnerState",
-        new String[] { "SpawnerData" },
+        java.util.Set.of("SpawnerData")::contains,
         tag -> !tag.getList("SpawnerData", Tag.TAG_COMPOUND).isEmpty()
     );
 
-    /** 掉落物：drops（NpcInv）+ 掉落率（DropChance）。任一非空即算有数据。 */
     public static final NpcDataExternalStore INVENTORY = new NpcDataExternalStore(
         "inventory", "CNPCPlusInvId", "CNPCPlusInvState",
-        new String[] { "NpcInv", "DropChance" },
+        java.util.Set.of("NpcInv", "DropChance", "Armor", "Weapons", "MinExp", "MaxExp", "LootMode", "TransformInv")::contains,
         tag -> !tag.getList("NpcInv", Tag.TAG_COMPOUND).isEmpty()
             || !tag.getList("DropChance", Tag.TAG_COMPOUND).isEmpty()
+            || !tag.getList("Armor", Tag.TAG_COMPOUND).isEmpty()
+            || !tag.getList("Weapons", Tag.TAG_COMPOUND).isEmpty()
+            || tag.contains("TransformInv", Tag.TAG_COMPOUND)
+    );
+    public static final NpcDataExternalStore SCRIPTS = new NpcDataExternalStore(
+        "scripts", "CNPCPlusScriptsId", "CNPCPlusScriptsMigration",
+        java.util.Set.of("Scripts", "ScriptLanguage", "ScriptEnabled")::contains,
+        tag -> !tag.getList("Scripts", Tag.TAG_COMPOUND).isEmpty()
+    );
+    public static final NpcDataExternalStore ADVANCED = new NpcDataExternalStore(
+        "advanced", "CNPCPlusAdvancedId", "CNPCPlusAdvancedState",
+        key -> java.util.Set.of("NpcLines", "NpcKilledLines", "NpcInteractLines", "NpcAttackLines",
+                "NpcKillLines", "NpcInteractNPCLines", "CNPCPlusMeleeLines", "CNPCPlusMeleeHitLines", "OrderedLines", "NpcIdleSound", "NpcAngrySound",
+                "NpcHurtSound", "NpcDeathSound", "NpcStepSound", "DisablePitch", "CNPCPlusSoundArrays", "NPCDialogOptions",
+                "BossBar", "BossColor", "CNPCPlusBossbar", "CNPCPlusAdvanced", "TransformAdvanced", "TransformRole").contains(key)
+                || key.startsWith("Mercenary") || key.startsWith("CNPCPlusFollower"),
+        tag -> !tag.isEmpty()
+    );
+    public static final NpcDataExternalStore MODEL = new NpcDataExternalStore(
+        "model", "CNPCPlusModelId", "CNPCPlusModelState",
+        // Native transform snapshots include the entire model and PuppetBody.
+        key -> java.util.Set.of("NpcModelData", "TransformDisplay", "TransformJob").contains(key)
+                || key.startsWith("Puppet") || key.startsWith("CNPCPlusPuppet"),
+        tag -> !tag.isEmpty()
     );
 
-    private static final int COPYING = 1;
     private static final int VERIFIED = 2;
-    private static final int EXTERNAL_ACTIVE = 3;
-    private static final int CLEANUP_PENDING = 4;
     private static final int CLEANED = 5;
     private static final Logger LOGGER = LoggerFactory.getLogger("cnpcplus");
 
     private final String logTag;
     private final String idKey;
     private final String stateKey;
-    private final String[] dataKeys;
+    private final Predicate<String> dataKeys;
     private final Predicate<CompoundTag> probe;
-    private final Map<EntityNPCInterface, State> ACTIVE = new WeakHashMap<>();
+    private final Map<Object, State> ACTIVE = new WeakHashMap<>();
 
-    private NpcDataExternalStore(String logTag, String idKey, String stateKey, String[] dataKeys, Predicate<CompoundTag> probe) {
+    NpcDataExternalStore(String logTag, String idKey, String stateKey, Predicate<String> dataKeys, Predicate<CompoundTag> probe) {
         this.logTag = logTag;
         this.idKey = idKey;
         this.stateKey = stateKey;
@@ -82,153 +83,150 @@ public final class NpcDataExternalStore {
         UUID owner;
         int migration;
         CompoundTag data = new CompoundTag();
+        FileTime modified;
+        long length;
     }
 
-    /**
-     * EntityNPCInterface.m_7378_ 内 DataScript.load INVOKE 调用（super 已读 UUID、
-     * 原生 job.load/inventory.load 尚未跑）。贴键即由原生 load 读走；返回 true 表示
-     * 外置文件贴入，false 表示原生 NBT 已够用（含 legacy 内联迁移场景）。
-     */
     public synchronized boolean prepareLoad(EntityNPCInterface npc, CompoundTag tag) {
         if (npc == null || tag == null || npc.level() == null || npc.level().isClientSide) return false;
-        UUID owner = npc.getUUID();
+        return prepareLoad(npc, npc.getUUID(), tag, directory());
+    }
+
+    public synchronized boolean prepareEarlyLoad(EntityNPCInterface npc, CompoundTag tag) {
+        if (npc == null || tag == null || npc.level() == null || npc.level().isClientSide) return false;
+        UUID owner = tag.hasUUID("UUID") ? tag.getUUID("UUID") : npc.getUUID();
+        return prepareLoad(npc, owner, tag, directory());
+    }
+
+    // Isolated regression entry points exercise this exact IO without a live world.
+    synchronized boolean prepareLoad(Object identity, UUID owner, CompoundTag tag, File directory) {
+        ACTIVE.remove(identity);
         UUID id = parseId(tag.getString(idKey));
         if (id == null) id = owner;
-        State state = readState(id);
-        boolean legacy = false;
-        for (String key : dataKeys) legacy |= tag.contains(key, Tag.TAG_LIST);
-
+        State state = readState(directory, id);
         try {
-            if (state != null && !owner.equals(state.owner)) {
-                UUID replacement = UUID.randomUUID();
-                copyState(state, replacement, owner);
-                id = replacement;
-                state = readState(id);
-            }
-
-            if (!legacy && state != null && verifyData(state)) {
-                ACTIVE.put(npc, state);
+            if (state != null) {
+                if (!verifyData(directory, state)) throw new IOException("store verification failed");
+                if (!owner.equals(state.owner)) state = fork(state, owner);
+                // Explicit inline values, including clears, win over a stale external snapshot.
+                CompoundTag merged = state.data.copy();
+                attachData(merged, extractData(tag));
+                attachData(tag, merged);
+                if (!merged.equals(state.data) || !stateFile(directory, state.id).isFile()) {
+                    State next = new State();
+                    next.id = state.id;
+                    next.owner = owner;
+                    next.data = merged;
+                    persist(directory, next, VERIFIED);
+                    state = next;
+                }
                 attachData(tag, state.data);
-                tag.putString(idKey, state.id.toString());
-                tag.putInt(stateKey, state.migration);
+                adopt(identity, tag, state);
                 return true;
             }
-
-            if (!legacy || (state == null && !hasData(tag))) return false;
-
+            if (stateFile(directory, id).exists()) throw new IOException("unreadable store; refusing overwrite");
+            CompoundTag data = extractData(tag);
+            if (!hasData(data)) return false;
             State migrated = new State();
             migrated.id = id;
             migrated.owner = owner;
-            migrated.data = extractData(tag);
-            migrated.migration = COPYING;
-            ACTIVE.put(npc, migrated);
-            tag.putString(idKey, id.toString());
-            tag.putInt(stateKey, COPYING);
-            writeState(migrated);
-            if (!verifyData(migrated)) throw new IOException("data migration verification failed");
-            migrated.migration = VERIFIED;
-            writeState(migrated);
-            tag.putInt(stateKey, VERIFIED);
+            migrated.data = data;
+            persist(directory, migrated, VERIFIED);
+            adopt(identity, tag, migrated);
             return false;
         } catch (Exception e) {
-            ACTIVE.remove(npc);
+            ACTIVE.remove(identity);
             LOGGER.error("[{}] migration failed; NBT retained for {}", logTag, owner, e);
             return false;
         }
     }
 
-    /** EntityNPCInterface.m_7380_ RETURN 调用：外置写盘并从实体 NBT 摘除数据键。 */
     public synchronized void saveNpc(EntityNPCInterface npc, CompoundTag tag) {
         if (npc == null || tag == null || npc.level() == null || npc.level().isClientSide) return;
-        UUID owner = npc.getUUID();
-        State state = ACTIVE.get(npc);
-        UUID id = parseId(tag.getString(idKey));
-        if (id == null) id = state != null && owner.equals(state.owner) ? state.id : owner;
-        CompoundTag data = extractData(tag);
-        File file = stateFile(id);
-        if (state != null && (!owner.equals(state.owner) || !id.equals(state.id))) state = null;
-        if (state == null) state = readState(id);
-        if (state != null && !owner.equals(state.owner)) {
-            id = UUID.randomUUID();
-            file = stateFile(id);
-            state = null;
-        }
+        saveNpc(npc, npc.getUUID(), tag, directory());
+    }
 
+    synchronized void saveNpc(Object identity, UUID owner, CompoundTag tag, File directory) {
+        State active = ACTIVE.get(identity);
+        UUID requested = parseId(tag.getString(idKey));
+        UUID id = requested != null ? requested : active != null ? active.id : owner;
+        CompoundTag data = extractData(tag);
+        State state = active != null && active.id.equals(id) ? active : readState(directory, id);
         try {
-            if (!hasData(data)) {
-                if (state == null && file.isFile()) {
-                    LOGGER.error("[{}] external store unreadable; NBT retained for {}", logTag, owner);
-                    return;
+            if (state == active && state != null && !unchanged(directory, state)) {
+                state = readState(directory, id);
+                if (state == null) throw new IOException("active store changed or disappeared; NBT retained");
+            }
+            if (state == null && stateFile(directory, id).exists()) throw new IOException("unreadable store; refusing overwrite");
+            if (state != null && !owner.equals(state.owner)) {
+                state = fork(state, owner);
+                if (!hasData(data)) {
+                    attachData(tag, state.data);
+                    data = extractData(tag);
                 }
+            }
+            if (!hasData(data)) {
                 if (state == null) return;
-                if (hasData(state.data) && !ACTIVE.containsKey(npc)) {
+                if (hasData(state.data) && active == null) {
+                    attachData(tag, state.data);
                     LOGGER.error("[{}] in-memory data empty; external store kept for {}", logTag, owner);
                     return;
                 }
-                if (state.data.equals(data)) {
-                    adopt(npc, tag, state);
-                    stripData(tag);
-                    return;
-                }
-            } else if (state != null && state.data.equals(data)) {
-                adopt(npc, tag, state);
+            }
+            if (state != null && state.data.equals(data) && stateFile(directory, state.id).isFile()) {
+                adopt(identity, tag, state);
                 stripData(tag);
                 return;
             }
 
-            // 失败前不污染已提交缓存，保留清空/重试所需的可信加载状态。
-            state = new State();
-            state.id = id;
-            state.owner = owner;
-            state.data = data;
-            state.migration = COPYING;
-            writeState(state);
-            if (!verifyData(state)) throw new IOException("data save verification failed");
-            state.migration = EXTERNAL_ACTIVE;
-            writeState(state);
-            state.migration = CLEANED;
-            writeState(state);
-            adopt(npc, tag, state);
+            State next = new State();
+            next.id = state == null ? id : state.id;
+            next.owner = owner;
+            next.data = data;
+            persist(directory, next, CLEANED);
+            // No IO can fail after inline data is stripped.
+            adopt(identity, tag, next);
             stripData(tag);
         } catch (Exception e) {
             LOGGER.error("[{}] save failed; NBT retained for {}", logTag, owner, e);
         }
     }
 
-    private void adopt(EntityNPCInterface npc, CompoundTag tag, State state) {
-        ACTIVE.put(npc, state);
+    private void adopt(Object identity, CompoundTag tag, State state) {
+        ACTIVE.put(identity, state);
         tag.putString(idKey, state.id.toString());
         tag.putInt(stateKey, state.migration);
     }
 
     private void attachData(CompoundTag tag, CompoundTag data) {
-        for (String key : dataKeys) {
-            tag.remove(key);
-            Tag value = data.get(key);
-            if (value != null) tag.put(key, value.copy());
+        for (String key : data.getAllKeys()) {
+            if (isDataKey(key)) tag.put(key, data.get(key).copy());
         }
     }
 
     private CompoundTag extractData(CompoundTag tag) {
         CompoundTag data = new CompoundTag();
-        for (String key : dataKeys) {
-            Tag value = tag.get(key);
-            if (value != null) data.put(key, value.copy());
+        for (String key : tag.getAllKeys()) {
+            if (isDataKey(key)) data.put(key, tag.get(key).copy());
         }
         return data;
     }
 
     private void stripData(CompoundTag tag) {
-        for (String key : dataKeys) tag.remove(key);
+        for (String key : java.util.Set.copyOf(tag.getAllKeys())) if (isDataKey(key)) tag.remove(key);
+    }
+
+    private boolean isDataKey(String key) {
+        return !key.equals(idKey) && !key.equals(stateKey) && dataKeys.test(key);
     }
 
     private boolean hasData(CompoundTag tag) {
         return probe.test(tag);
     }
 
-    private boolean verifyData(State expected) {
-        State reread = readState(expected.id);
-        return reread != null && expected.data.equals(reread.data);
+    private boolean verifyData(File directory, State expected) {
+        State reread = readState(directory, expected.id);
+        return reread != null && expected.owner.equals(reread.owner) && expected.data.equals(reread.data);
     }
 
     private static UUID parseId(String raw) {
@@ -236,20 +234,49 @@ public final class NpcDataExternalStore {
         try { return UUID.fromString(raw); } catch (IllegalArgumentException e) { return null; }
     }
 
-    private File stateFile(UUID id) {
-        return new File(new File(CustomNpcs.getLevelSaveDirectory(), "data/cnpcplus/" + this.logTag), id.toString() + ".dat");
+    private File directory() {
+        return new File(CustomNpcs.getLevelSaveDirectory(), "data/cnpcplus/" + logTag);
     }
 
-    private State readState(UUID id) {
-        File file = stateFile(id);
+    private static File stateFile(File directory, UUID id) {
+        return new File(directory, id + ".dat");
+    }
+
+    /** Detached preview read: no migration, caching, writes or reference removal. */
+    public void readPreview(CompoundTag tag, File worldDirectory) throws IOException {
+        String raw = tag.getString(idKey);
+        if (raw.isEmpty()) return;
+        UUID id = parseId(raw);
+        if (id == null || !id.toString().equalsIgnoreCase(raw) || worldDirectory == null) throw new IOException("invalid preview store reference");
+        var world = worldDirectory.toPath().toRealPath();
+        var directory = world.resolve("data/cnpcplus/" + logTag).toRealPath();
+        var file = stateFile(directory.toFile(), id).toPath().toRealPath();
+        if (!directory.startsWith(world) || !file.getParent().equals(directory)
+                || Files.size(file) > 8 * 1024 * 1024) throw new IOException("preview store outside world or too large");
+        try (var input = Files.newInputStream(file);
+             var gzip = new java.util.zip.GZIPInputStream(com.google.common.io.ByteStreams.limit(input, 8 * 1024 * 1024));
+             var data = new java.io.DataInputStream(com.google.common.io.ByteStreams.limit(gzip, 8 * 1024 * 1024))) {
+            CompoundTag root = NbtIo.read(data, NbtAccounter.create(8 * 1024 * 1024));
+            if (!root.contains("Data", Tag.TAG_COMPOUND)) throw new IOException("missing preview store Data");
+            for (String key : root.getCompound("Data").getAllKeys()) {
+                if (isDataKey(key) && !tag.contains(key)) tag.put(key, root.getCompound("Data").get(key).copy());
+            }
+        }
+    }
+
+    private State readState(File directory, UUID id) {
+        File file = stateFile(directory, id);
         if (!file.isFile()) return null;
         try (FileInputStream input = new FileInputStream(file)) {
             CompoundTag root = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
+            if (!root.contains("Data", Tag.TAG_COMPOUND)) throw new IOException("missing Data compound");
             State state = new State();
             state.id = id;
             state.owner = UUID.fromString(root.getString("Owner"));
             state.migration = root.getInt("MigrationState");
             state.data = root.getCompound("Data");
+            state.modified = Files.getLastModifiedTime(file.toPath());
+            state.length = file.length();
             return state;
         } catch (Exception e) {
             LOGGER.error("[{}] store read failed for {}", logTag, id, e);
@@ -257,24 +284,68 @@ public final class NpcDataExternalStore {
         }
     }
 
-    private void writeState(State state) throws IOException {
+    private void writeState(File directory, State state) throws IOException {
         CompoundTag root = new CompoundTag();
         root.putString("Owner", state.owner.toString());
         root.putInt("MigrationState", state.migration);
         root.put("Data", state.data.copy());
-        writeCompressed(stateFile(state.id), root);
+        writeCompressed(stateFile(directory, state.id), root);
     }
 
-    private void copyState(State source, UUID id, UUID owner) throws IOException {
+    private static State fork(State source, UUID owner) {
         State copy = new State();
-        copy.id = id;
+        copy.id = UUID.randomUUID();
         copy.owner = owner;
         copy.data = source.data.copy();
-        copy.migration = COPYING;
-        writeState(copy);
-        if (!verifyData(copy)) throw new IOException("data clone verification failed");
-        copy.migration = VERIFIED;
-        writeState(copy);
+        return copy;
+    }
+
+    private void persist(File directory, State state, int migration) throws IOException {
+        state.migration = migration;
+        writeState(directory, state);
+        if (!verifyData(directory, state)) throw new IOException("external data verification failed");
+        File file = stateFile(directory, state.id);
+        state.modified = Files.getLastModifiedTime(file.toPath());
+        state.length = file.length();
+    }
+
+    private static boolean unchanged(File directory, State state) throws IOException {
+        File file = stateFile(directory, state.id);
+        return file.isFile() && state.length == file.length()
+                && state.modified != null && state.modified.equals(Files.getLastModifiedTime(file.toPath()));
+    }
+
+    /** Materialize before cleanTags deletes UUID; failures retain inline keys and references. */
+    public synchronized boolean makePortable(CompoundTag tag) {
+        UUID id = parseId(tag.getString(idKey));
+        return id == null ? tag.getString(idKey).isEmpty() : materialize(tag, directory(), id);
+    }
+
+    synchronized boolean makePortable(CompoundTag tag, File directory) {
+        UUID id = parseId(tag.getString(idKey));
+        return id == null ? tag.getString(idKey).isEmpty() : materialize(tag, directory, id);
+    }
+
+    private boolean materialize(CompoundTag tag, File directory, UUID id) {
+        State state = readState(directory, id);
+        if (state == null || !verifyData(directory, state)) {
+            LOGGER.error("[{}] cannot materialize clone {}; keeping inline NBT/reference", logTag, id);
+            return false;
+        }
+        for (String key : state.data.getAllKeys()) {
+            if (isDataKey(key) && !tag.contains(key)) tag.put(key, state.data.get(key).copy());
+        }
+        tag.remove(idKey);
+        tag.remove(stateKey);
+        return true;
+    }
+
+    public static boolean makeAllPortable(CompoundTag tag) {
+        boolean complete = true;
+        for (NpcDataExternalStore store : new NpcDataExternalStore[]{SPAWNER, INVENTORY, SCRIPTS, ADVANCED, MODEL}) {
+            complete &= store.makePortable(tag);
+        }
+        return complete;
     }
 
     private static void writeCompressed(File target, CompoundTag tag) throws IOException {

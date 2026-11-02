@@ -123,6 +123,7 @@
     "containers.MixinContainerNpcInterfaceDistance"
   ],
   "client": [
+    "script.EditBoxScrollAccess",
     "script.MixinGuiScriptEditor",
     "smelting.MixinGuiNPCGlobalMainMenuSmelting",
     "anvil.MixinAnvilScreen",

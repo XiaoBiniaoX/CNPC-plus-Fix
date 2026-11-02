@@ -193,6 +193,14 @@ public final class TransportSpans {
     }
 
     /** 解析 §x§R§R§G§G§B§B 形式的十六进制颜色，返回 {rgb} 或 null。 */
+    /** Same recognized codes as fromLegacy, to align source-indexed styles after migration. */
+    public static int legacyCodeLength(String text, int pos) {
+        if (pos + 1 >= text.length() || text.charAt(pos) != '\u00a7') return 0;
+        char code = Character.toLowerCase(text.charAt(pos + 1));
+        if (code == 'x' && parseHexColor(text, pos) != null) return 14;
+        return "0123456789abcdeflnor".indexOf(code) >= 0 ? 2 : 0;
+    }
+
     private static int[] parseHexColor(String text, int pos) {
         int[] digits = new int[6];
         int p = pos + 2;

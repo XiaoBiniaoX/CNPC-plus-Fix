@@ -201,5 +201,21 @@ public class CnpcPlusConfig {
             .comment("对准NPC时优先使用弓/食物等有使用动作的物品；潜行仍与NPC交互。")
             .define("InteractItemPriority", true);
 
+    public static final ModConfigSpec.BooleanValue INVENTORY_FACTION_TAB = BUILDER
+            .comment("背包中的 CNPC 阵营旗帜标签；局内热修改，不影响 L 任务入口。")
+            .define("InventoryFactionTab", true);
+
+    public static final ModConfigSpec.BooleanValue INVENTORY_QUEST_TAB = BUILDER
+            .comment("背包中的 CNPC 任务书标签；局内热修改，不影响 L 任务入口。")
+            .define("InventoryQuestTab", true);
+
+    public static final ModConfigSpec.BooleanValue WAND_HITBOX_OVERLAY = BUILDER
+            .comment("手持 NPC／复制／脚本魔杖时，显示30格内NPC的真实碰撞箱。")
+            .define("WandHitboxOverlay", true);
+
+    public static final ModConfigSpec.BooleanValue NPC_RESPAWN_GAME_CLOCK = BUILDER
+            .comment("以游戏内时钟计算NPC复活；区块卸载后保留剩余时间，受停止时间流动影响。")
+            .define("NpcRespawnGameClock", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

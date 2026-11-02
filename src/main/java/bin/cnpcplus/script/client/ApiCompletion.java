@@ -1,183 +1,295 @@
 package bin.cnpcplus.script.client;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import bin.cnpcplus.script.ScriptLexical;
+import java.lang.reflect.*;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** 有限静态推断：只读实际安装版本的API成员，不运行编辑中的代码。 */
+/** Metadata only: never constructs API objects or evaluates editor text. */
 public final class ApiCompletion {
-    public record Entry(String name, String signature, boolean method, int parameters) {}
-    public record Result(int start, int end, List<Entry> entries) {}
-    public record CallTip(List<Entry> entries, int argument) {}
-    private static final Pattern FUNCTION = Pattern.compile("function\\s+(\\w+)\\s*\\(\\s*([\\w$]+)");
-    private static final Pattern RECEIVER = Pattern.compile("([\\w$]+(?:\\.[\\w$]+(?:\\([^()\\n]*\\))?(?:\\[\\d+\\])?)*)\\.$");
-    private static final Map<Class<?>, List<Entry>> MEMBERS = new HashMap<>();
-    private static final Map<String, String> EVENTS = Map.ofEntries(
-            Map.entry("tick", "Update"), Map.entry("kill", "KilledEntity"),
-            Map.entry("targetLost", "TargetLost"), Map.entry("rangedLaunched", "RangedLaunched"),
-            Map.entry("broken", "Break"), Map.entry("fallenUpon", "EntityFallenUpon"),
-            Map.entry("rainFilled", "RainFill"), Map.entry("neighborChanged", "NeighborChanged"),
-            Map.entry("doorToggle", "DoorToggle"));
-
+    private static final Pattern FUNCTION = Pattern.compile("\\bfunction\\s+(\\w+)\\s*\\(\\s*([\\w$]+)[^)]*\\)\\s*\\{");
+    private static final Pattern ASSIGN = Pattern.compile("\\b(?:var|let|const)\\s+([\\w$]+)\\s*=\\s*([^;\\n]+)");
+    private static final Pattern NAMED_FUNCTION = Pattern.compile("\\bfunction\\s+([$_\\p{L}][$_\\p{L}\\p{N}\\p{M}]*)\\s*\\(");
+    private static final Pattern HOOK_NAME = Pattern.compile("[$_\\p{L}][$_\\p{L}\\p{N}\\p{M}]*");
+    private static final Map<Class<?>, List<Entry>> CACHE = new HashMap<>();
+    private static final String API = "noppes.npcs.api.";
     private ApiCompletion() {}
 
-    public static Result complete(String source, int cursor, String family) {
-        cursor = Math.max(0, Math.min(cursor, source.length()));
-        String code = codePrefix(source, cursor, false);
-        if (code == null) return new Result(cursor, cursor, List.of());
+    public record Entry(String name, String insert, String signature, Type type, boolean method) {}
+    public record Result(int start, List<Entry> entries) {}
+
+    /** Hooks are the actual server-supplied Methods, including addon registrations. */
+    public static Result complete(String text, int cursor, String context, List<String> hooks) {
+        cursor = Math.max(0, Math.min(text.length(), cursor));
+        String code = ScriptLexical.mask(text);
+        if (ScriptLexical.mask(text.substring(0, cursor) + "X").charAt(cursor) != 'X')
+            return new Result(cursor, List.of());
         int start = cursor;
-        while (start > 0 && Character.isJavaIdentifierPart(source.charAt(start - 1))) start--;
-        int end = cursor;
-        while (end < source.length() && Character.isJavaIdentifierPart(source.charAt(end))) end++;
-        String prefix = source.substring(start, cursor);
-        Matcher receiver = RECEIVER.matcher(code.substring(0, start));
-        if (!receiver.find()) return new Result(start, cursor, List.of());
-        Class<?> type = resolve(receiver.group(1), code.substring(0, start), family, 0);
-        if (type == null || !type.getName().startsWith("noppes.npcs.api.")) {
-            return new Result(start, cursor, List.of());
+        while (start > 0 && Character.isJavaIdentifierPart(code.charAt(start - 1))) start--;
+        String prefix = code.substring(start, cursor);
+        Map<String, Type> roots = roots(code, cursor, context);
+        int dot = skipSpace(code, start - 1);
+        List<Entry> choices = new ArrayList<>();
+        if (dot >= 0 && code.charAt(dot) == '.') {
+            choices.addAll(members(raw(resolve(expressionBefore(code, dot), roots, 0))));
+        } else {
+            boolean declaration = code.substring(0, start).matches("(?s).*\\bfunction\\s+");
+            Map<String, Entry> functions = new LinkedHashMap<>();
+            for (String hook : hooks) if (hook != null && HOOK_NAME.matcher(hook).matches())
+                functions.put(hook, new Entry(hook, declaration ? hook : hook + "(",
+                        hook + "(event) [" + ScriptApiDocs.hookSource(context, hook) + " hook]", null, !declaration));
+            Matcher matcher = NAMED_FUNCTION.matcher(code);
+            while (matcher.find()) {
+                String name = matcher.group(1);
+                functions.putIfAbsent(name, new Entry(name, declaration ? name : name + "(",
+                        name + "(...) [script]", null, !declaration));
+            }
+            choices.addAll(functions.values());
+            if (!declaration) {
+                for (var root : roots.entrySet()) choices.add(new Entry(root.getKey(), root.getKey(),
+                        root.getKey() + " : " + label(root.getValue()), root.getValue(), false));
+                choices.add(new Entry("log", "log(", "log(Object) : void", Void.TYPE, true));
+                choices.add(new Entry("dump", "dump(", "dump(Object) : String", String.class, true));
+            }
         }
-        List<Entry> entries = MEMBERS.computeIfAbsent(type, ApiCompletion::members).stream()
-                .filter(entry -> entry.name.startsWith(prefix)).toList();
-        return new Result(start, end, entries);
+        String lower = prefix.toLowerCase(Locale.ROOT);
+        choices.removeIf(entry -> !entry.name().toLowerCase(Locale.ROOT).startsWith(lower));
+        choices.sort(Comparator.comparing((Entry entry) -> !entry.name().startsWith(prefix))
+                .thenComparing(Entry::name).thenComparing(Entry::signature));
+        return new Result(start, choices);
     }
 
-    public static CallTip signature(String source, int cursor, String family) {
-        String code = codePrefix(source, Math.max(0, Math.min(cursor, source.length())), true);
-        if (code == null) return null;
-        int depth = 0, argument = 0;
+    public static List<Entry> hint(String text, int cursor, String context) {
+        String code = ScriptLexical.mask(text.substring(0, Math.min(cursor, text.length())));
+        int depth = 0;
         for (int i = code.length() - 1; i >= 0; i--) {
-            char ch = code.charAt(i);
-            if (ch == ')' || ch == ']' || ch == '}') depth++;
-            else if (ch == '(' && depth == 0) {
-                Result result = complete(source, i, family);
-                String name = source.substring(result.start(), i);
-                List<Entry> entries = result.entries().stream()
-                        .filter(entry -> entry.method() && entry.name().equals(name)).toList();
-                return entries.isEmpty() ? null : new CallTip(entries, argument + 1);
-            } else if (ch == '(' || ch == '[' || ch == '{') depth--;
-            else if (ch == ',' && depth == 0) argument++;
+            char c = code.charAt(i);
+            if (c == ')') depth++;
+            if (c != '(') continue;
+            if (depth-- > 0) continue;
+            String call = expressionBefore(code, i);
+            int dot = call.lastIndexOf('.');
+            if (dot < 0) return List.of();
+            String name = call.substring(dot + 1).trim();
+            Type owner = resolve(call.substring(0, dot), roots(ScriptLexical.mask(text), cursor, context), 0);
+            return members(raw(owner)).stream().filter(entry -> entry.method() && entry.name().equals(name)).toList();
+        }
+        return List.of();
+    }
+
+    private static Map<String, Type> roots(String code, int cursor, String context) {
+        Map<String, Type> roots = new LinkedHashMap<>();
+        Class<?> base = load(API + "event." + (context.equals("BlockDoorEvent") ? "BlockEvent" : context));
+        String eventName = "event", function = "";
+        int scope = 0;
+        Matcher matcher = FUNCTION.matcher(code);
+        while (matcher.find() && matcher.end() <= cursor) {
+            int end = closing(code, matcher.end() - 1, '{', '}');
+            if (end < 0 || cursor <= end) {
+                eventName = matcher.group(2); function = matcher.group(1); scope = matcher.end();
+            }
+        }
+        Class<?> event = eventClass(base, function);
+        if (event != null) roots.put(eventName, event);
+        if (context.equals("BlockEvent") || context.equals("BlockDoorEvent"))
+            roots.put(eventName + ".block", load(API + "block."
+                    + (context.equals("BlockDoorEvent") ? "IBlockScriptedDoor" : "IBlockScripted")));
+        roots.put("PosZero", load(API + "IPos"));
+        for (String name : new String[]{"AnimationType", "EntitiesType", "RoleType", "JobType", "SideType", "PotionEffectType", "ParticleType"})
+            roots.put(name, load(API + "constants." + name));
+        matcher = ASSIGN.matcher(code.substring(scope, Math.max(scope, Math.min(cursor, code.length()))));
+        while (matcher.find()) roots.put(matcher.group(1), resolve(matcher.group(2), roots, 0));
+        roots.values().removeIf(Objects::isNull);
+        return roots;
+    }
+
+    private static Class<?> eventClass(Class<?> base, String function) {
+        if (base == null) return null;
+        String name = function.toLowerCase(Locale.ROOT);
+        switch (name) {
+            case "tick" -> name = "update";
+            case "kill" -> name = "killedentity";
+            case "collide" -> name = base.getSimpleName().equals("BlockEvent") ? "collided" : "collide";
+            case "broken" -> name = "break";
+            case "rainfilled" -> name = "rainfill";
+            case "fallenupon" -> name = "entityfallenupon";
+            case "dialog" -> { return load(API + "event.DialogEvent$OpenEvent"); }
+            case "dialogoption" -> { return load(API + "event.DialogEvent$OptionEvent"); }
+            case "dialogclose" -> { return load(API + "event.DialogEvent$CloseEvent"); }
+            case "customguibutton" -> { return load(API + "event.CustomGuiEvent$ButtonEvent"); }
+            case "customguiscroll" -> { return load(API + "event.CustomGuiEvent$ScrollEvent"); }
+            case "customguiclosed" -> { return load(API + "event.CustomGuiEvent$CloseEvent"); }
+            case "customguislot" -> { return load(API + "event.CustomGuiEvent$SlotEvent"); }
+            case "customchestclosed" -> { return load(API + "event.CustomContainerEvent$CloseEvent"); }
+            case "customchestclicked" -> { return load(API + "event.CustomContainerEvent$SlotClickedEvent"); }
+            case "projectiletick" -> { return load(API + "event.ProjectileEvent$UpdateEvent"); }
+            case "projectileimpact" -> { return load(API + "event.ProjectileEvent$ImpactEvent"); }
+            case "queststart" -> { return load(API + "event.QuestEvent$QuestStartEvent"); }
+            case "questcompleted" -> { return load(API + "event.QuestEvent$QuestCompletedEvent"); }
+            case "questturnin" -> { return load(API + "event.QuestEvent$QuestTurnedInEvent"); }
+            case "scriptcommand" -> { return load(API + "event.WorldEvent$ScriptCommandEvent"); }
+            default -> { }
+        }
+        for (Class<?> nested : base.getDeclaredClasses())
+            if (nested.getSimpleName().replace("Event", "").equalsIgnoreCase(name)) return nested;
+        return base;
+    }
+
+    public static List<Entry> members(Class<?> owner) {
+        if (owner == null || owner == Object.class || owner.isPrimitive()) return List.of();
+        List<Entry> cached = CACHE.get(owner);
+        if (cached != null) return cached;
+        Map<String, Entry> entries = new TreeMap<>();
+        collectMembers(owner, entries);
+        Class<?> runtime = runtimeWrapper(owner);
+        if (runtime != null) collectMembers(runtime, entries);
+        if (owner.isArray()) entries.put("length", new Entry("length", "length", "length : int", Integer.TYPE, false));
+        cached = List.copyOf(entries.values()); CACHE.put(owner, cached);
+        return cached;
+    }
+
+    /** CNPC implementation names only; addon members are discovered, never hard-coded. */
+    public static Class<?> runtimeWrapper(Class<?> owner) {
+        if (owner == null) return null;
+        if (owner.getName().equals(API + "NpcAPI")) return load(API + "wrapper.WrapperNpcAPI");
+        if (!owner.isInterface() || !owner.getName().startsWith(API)) return null;
+        String simple = owner.getSimpleName();
+        if (!simple.startsWith("I")) return null;
+        String wrapper = switch (simple) {
+            case "ICustomNpc" -> "NPCWrapper";
+            case "IEntity" -> "EntityWrapper";
+            case "IEntityLiving" -> "EntityLivingBaseWrapper";
+            case "IMob" -> "EntityLivingWrapper";
+            case "IItemStack" -> "ItemStackWrapper";
+            case "INbt" -> "NBTWrapper";
+            case "IPos" -> "BlockPosWrapper";
+            default -> simple.substring(1) + "Wrapper";
+        };
+        Class<?> runtime = load(API + "wrapper." + wrapper);
+        if (runtime != null && owner.isAssignableFrom(runtime)) return runtime;
+        for (Class<?> parent : owner.getInterfaces()) {
+            runtime = runtimeWrapper(parent); if (runtime != null) return runtime;
         }
         return null;
     }
 
-    // ponytail: lexical masking, not a JS/Lua compiler. Dynamic assignments and template expressions stay unsupported.
-    private static String codePrefix(String source, int end, boolean inArgument) {
-        StringBuilder code = new StringBuilder(source.substring(0, end));
-        char quote = 0;
-        boolean lineComment = false, blockComment = false;
-        for (int i = 0; i < end; i++) {
-            char ch = source.charAt(i), next = i + 1 < end ? source.charAt(i + 1) : 0;
-            if (lineComment) {
-                if (ch == '\n') lineComment = false;
-                else code.setCharAt(i, ' ');
-            } else if (blockComment) {
-                if (ch != '\n') code.setCharAt(i, ' ');
-                if (ch == '*' && next == '/') { code.setCharAt(++i, ' '); blockComment = false; }
-            } else if (quote != 0) {
-                if (ch != '\n') code.setCharAt(i, ' ');
-                if (ch == '\\' && i + 1 < end) code.setCharAt(++i, ' ');
-                else if (ch == quote) quote = 0;
-            } else if (ch == '/' && next == '/') {
-                code.setCharAt(i, ' '); code.setCharAt(++i, ' '); lineComment = true;
-            } else if (ch == '/' && next == '*') {
-                code.setCharAt(i, ' '); code.setCharAt(++i, ' '); blockComment = true;
-            } else if (ch == '\'' || ch == '"' || ch == '`') {
-                code.setCharAt(i, ' '); quote = ch;
+    private static void collectMembers(Class<?> owner, Map<String, Entry> entries) {
+        Field[] fields; Method[] methods;
+        try { fields = owner.getFields(); methods = owner.getMethods(); }
+        catch (LinkageError | SecurityException unavailable) { return; }
+        for (Field field : fields) entries.putIfAbsent("field:" + field.getName(), new Entry(field.getName(), field.getName(),
+                field.getName() + " : " + label(field.getGenericType()), field.getGenericType(), false));
+        for (Method method : methods) {
+            if (method.getDeclaringClass() == Object.class || method.isSynthetic() || method.isBridge()) continue;
+            StringBuilder signature = new StringBuilder(method.getName()).append('(');
+            Type[] params = method.getGenericParameterTypes();
+            for (int i = 0; i < params.length; i++) {
+                if (i != 0) signature.append(", ");
+                signature.append(label(params[i]));
+                if (method.getParameters()[i].isNamePresent()) signature.append(' ').append(method.getParameters()[i].getName());
+            }
+            signature.append(") : ").append(label(method.getGenericReturnType()));
+            Entry entry = new Entry(method.getName(), method.getName() + (params.length == 0 ? "()" : "("),
+                    signature.toString(), method.getGenericReturnType(), true);
+            entries.putIfAbsent(method.getName() + Arrays.toString(method.getParameterTypes()), entry);
+            if (params.length == 0 && method.getName().startsWith("get") && method.getName().length() > 3 && method.getReturnType() != Void.TYPE) {
+                String property = Character.toLowerCase(method.getName().charAt(3)) + method.getName().substring(4);
+                entries.putIfAbsent("field:" + property, new Entry(property, property,
+                        property + " : " + label(entry.type()) + " [" + method.getName() + "()]", entry.type(), false));
             }
         }
-        return quote != 0 && !inArgument || lineComment || blockComment ? null : code.toString();
     }
 
-    private static List<Entry> members(Class<?> type) {
-        List<Entry> entries = new ArrayList<>();
-        for (Field field : type.getFields()) {
-            if (field.isSynthetic()) continue;
-            entries.add(new Entry(field.getName(), field.getName() + " : " + simple(field.getType()), false, 0));
-        }
-        for (Method method : type.getMethods()) {
-            if (method.isSynthetic() || method.isBridge() || Modifier.isStatic(method.getModifiers())
-                    || method.getDeclaringClass() == Object.class) continue;
-            String parameters = String.join(", ", Arrays.stream(method.getParameterTypes())
-                    .map(ApiCompletion::simple).toList());
-            entries.add(new Entry(method.getName(), method.getName() + "(" + parameters + ") : "
-                    + simple(method.getReturnType()), true, method.getParameterCount()));
-        }
-        return entries.stream().distinct().sorted(Comparator.comparing(Entry::name)
-                .thenComparing(Entry::signature)).toList();
-    }
-
-    private static String simple(Class<?> type) {
-        return type.isArray() ? simple(type.getComponentType()) + "[]" : type.getSimpleName();
-    }
-
-    private static Class<?> resolve(String expression, String source, String family, int depth) {
-        if (depth > 6) return null;
-        List<String> parts = split(expression);
-        String root = parts.getFirst();
-        Matcher function = FUNCTION.matcher(source);
-        String functionName = "", parameter = "event";
-        while (function.find()) { functionName = function.group(1); parameter = function.group(2); }
-        Class<?> type = null;
-        if (root.equals(parameter)) {
-            type = eventType(family, functionName);
-        } else {
-            Matcher alias = Pattern.compile("(?:var|let|const)\\s+" + Pattern.quote(root)
-                    + "\\s*=\\s*([^;\\n]+)").matcher(source);
-            String value = null;
-            while (alias.find()) value = alias.group(1).trim();
-            if (value != null) type = resolve(value, source, family, depth + 1);
-        }
-        for (int i = 1; type != null && i < parts.size(); i++) {
-            String part = parts.get(i);
-            boolean index = part.matches(".*\\[\\d+\\]$");
-            part = part.replaceFirst("\\[\\d+\\]$", "");
-            int paren = part.indexOf('(');
-            if (paren >= 0) {
-                String name = part.substring(0, paren);
-                Class<?> result = null;
-                for (Method method : type.getMethods()) {
-                    if (!method.getName().equals(name) || method.isBridge()) continue;
-                    if (result != null && result != method.getReturnType()) return null; // 不猜歧义重载。
-                    result = method.getReturnType();
-                }
-                type = result;
-            } else {
-                try { type = type.getField(part).getType(); }
-                catch (NoSuchFieldException ignored) { return null; }
+    private static Type resolve(String expression, Map<String, Type> roots, int depth) {
+        if (depth > 12) return null;
+        expression = expression.trim(); int i = 0;
+        while (i < expression.length() && Character.isJavaIdentifierPart(expression.charAt(i))) i++;
+        Type type = roots.get(expression.substring(0, i));
+        while (type != null && i < expression.length()) {
+            while (i < expression.length() && Character.isWhitespace(expression.charAt(i))) i++;
+            if (i == expression.length()) break;
+            if (expression.charAt(i) == '[') {
+                int end = closing(expression, i, '[', ']'); if (end < 0) return null;
+                type = element(type); i = end + 1; continue;
             }
-            if (index) type = type != null && type.isArray() ? type.getComponentType() : null;
+            if (expression.charAt(i++) != '.') return null;
+            while (i < expression.length() && Character.isWhitespace(expression.charAt(i))) i++;
+            int start = i;
+            while (i < expression.length() && Character.isJavaIdentifierPart(expression.charAt(i))) i++;
+            String member = expression.substring(start, i);
+            while (i < expression.length() && Character.isWhitespace(expression.charAt(i))) i++;
+            boolean call = i < expression.length() && expression.charAt(i) == '(';
+            Type contextual = roots.get(expression.substring(0, i).replaceAll("\\s+", ""));
+            if (!call && contextual != null) { type = contextual; continue; }
+            int args = -1;
+            if (call) {
+                int end = closing(expression, i, '(', ')'); if (end < 0) return null;
+                args = argumentCount(expression.substring(i + 1, end)); i = end + 1;
+            }
+            if (call && member.equals("get") && type instanceof ParameterizedType && List.class.isAssignableFrom(raw(type))) {
+                type = element(type); continue;
+            }
+            Type next = null;
+            for (Entry entry : members(raw(type))) {
+                if (!entry.name().equals(member) || entry.method() != call) continue;
+                if (call && argumentCount(entry.signature().substring(entry.signature().indexOf('(') + 1, entry.signature().indexOf(')'))) != args) continue;
+                if (next != null && !next.equals(entry.type())) return null;
+                next = entry.type();
+            }
+            type = next;
         }
         return type;
     }
-
-    private static List<String> split(String expression) {
-        List<String> parts = new ArrayList<>();
-        int depth = 0, start = 0;
-        for (int i = 0; i < expression.length(); i++) {
-            char c = expression.charAt(i);
-            if (c == '(' || c == '[') depth++;
-            if (c == ')' || c == ']') depth--;
-            if (c == '.' && depth == 0) { parts.add(expression.substring(start, i)); start = i + 1; }
-        }
-        parts.add(expression.substring(start));
-        return parts;
+    private static Type element(Type type) {
+        Class<?> raw = raw(type);
+        if (raw != null && raw.isArray()) return raw.getComponentType();
+        if (type instanceof ParameterizedType parameterized) return parameterized.getActualTypeArguments()[0];
+        return null;
     }
-
-    private static Class<?> eventType(String family, String function) {
-        String base = "noppes.npcs.api.event." + family + "Event";
-        String event = EVENTS.getOrDefault(function, function.isEmpty() ? "" :
-                Character.toUpperCase(function.charAt(0)) + function.substring(1));
-        try {
-            try { return Class.forName(base + "$" + event + "Event", false, ApiCompletion.class.getClassLoader()); }
-            catch (ClassNotFoundException ignored) { return Class.forName(base, false, ApiCompletion.class.getClassLoader()); }
-        } catch (ClassNotFoundException ignored) { return null; }
+    private static Class<?> raw(Type type) {
+        if (type instanceof Class<?> clazz) return clazz;
+        if (type instanceof ParameterizedType parameterized) return raw(parameterized.getRawType());
+        if (type instanceof WildcardType wildcard) return raw(wildcard.getUpperBounds()[0]);
+        if (type instanceof TypeVariable<?> variable) return raw(variable.getBounds()[0]);
+        return null;
+    }
+    private static String label(Type type) {
+        return type == null ? "?" : type.getTypeName().replaceAll("(?:[a-zA-Z_$][\\w$]*\\.)+", "").replace('$', '.');
+    }
+    private static Class<?> load(String name) {
+        try { return Class.forName(name, false, ApiCompletion.class.getClassLoader()); }
+        catch (ClassNotFoundException | LinkageError ignored) { return null; }
+    }
+    private static int skipSpace(String code, int i) {
+        while (i >= 0 && Character.isWhitespace(code.charAt(i))) i--; return i;
+    }
+    private static String expressionBefore(String code, int end) {
+        int i = skipSpace(code, end - 1), nesting = 0;
+        for (; i >= 0; i--) {
+            char c = code.charAt(i);
+            if (c == ')' || c == ']') nesting++;
+            else if (c == '(' || c == '[') { if (nesting == 0) break; nesting--; }
+            else if (nesting == 0 && !(Character.isJavaIdentifierPart(c) || c == '.' || c == ' ' || c == '\t')) break;
+        }
+        return code.substring(i + 1, end).trim().replaceFirst("^(?:return|throw|var|let|const)\\s+", "");
+    }
+    private static int closing(String code, int start, char open, char close) {
+        int level = 0;
+        for (int i = start; i < code.length(); i++) {
+            if (code.charAt(i) == open) level++;
+            if (code.charAt(i) == close && --level == 0) return i;
+        }
+        return -1;
+    }
+    private static int argumentCount(String code) {
+        if (code.trim().isEmpty()) return 0;
+        int count = 1, depth = 0;
+        for (char c : code.toCharArray()) {
+            if (c == '(' || c == '[' || c == '{' || c == '<') depth++;
+            if (c == ')' || c == ']' || c == '}' || c == '>') depth--;
+            if (c == ',' && depth == 0) count++;
+        }
+        return count;
     }
 }

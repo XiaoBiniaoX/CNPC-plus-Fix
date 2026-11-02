@@ -1,6 +1,9 @@
 package top.cnpcplus.transport.client;
 
 public interface TextAreaSelectionAccess {
+    noppes.npcs.shared.client.gui.components.TextContainer cnpcplus$container();
+    int cnpcplus$scroll();
+    void cnpcplus$scroll(int row);
     void cnpcplus$clearSelection();
 
     /** 当前选区起点（用于鼠标拖选时保持锚点）。 */

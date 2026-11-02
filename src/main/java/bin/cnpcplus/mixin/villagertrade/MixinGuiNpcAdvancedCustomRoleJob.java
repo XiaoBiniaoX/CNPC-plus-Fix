@@ -44,6 +44,18 @@ public class MixinGuiNpcAdvancedCustomRoleJob {
         return n;
     }
 
+    @Inject(method = "init", at = @At("TAIL"), require = 1)
+    private void cnpcplus$quickSelect(CallbackInfo ci) {
+        GuiNpcAdvanced self = (GuiNpcAdvanced)(Object)this;
+        for (int id : new int[]{8, 5}) {
+            var original = self.getButton(id);
+            if (original == null) continue;
+            self.addButton(new noppes.npcs.shared.client.gui.components.GuiButtonNop(self, 720 + id,
+                    original.getX() - 70, original.getY(), 66, 20, "cnpcplus.select.quick",
+                    pressed -> self.setSubGui(new top.cnpcplus.client.gui.SubGuiRoleJobSelect(self, id))));
+        }
+    }
+
     /** setGuiData 的 RoleData 分支：type==8 时打开编辑面板（基于原版村民交易界面）。 */
     @Inject(method = "setGuiData", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$openVillagerTraderEdit(CompoundTag compound, CallbackInfo ci) {

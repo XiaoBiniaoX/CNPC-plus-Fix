@@ -9,9 +9,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.persist.NpcDataExternalStore;
 
 /**
- * 召唤师 SpawnerData 与掉落物（NpcInv+DropChance）外置分离（240 #2/#3）。
+ * 召唤师、全装备和高级数据外置，linked 快照保留原生覆盖顺序。
  *
- * <p>读档：挂 m_7378_ 内 {@code DataScript.load} 的 INVOKE——super 已读 UUID
+ * <p>读档：挂原生 {@code DataDisplay.readToNBT} 之前——super 已读 UUID
  * （owner 正确）、原生 {@code job.load}(1079)/{@code inventory.load}(1080)/
  * transform 基线(1081) 尚未跑，贴键即被原生 load 读走（零 reload）；linked
  * {@code loadNpcData}(1086) 在其后仍按原生顺序覆盖（linked 权威不变）。
@@ -26,11 +26,12 @@ import top.cnpcplus.persist.NpcDataExternalStore;
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public abstract class MixinEntityNPCDataStores {
 
-    @Inject(method = "readAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/data/DataScript;load(Lnet/minecraft/nbt/CompoundTag;)V"), require = 1, remap = false)
+    @Inject(method = "readAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/data/DataDisplay;readToNBT(Lnet/minecraft/nbt/CompoundTag;)V"), require = 1, remap = false)
     private void cnpcplus$attachExternalData(CompoundTag tag, CallbackInfo ci) {
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
         NpcDataExternalStore.SPAWNER.prepareLoad(npc, tag);
         NpcDataExternalStore.INVENTORY.prepareLoad(npc, tag);
+        NpcDataExternalStore.ADVANCED.prepareLoad(npc, tag);
     }
 
     @Inject(method = "addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At("RETURN"), require = 1, remap = false)
@@ -38,5 +39,6 @@ public abstract class MixinEntityNPCDataStores {
         EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
         NpcDataExternalStore.SPAWNER.saveNpc(npc, tag);
         NpcDataExternalStore.INVENTORY.saveNpc(npc, tag);
+        NpcDataExternalStore.ADVANCED.saveNpc(npc, tag);
     }
 }

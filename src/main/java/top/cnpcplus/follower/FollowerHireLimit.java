@@ -1,6 +1,5 @@
 package top.cnpcplus.follower;
 
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -12,7 +11,6 @@ import top.cnpcplus.config.ServerConfigAccess;
 
 public final class FollowerHireLimit {
     private static final int DEFAULT_MAX_HIRED = 30;
-    private static final String DEFAULT_MESSAGE = "你雇佣的人过多";
 
     private FollowerHireLimit() {
     }
@@ -25,9 +23,7 @@ public final class FollowerHireLimit {
         if (max <= 0) return false;
         if (countOwned(player) < max) return false;
 
-        String message = ServerConfigAccess.string(CnpcPlusConfig.HIRE_LIMIT_MESSAGE, DEFAULT_MESSAGE);
-        if (message == null || message.isBlank()) message = DEFAULT_MESSAGE;
-        player.displayClientMessage(Component.literal(message), false);
+        FollowerMessages.say(role, player, FollowerMessages.get(role).limit());
         return true;
     }
 

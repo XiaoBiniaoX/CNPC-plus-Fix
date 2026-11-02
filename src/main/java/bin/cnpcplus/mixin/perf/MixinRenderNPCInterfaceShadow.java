@@ -2,7 +2,14 @@ package bin.cnpcplus.mixin.perf;
 
 import bin.cnpcplus.perf.client.ShadowRadiusAccess;
 import bin.cnpcplus.perf.client.ShadowRadiusLimit;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import noppes.npcs.CustomItems;
 import noppes.npcs.client.renderer.RenderNPCInterface;
+import noppes.npcs.entity.EntityCustomNpc;
+import noppes.npcs.entity.EntityNPCInterface;
+import top.cnpcplus.data.NpcHitboxStore;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,7 +31,15 @@ public abstract class MixinRenderNPCInterfaceShadow {
                  target = "Lnoppes/npcs/client/renderer/RenderNPCInterface;shadowRadius:F"),
         require = 0, remap = false
     )
-    private void cnpcplus$clampShadow(RenderNPCInterface<?, ?> self, float value) {
+    private void cnpcplus$clampShadow(RenderNPCInterface<?, ?> self, float value, EntityNPCInterface npc,
+                                     float yaw, float partial, PoseStack pose, MultiBufferSource buffer, int light) {
+        var player = Minecraft.getInstance().player;
+        if (player != null && !player.isCreative() && !player.isSpectator()
+                && !player.getMainHandItem().is(CustomItems.wand) && npc.isInvisibleTo(player)) {
+            value = 0;
+        }
+        if (npc instanceof EntityCustomNpc) value *= npc.display.getSize() / 5.0F;
+        value *= NpcHitboxStore.get(npc.display).shadowScale();
         ((ShadowRadiusAccess) self).cnpcplus$setShadowRadius(ShadowRadiusLimit.clamp(value));
     }
 }

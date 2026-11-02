@@ -29,7 +29,8 @@ public class MixinDataAdvancedMeleeHitLines implements MeleeHitLinesAccess {
     @Inject(method = "readToNBT", at = @At("TAIL"), require = 1)
     private void cnpcplus$readMeleeHitLines(CompoundTag compound, CallbackInfo ci) {
         // 键缺失时 getCompound 返回空标签，Lines.readNBT 可安全读取旧存档。
-        this.cnpcplus$meleeHitLines.readNBT(compound.getCompound("CNPCPlusMeleeHitLines"));
+        this.cnpcplus$meleeHitLines.readNBT(compound.getCompound(
+                compound.contains("CNPCPlusMeleeHitLines", 10) ? "CNPCPlusMeleeHitLines" : "CNPCPlusMeleeLines"));
     }
 
     @Override

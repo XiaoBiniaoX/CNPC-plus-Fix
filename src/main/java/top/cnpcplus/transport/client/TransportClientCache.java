@@ -55,6 +55,16 @@ public final class TransportClientCache {
 
     public static void acceptMeta(CompoundTag data, boolean editor) {
         if (data == null) return;
+        if (data.contains("Deleted")) {
+            java.util.Set<Integer> ids = java.util.Arrays.stream(data.getIntArray("Deleted"))
+                    .boxed().collect(java.util.stream.Collectors.toSet());
+            META.entrySet().removeIf(entry -> ids.contains(entry.getValue().getInt("Id")));
+            EDIT_META.entrySet().removeIf(entry -> ids.contains(entry.getValue().getInt("Id")));
+            if (root != null && ids.contains(root.getCompound("CurrentMeta").getInt("Id"))) currentName = "";
+            if (Minecraft.getInstance().screen instanceof ITransportPanelUI ui) ui.cnpcplus$removeLocations(ids);
+            if (metaListener != null) metaListener.run();
+            return;
+        }
         // 241o：服务端保存回执（只带 Saved 标记，不含条目数据 → 不能覆盖客户端的条目缓存）
         if (data.contains("Saved")) {
             savedAck = true;

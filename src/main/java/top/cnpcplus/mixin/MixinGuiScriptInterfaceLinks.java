@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 脚本控制台页在「网站/例子」上方加三个外链按钮。
- * 三按钮等宽拼出网站+例子总宽 161（53+1+53+1+53）。
+ * 按实际控制台边界布局，不依赖两个TAIL注入的先后顺序。
  */
 @Mixin(value = GuiScriptInterface.class, remap = false)
 public abstract class MixinGuiScriptInterfaceLinks {
@@ -29,7 +29,20 @@ public abstract class MixinGuiScriptInterfaceLinks {
         GuiButtonNop website = self.getButton(109);
         if (website == null || self.getButton(120) != null) return;
 
-        int left = website.getX();
+        var console = (noppes.npcs.shared.client.gui.components.GuiTextArea) self.get(3);
+        int left = console.x + console.width + 6;
+        int right = self.width - self.guiLeft - 6;
+        int sideWidth = right - left;
+        int halfWidth = (sideWidth - 2) / 2;
+        for (int id : new int[]{100, 102, 103, 104, 106, 109, 112, 110, 111}) {
+            var b = self.getButton(id); if (b == null) continue;
+            boolean second = id == 103 || id == 104 || id == 112 || id == 111;
+            boolean full = id == 106;
+            b.setX(left + (second ? halfWidth + 2 : 0));
+            b.setWidth(full ? sideWidth : second ? sideWidth - halfWidth - 2 : halfWidth);
+        }
+        self.getLabel(1).setX(left);
+        self.getLabel(2).setX(left);
         int y = website.getY();
         // 各自下移一行：109/112 原 y+78→y+100；110/111 原 y+99→y+121（勿统一设成同一 y）
         for (int id : new int[]{109, 112, 110, 111}) {
@@ -37,7 +50,7 @@ public abstract class MixinGuiScriptInterfaceLinks {
             if (b != null) ((AbstractWidgetAccess) (Object) b).cnpcplus$setY(b.getY() + 22);
         }
 
-        int w = 53;
+        int w = (sideWidth - 2) / 3;
         self.addButton(new GuiButtonNop(self, 120, left, y, w, 20, "cnpcplus.script.promptweb", button -> {
             self.setScreen(new ConfirmLinkScreen(ok -> {
                 if (ok) Util.getPlatform().openUri(URL_PROMPT);
@@ -45,14 +58,14 @@ public abstract class MixinGuiScriptInterfaceLinks {
             }, URL_PROMPT, true));
         }));
         self.getButton(120).setTooltip(Tooltip.create(Component.translatable("cnpcplus.script.promptweb.tooltip")));
-        self.addButton(new GuiButtonNop(self, 121, left + 54, y, w, 20, "cnpcplus.script.aiskills", button -> {
+        self.addButton(new GuiButtonNop(self, 121, left + w + 1, y, w, 20, "cnpcplus.script.aiskills", button -> {
             self.setScreen(new ConfirmLinkScreen(ok -> {
                 if (ok) Util.getPlatform().openUri(URL_SKILLS);
                 self.setScreen(self);
             }, URL_SKILLS, true));
         }));
         self.getButton(121).setTooltip(Tooltip.create(Component.translatable("cnpcplus.script.aiskills.tooltip")));
-        self.addButton(new GuiButtonNop(self, 122, left + 108, y, w, 20, "cnpcplus.script.followus", button -> {
+        self.addButton(new GuiButtonNop(self, 122, left + (w + 1) * 2, y, sideWidth - (w + 1) * 2, 20, "cnpcplus.script.followus", button -> {
             self.setScreen(new ConfirmLinkScreen(ok -> {
                 if (ok) Util.getPlatform().openUri(URL_BILI);
                 self.setScreen(self);

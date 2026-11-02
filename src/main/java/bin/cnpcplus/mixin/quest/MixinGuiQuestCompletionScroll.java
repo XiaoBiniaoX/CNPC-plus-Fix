@@ -1,16 +1,21 @@
 package bin.cnpcplus.mixin.quest;
 
 import bin.cnpcplus.gui.TextScrollBar;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import noppes.npcs.api.handler.data.IQuest;
+import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.client.gui.player.GuiQuestCompletion;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import noppes.npcs.shared.client.gui.components.GuiButtonNop;
+import top.cnpcplus.text.StyledText;
+import top.cnpcplus.text.TextStyles;
+import top.cnpcplus.text.client.StyledTextRender;
 
 /**
  * 任务完成文本原先把 TextBlockClient 折出的所有行无条件画完，超出窗口就画到屏幕外。
@@ -31,7 +36,9 @@ public abstract class MixinGuiQuestCompletionScroll extends GuiNPCInterface {
     @Unique
     private int cnpcplus$questTotalRows;
     @Unique
-    private int cnpcplus$questDrawIndex;
+    private StyledText cnpcplus$lastText;
+    @Unique private java.util.List<StyledText.Line> cnpcplus$questLines;
+    @Shadow private IQuest quest;
 
     @Unique
     private int cnpcplus$visibleRows() {
@@ -48,9 +55,10 @@ public abstract class MixinGuiQuestCompletionScroll extends GuiNPCInterface {
         return this.guiTop + this.imageHeight - CNPCPLUS_TEXT_BOTTOM_MARGIN;
     }
 
-    @Inject(method = "render", at = @At("HEAD"))
-    private void cnpcplus$resetRowIndex(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
-        this.cnpcplus$questDrawIndex = 0;
+    @Inject(method = "init", at = @At("TAIL"), require = 1)
+    private void cnpcplus$pages(CallbackInfo ci) {
+        addButton(new GuiButtonNop(this, 480, guiLeft + 4, guiTop + imageHeight - 24, 26, 20, "<"));
+        addButton(new GuiButtonNop(this, 481, guiLeft + 146, guiTop + imageHeight - 24, 26, 20, ">"));
     }
 
     /**
@@ -58,28 +66,35 @@ public abstract class MixinGuiQuestCompletionScroll extends GuiNPCInterface {
      * 画第一行时总行数还只有 1，若此时 clamp 会把滚动位置每帧归零，
      * 表现就是滑条能画出来但点击和滚轮下一帧就被撤销。
      */
-    @Redirect(
-            method = "drawQuestText",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;IIIZ)I"
-            ),
-            require = 1
-    )
-    private int cnpcplus$drawClippedLine(GuiGraphics graphics, Font font, String text,
-                                         int x, int y, int color, boolean shadow) {
-        int row = this.cnpcplus$questDrawIndex++;
-        int visible = this.cnpcplus$visibleRows();
-        if (row < this.cnpcplus$questRowStart || row >= this.cnpcplus$questRowStart + visible) {
-            return 0;
+    @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$page(GuiButtonNop button, CallbackInfo ci) {
+        if (button.id != 480 && button.id != 481) return;
+        cnpcplus$questRowStart = TextScrollBar.clamp(cnpcplus$questRowStart + (button.id == 480 ? -1 : 1) * cnpcplus$visibleRows(),
+                cnpcplus$questTotalRows, cnpcplus$visibleRows());
+        ci.cancel();
+    }
+
+    @Inject(method = "drawQuestText", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$drawStyledQuest(GuiGraphics graphics, CallbackInfo ci) {
+        StyledText text = StyledTextRender.format(TextStyles.get(quest, TextStyles.COMPLETE, quest.getCompleteText()), player);
+        if (!text.equals(cnpcplus$lastText)) {
+            cnpcplus$lastText = text;
+            cnpcplus$questLines = StyledTextRender.lines(text, 162, true);
         }
-        graphics.enableScissor(this.guiLeft + 4, this.cnpcplus$textTop(), this.guiLeft + 170, this.cnpcplus$textBottom());
+        cnpcplus$questTotalRows = cnpcplus$questLines.size();
+        int visible = this.cnpcplus$visibleRows();
+        cnpcplus$questRowStart = TextScrollBar.clamp(cnpcplus$questRowStart, cnpcplus$questTotalRows, visible);
+        graphics.enableScissor(this.guiLeft + 4, this.cnpcplus$textTop(), this.guiLeft + 166, this.cnpcplus$textBottom());
         try {
-            return graphics.drawString(font, text, x,
-                    y - this.cnpcplus$questRowStart * CNPCPLUS_LINE_HEIGHT, color, shadow);
+            for (int row = 0; row < visible && row + cnpcplus$questRowStart < cnpcplus$questTotalRows; row++)
+                StyledTextRender.draw(graphics, cnpcplus$questLines.get(row + cnpcplus$questRowStart).component(),
+                        guiLeft + 4, cnpcplus$textTop() + row * CNPCPLUS_LINE_HEIGHT, CustomNpcResourceListener.DefaultTextColor, true);
         } finally {
             graphics.disableScissor();
         }
+        if (getButton(480) != null) getButton(480).visible = cnpcplus$questRowStart > 0;
+        if (getButton(481) != null) getButton(481).visible = cnpcplus$questRowStart + visible < cnpcplus$questTotalRows;
+        ci.cancel();
     }
 
     @Inject(
@@ -92,8 +107,6 @@ public abstract class MixinGuiQuestCompletionScroll extends GuiNPCInterface {
             require = 1
     )
     private void cnpcplus$drawScrollbar(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
-        // 全部行画完后才提交总行数并统一钳制，顺序不能提前。
-        this.cnpcplus$questTotalRows = this.cnpcplus$questDrawIndex;
         this.cnpcplus$questRowStart = TextScrollBar.clamp(
                 this.cnpcplus$questRowStart, this.cnpcplus$questTotalRows, this.cnpcplus$visibleRows());
         TextScrollBar.draw(graphics, this.guiLeft + 168, this.cnpcplus$textTop(), this.cnpcplus$textBottom(),

@@ -51,6 +51,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
     @Shadow(remap = false) protected int guiTop;
 
     @Unique private final List<String> cnpcplus$all = new ArrayList<>();
+    @Unique private final Map<String, Integer> cnpcplus$ids = new java.util.HashMap<>();
     @Unique private final List<String> cnpcplus$filtered = new ArrayList<>();
     @Unique private String cnpcplus$selected = "";
     @Unique private int cnpcplus$offset;
@@ -140,7 +141,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
 
         this.cnpcplus$applyFilter();
         TransportClientCache.setMetaListener(this::cnpcplus$applyFilter);
-        TransportClientCache.requestMeta(self.npc.getId());
+        if (self.npc != null) TransportClientCache.requestMeta(self.npc.getId());
     }
 
     @Unique
@@ -505,6 +506,8 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
     @Inject(method = "setData", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$setData(Vector<String> list, Map<String, Integer> data, CallbackInfo ci) {
         this.cnpcplus$all.clear();
+        this.cnpcplus$ids.clear();
+        if (data != null) this.cnpcplus$ids.putAll(data);
         if (list != null) this.cnpcplus$all.addAll(list);
         this.cnpcplus$applyFilter();
         ci.cancel();
@@ -540,6 +543,16 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
     @Override
     public String cnpcplus$getSelected() {
         return this.cnpcplus$selected;
+    }
+
+    @Override public void cnpcplus$removeLocations(java.util.Set<Integer> ids) {
+        this.cnpcplus$all.removeIf(name -> ids.contains(this.cnpcplus$ids.get(name)));
+        this.cnpcplus$ids.entrySet().removeIf(entry -> ids.contains(entry.getValue()));
+        if (!this.cnpcplus$all.contains(this.cnpcplus$selected)) {
+            this.cnpcplus$selected = "";
+            this.cnpcplus$lastClick = "";
+        }
+        this.cnpcplus$applyFilter();
     }
 
     @Override

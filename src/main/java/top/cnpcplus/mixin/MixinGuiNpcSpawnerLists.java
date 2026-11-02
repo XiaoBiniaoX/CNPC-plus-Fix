@@ -4,9 +4,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.TreeMap;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import noppes.npcs.client.gui.roles.GuiNpcSpawner;
+import noppes.npcs.client.gui.util.GuiNPCInterface2;
+import noppes.npcs.entity.EntityNPCInterface;
+import top.cnpcplus.clone.client.ClonePreview;
+import top.cnpcplus.clone.client.ClonePreviewHost;
 import noppes.npcs.controllers.data.CloneSpawnData;
 import noppes.npcs.packets.Packets;
 import noppes.npcs.packets.server.SPacketCloneList;
@@ -40,7 +45,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * <p>实现 {@link IGuiData} 接收克隆列表回包（PacketGuiData 只发给实现了该接口的当前屏）。
  */
 @Mixin(value = GuiNpcSpawner.class, remap = false)
-public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
+public abstract class MixinGuiNpcSpawnerLists extends GuiNPCInterface2 implements IGuiData, ClonePreviewHost {
+    protected MixinGuiNpcSpawnerLists(EntityNPCInterface npc) { super(npc); }
+    @Unique private ClonePreview cnpcplus$preview, cnpcplus$candidatePreview;
+    @Unique private int cnpcplus$previewLeft, cnpcplus$previewRight, cnpcplus$previewY, cnpcplus$previewHeight;
+    @Override public ClonePreview cnpcplus$clonePreview() { return cnpcplus$preview; }
+    @Override public void cnpcplus$receivePreview(int tab, String name, long request, byte[] bytes) {
+        if (cnpcplus$preview != null) cnpcplus$preview.receive(tab, name, request, bytes);
+        if (cnpcplus$candidatePreview != null) cnpcplus$candidatePreview.receive(tab, name, request, bytes);
+    }
+    @Inject(method = "init", at = @At("HEAD"), require = 1)
+    private void cnpcplus$fitPage(CallbackInfo ci) { imageWidth = Math.min(620, width - 16); }
 
     @Shadow
     private JobSpawner job;
@@ -56,6 +71,8 @@ public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
     @Inject(method = "init", at = @At("TAIL"), require = 1, remap = false)
     private void cnpcplus$buildLists(CallbackInfo ci) {
         GuiNpcSpawner self = (GuiNpcSpawner) (Object) this;
+        if (cnpcplus$preview == null) cnpcplus$preview = new ClonePreview(); else cnpcplus$preview.clear();
+        if (cnpcplus$candidatePreview == null) cnpcplus$candidatePreview = new ClonePreview(1); else cnpcplus$candidatePreview.clear();
 
         for (int i = 0; i < 6; i++) {
             GuiButtonNop title = self.getButton(i);
@@ -72,29 +89,43 @@ public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
         }
 
         int tab = this.cnpcplus$tab();
+        int tabWidth = (imageWidth - 8) / 9;
         for (int t = 1; t <= 9; t++) {
-            String text = (t == tab ? "▶ Tab " : "Tab ") + t;
-            self.addButton(new GuiButtonNop(self, 29 + t, self.guiLeft + 4 + (t - 1) * 45, self.guiTop + 4, 43, 20, text));
+            String text = (t == tab ? "▶ " : "") + t;
+            self.addButton(new GuiButtonNop(self, 29 + t, self.guiLeft + 4 + (t - 1) * tabWidth, self.guiTop + 4, tabWidth - 2, 20, text));
         }
+        int column = (imageWidth - 44) / 2;
+        int middle = self.guiLeft + column + 10, rightX = middle + 30;
+        boolean compact = imageWidth < 400;
+        int listWidth = compact ? column : column - 68;
+        int listY = self.guiTop + (compact ? 88 : 40), listHeight = compact ? 53 : 101;
+        cnpcplus$previewLeft = self.guiLeft + 4 + (compact ? (column - 64) / 2 : listWidth + 4);
+        cnpcplus$previewRight = rightX + (compact ? (column - 64) / 2 : listWidth + 4);
+        cnpcplus$previewY = self.guiTop + 40; cnpcplus$previewHeight = compact ? 44 : 101;
         self.addLabel(new GuiLabel(13, "cnpcplus.spawner.candidates", self.guiLeft + 4, self.guiTop + 30));
-        self.addLabel(new GuiLabel(14, "cnpcplus.spawner.assigned", self.guiLeft + 232, self.guiTop + 30));
+        self.addLabel(new GuiLabel(14, "cnpcplus.spawner.assigned", rightX, self.guiTop + 30));
 
         GuiCustomScrollNop left = new GuiCustomScrollNop(self, 0);
-        left.setSize(180, 101);
+        left.setSize(listWidth, listHeight);
         left.guiLeft = self.guiLeft + 4;
-        left.guiTop = self.guiTop + 40;
+        left.guiTop = listY;
         self.addScroll(left);
 
         GuiCustomScrollNop right = new GuiCustomScrollNop(self, 1);
-        right.setSize(180, 101);
-        right.guiLeft = self.guiLeft + 232;
-        right.guiTop = self.guiTop + 40;
+        right.setSize(listWidth, listHeight);
+        right.guiLeft = rightX;
+        right.guiTop = listY;
         self.addScroll(right);
 
-        self.addButton(new GuiButtonNop(self, 40, self.guiLeft + 196, self.guiTop + 46, 24, 20, ">"));
-        self.addButton(new GuiButtonNop(self, 41, self.guiLeft + 196, self.guiTop + 70, 24, 20, "<"));
-        self.addButton(new GuiButtonNop(self, 42, self.guiLeft + 196, self.guiTop + 94, 24, 20, "\u2191"));
-        self.addButton(new GuiButtonNop(self, 43, self.guiLeft + 196, self.guiTop + 118, 24, 20, "\u2193"));
+        self.addButton(new GuiButtonNop(self, 40, middle, self.guiTop + 46, 24, 20, ">"));
+        self.addButton(new GuiButtonNop(self, 41, middle, self.guiTop + 70, 24, 20, "<"));
+        self.addButton(new GuiButtonNop(self, 42, middle, self.guiTop + 94, 24, 20, "\u2191"));
+        self.addButton(new GuiButtonNop(self, 43, middle, self.guiTop + 118, 24, 20, "\u2193"));
+        if (compact) {
+            self.getLabel(11).setX(self.guiLeft + 160);
+            self.getLabel(11).setMessage(net.minecraft.network.chat.Component.translatable("cnpcplus.spawner.recall"));
+            self.getButton(11).setX(self.guiLeft + imageWidth - 44);
+        }
 
         this.cnpcplus$refreshRight(self, null);
         Packets.sendServer(new SPacketCloneList(tab));
@@ -165,7 +196,7 @@ public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
 
     @Override
     public void setGuiData(CompoundTag compound) {
-        if (compound == null || !compound.contains("List", 9)) return;
+        if (compound == null || !compound.contains("List", 9) || compound.getInt("CNPCPlusCloneListTab") != cnpcplus$tab()) return;
         GuiNpcSpawner self = (GuiNpcSpawner) (Object) this;
         GuiCustomScrollNop left = self.getScroll(0);
         if (left == null) return;
@@ -213,4 +244,45 @@ public abstract class MixinGuiNpcSpawnerLists implements IGuiData {
             return -1;
         }
     }
+
+    @Override public void render(GuiGraphics g, int mx, int my, float partial) {
+        boolean background = drawDefaultBackground;
+        if (background) renderBackground(g, mx, my, partial);
+        g.fill(guiLeft, guiTop, guiLeft + imageWidth, guiTop + 214, 0xFFC6C6C6);
+        drawDefaultBackground = false;
+        super.render(g, mx, my, partial);
+        drawDefaultBackground = background;
+        if (!hasSubGui()) g.fill(guiLeft + 2, guiTop + 214, guiLeft + imageWidth - 2, guiTop + 217, 0xFF555555);
+        if (cnpcplus$preview == null) return;
+        if (hasSubGui()) { cnpcplus$clearPreviews(); return; }
+        var left = getScroll(0);
+        cnpcplus$candidatePreview.select(2, cnpcplus$tab(), left == null ? null : left.getSelected());
+        cnpcplus$candidatePreview.render(this, g, cnpcplus$previewLeft, cnpcplus$previewY, 64, cnpcplus$previewHeight);
+        var right = getScroll(1);
+        String selected = right == null ? null : right.getSelected();
+        CloneSpawnData data = selected == null ? null : job.data.get(cnpcplus$entryKey(selected));
+        cnpcplus$preview.select(2, data == null ? 1 : data.tab, data == null ? null : data.name);
+        cnpcplus$preview.render(this, g, cnpcplus$previewRight, cnpcplus$previewY, 64, cnpcplus$previewHeight);
+        for (var list : new GuiCustomScrollNop[]{left, right}) {
+            if (list == null || list.getSelected() == null || mx < list.guiLeft || mx >= list.guiLeft + list.getWidth()
+                    || my < list.guiTop + 22 || my >= list.guiTop + list.getHeight()) continue;
+            var lines = font.split(net.minecraft.network.chat.Component.literal(list.getSelected()), imageWidth - 24);
+            int textWidth = 0;
+            for (var line : lines) textWidth = Math.max(textWidth, font.width(line));
+            int boxHeight = lines.size() * font.lineHeight + 8;
+            int boxX = Math.max(guiLeft + 4, Math.min(mx + 8, guiLeft + imageWidth - 12 - textWidth));
+            int boxY = Math.max(guiTop + 16, Math.min(my + 12, guiTop + 214 - boxHeight - 4));
+            g.pose().pushPose(); g.pose().translate(0, 0, 400);
+            g.fill(boxX, boxY, boxX + textWidth + 8, boxY + boxHeight, 0xFF202020);
+            for (int i = 0; i < lines.size(); i++) g.drawString(font, lines.get(i), boxX + 4, boxY + 4 + i * font.lineHeight, 0xFFFFFFFF, false);
+            g.pose().popPose();
+        }
+    }
+    @Inject(method = "save", at = @At("HEAD"), require = 1)
+    private void cnpcplus$closePreview(CallbackInfo ci) { cnpcplus$clearPreviews(); }
+    @Unique private void cnpcplus$clearPreviews() {
+        if (cnpcplus$preview != null) cnpcplus$preview.clear();
+        if (cnpcplus$candidatePreview != null) cnpcplus$candidatePreview.clear();
+    }
+    @Override public void removed() { cnpcplus$clearPreviews(); super.removed(); }
 }

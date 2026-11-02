@@ -55,6 +55,16 @@ public final class CraftingViewNetwork {
         // 标 optional 后，协商失败只会把这些频道降级为禁用（buildDisabledOptionalComponents），
         // 玩家仍可正常进服，只是用不到本模组的对应界面。
         PayloadRegistrar registrar = event.registrar(CnpcPlus.MODID).versioned("1").optional();
+        registrar.playToServer(top.cnpcplus.wand.network.WandNpcPacket.TYPE,
+                top.cnpcplus.wand.network.WandNpcPacket.STREAM_CODEC, top.cnpcplus.wand.network.WandNpcPacket::handle);
+        registrar.playToClient(top.cnpcplus.wand.network.WandNpcPacket.Snapshot.TYPE,
+                top.cnpcplus.wand.network.WandNpcPacket.Snapshot.STREAM_CODEC, top.cnpcplus.wand.network.WandNpcPacket.Snapshot::handle);
+        registrar.playToServer(top.cnpcplus.clone.ClonePreviewPacket.TYPE,
+                top.cnpcplus.clone.ClonePreviewPacket.STREAM_CODEC, top.cnpcplus.clone.ClonePreviewPacket::handle);
+        registrar.playToClient(top.cnpcplus.clone.ClonePreviewPacket.Snapshot.TYPE,
+                top.cnpcplus.clone.ClonePreviewPacket.Snapshot.STREAM_CODEC, top.cnpcplus.clone.ClonePreviewPacket.Snapshot::handle);
+        registrar.playToClient(top.cnpcplus.bossbar.BossBarPacket.TYPE,
+                top.cnpcplus.bossbar.BossBarPacket.STREAM_CODEC, top.cnpcplus.bossbar.BossBarPacket::handle);
         registrar.playToServer(
                 PacketFillCraftingGrid.TYPE,
                 PacketFillCraftingGrid.STREAM_CODEC,

@@ -17,4 +17,5 @@ public interface ITransportPanelUI {
     CompoundTag cnpcplus$getMeta(String name);
     /** 241l：显示名（编辑页可改名；玩家页=原名）。 */
     default String cnpcplus$getDisplay(String name) { return name; }
+    default void cnpcplus$removeLocations(java.util.Set<Integer> ids) {}
 }
