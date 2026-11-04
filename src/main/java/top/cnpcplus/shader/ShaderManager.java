@@ -14,7 +14,17 @@ public final class ShaderManager {
         for (String id : new String[]{"cnpcplus:post/black_hole", "cnpcplus:post/invert", "cnpcplus:render/tint",
                 "cnpcplus:post/blood_thorns", "cnpcplus:post/hexagram", "cnpcplus:post/strange_pattern", "cnpcplus:post/super_strike",
                 "cnpcplus:post/wormhole", "cnpcplus:post/time_dilation", "cnpcplus:post/reality_fracture", "cnpcplus:post/prism",
-                "cnpcplus:post/plasma_shield", "cnpcplus:post/arcane_beam", "cnpcplus:post/heat_haze", "cnpcplus:post/world_collapse"}) {
+                "cnpcplus:post/plasma_shield", "cnpcplus:post/arcane_beam", "cnpcplus:post/heat_haze", "cnpcplus:post/world_collapse",
+                "cnpcplus:post/moving_singularity", "cnpcplus:post/gravity_propagation", "cnpcplus:post/surface_glitch",
+                "cnpcplus:post/aurora_curtain", "cnpcplus:post/thunder_orb", "cnpcplus:post/prismatic_crystal",
+                "cnpcplus:post/flame_vortex", "cnpcplus:post/ice_lotus", "cnpcplus:post/orbital_armillary",
+                "cnpcplus:post/eldritch_tentacles", "cnpcplus:post/nebula_cube", "cnpcplus:post/living_star",
+                "cnpcplus:post/runic_obelisk", "cnpcplus:post/meteor_shower", "cnpcplus:post/water_sphere",
+                "cnpcplus:post/living_flesh", "cnpcplus:post/liquid_mirror", "cnpcplus:post/kaleidoscope",
+                "cnpcplus:post/ink_corrosion", "cnpcplus:post/history_ghost", "cnpcplus:post/sonar_scan",
+                "cnpcplus:post/digital_rain", "cnpcplus:post/chromatic_spiral", "cnpcplus:post/dream_fog",
+                "cnpcplus:post/neural_lattice", "cnpcplus:post/burning_dissolve", "cnpcplus:post/rain_lens",
+                "cnpcplus:post/wave_interference", "cnpcplus:post/warp_speed", "cnpcplus:post/abyssal_eye"}) {
             ResourceLocation key = new ResourceLocation(id);
             try (InputStream input = ShaderManager.class.getResourceAsStream("/assets/" + key.getNamespace() + "/cnpcplus/shaders/" + key.getPath() + ".json");
                  Reader reader = new InputStreamReader(Objects.requireNonNull(input, id), StandardCharsets.UTF_8)) {

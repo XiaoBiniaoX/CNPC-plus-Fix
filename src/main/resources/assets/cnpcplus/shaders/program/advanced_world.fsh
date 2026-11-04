@@ -2,7 +2,9 @@
 
 uniform sampler2D DiffuseSampler;
 uniform sampler2D DepthSampler;
+uniform vec2 OutSize;
 uniform mat4 InverseWorldViewProjection;
+uniform mat4 WorldViewProjection;
 uniform vec3 CameraPosition;
 uniform vec3 WorldPosition;
 uniform vec3 PlaneNormal;
@@ -13,6 +15,7 @@ uniform vec4 Hit2;
 uniform vec4 Hit3;
 uniform float Radius;
 uniform float Height;
+uniform float Downward;
 uniform float Growth;
 uniform float Distortion;
 uniform float Thermal;
@@ -108,12 +111,16 @@ float thornField(vec3 p) {
     q.x-=center + 0.12*sin(y*2.0+Time);
     q.z-=0.09*sin(y*2.7-Time*0.7);
     float stem=max(length(q.xz)-(0.14-0.095*y/h), max(-p.y,p.y-h));
-    float row=clamp(floor(y/0.62),0.0,floor(h/0.62));
-    float by=row*0.62+0.24;
-    vec3 base=vec3(0,by,0), tip=base+vec3((mod(row,2.0)*2.0-1.0)*0.46,0.18,0.12);
-    vec3 v=tip-base, relative=q-base;
-    float along=clamp(dot(relative,v)/dot(v,v),0.0,1.0);
-    float barb=length(relative-v*along)-0.095*(1.0-along);
+    float row=clamp(floor(y/0.62),0.0,floor(h/0.62)), barb=10.0;
+    for (int i=-1;i<=1;i++) {
+        float level=clamp(row+float(i),0.0,floor(h/0.62));
+        float by=level*0.62+0.24;
+        vec3 base=vec3(0,by,0), tip=base+vec3((mod(level,2.0)*2.0-1.0)*0.46,0.18,0.12);
+        vec3 v=tip-base, relative=q-base;
+        float along=clamp(dot(relative,v)/dot(v,v),0.0,1.0);
+        barb=min(barb,length(relative-v*along)-0.095*(1.0-along));
+    }
+    barb=max(barb,max(-p.y,p.y-h));
     float root=length(vec3(p.x,p.y*1.8,p.z))-Radius*0.25;
     return min(stem, min(barb,root));
 }
@@ -139,7 +146,10 @@ void main() {
         float r=length(p);
         if (r>1.75) return;
         float wave=sin((r-1.0)*35.0-Time*5.0)*exp(-abs(r-1.0)*4.5);
-        vec2 radial=normalize(texCoord-0.5+vec2(0.0001));
+        // Project the portal's radial tangent, not the screen center: it stays anchored when looking away.
+        vec3 tangent=axis*p.x+cross(normal,axis)*p.y;
+        vec4 edgeClip=WorldViewProjection*vec4(ray*t+tangent*0.1,1.0);
+        vec2 radial=normalize(edgeClip.xy/edgeClip.w*0.5+0.5-texCoord+vec2(0.000001));
         float refraction=Distortion*(wave*0.008+exp(-abs(r-1.0)*25.0)*0.035);
         result=readScene(texCoord+radial*refraction);
         float rim=exp(-abs(r-1.0)*70.0)+0.5*exp(-abs(r-1.05)*110.0);
@@ -175,9 +185,11 @@ void main() {
         for (int i=0;i<24;i++) {
             float t=mix(nearT,farT,(float(i)+0.5)/24.0);
             vec3 p=ro+ray*t;
+            float front=mix(Height,clamp(Time*Height*4.0,0.0,Height),Downward);
+            if (p.y<Height-front) continue;
             float r=length(p.xz)/Radius;
             float core=exp(-r*r*9.0);
-            float spiral=0.5+0.5*sin(atan(p.z,p.x)*6.0+p.y*2.0-Time*8.0);
+            float spiral=0.5+0.5*sin(atan(p.z,p.x)*6.0+p.y*2.0+mix(-1.0,1.0,Downward)*Time*18.0);
             density+=(core+0.28*spiral*exp(-abs(r-0.75)*14.0))*(farT-nearT)/24.0;
         }
         result+=Color*density*Intensity*(1.0+Glow);

@@ -82,11 +82,11 @@ void main() {
         vec2 center=clip.w>0.0 ? clip.xy/clip.w*0.5+0.5 : ScreenCenter;
         vec2 delta=(texCoord-center)*aspect;
         float radius=length(delta);
-        // Progress 0..0.68: local nonlinear pull; 0.68..0.82: whole frame contracts to a point.
-        // 0.82..1: release wave and reconstruction. Sampling is inverse mapping, not an enlarged image.
+        // Progress 0..0.68: local pull; 0.55..0.78: whole frame contracts; 0.78..0.84: hold the point.
+        // 0.84..1: release wave and reconstruction. Sampling is inverse mapping, not an enlarged image.
         float collapse=smoothstep(0.0,0.68,Progress);
-        float scale=1.0-smoothstep(0.55,0.82,Progress)*0.998;
-        float release=smoothstep(0.82,1.0,Progress);
+        float scale=1.0-smoothstep(0.55,0.78,Progress)*0.998;
+        float release=smoothstep(0.84,1.0,Progress);
         scale=mix(scale,1.0,release);
         vec2 source=center+(texCoord-center)/max(scale,0.002);
         float local=exp(-radius*radius/max(Radius*Radius,0.001))*collapse*(1.0-release);
@@ -98,9 +98,9 @@ void main() {
         result=rgb(warped,separation);
         if (source.x<0.0 || source.x>1.0 || source.y<0.0 || source.y>1.0) result=vec3(0);
         float dust=hash(floor(texCoord*OutSize/3.0)+floor(Time*12.0));
-        result*=smoothstep(collapse*0.75*(1.0-release),1.0,dust);
+        result*=mix(1.0,smoothstep(0.15,1.0,dust),collapse*(1.0-release));
         float point=exp(-radius*radius/0.000035)*smoothstep(0.5,0.8,Progress)*(1.0-release);
-        float wave=exp(-abs(radius-release*1.5)*65.0)*step(0.82,Progress)*(1.0-release);
+        float wave=exp(-abs(radius-release*1.5)*65.0)*smoothstep(0.0,0.02,release)*(1.0-release);
         result+=Color*(point*3.0+wave*2.0)*Intensity;
     }
     fragColor=vec4(mix(original.rgb,result,Opacity),original.a);
