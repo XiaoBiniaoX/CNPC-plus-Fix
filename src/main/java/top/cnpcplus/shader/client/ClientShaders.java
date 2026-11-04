@@ -3,6 +3,7 @@ package top.cnpcplus.shader.client;
 import com.google.gson.*;
 import com.mojang.blaze3d.pipeline.*;
 import com.mojang.blaze3d.shaders.Uniform;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import java.io.*;
@@ -26,6 +27,7 @@ public final class ClientShaders {
     public static final ShaderController CONTROLLER = ShaderController.localController();
     private static final Map<String, Gpu> LOADED = new LinkedHashMap<>();
     private static final Map<String, ShaderController> OBJECTS = new HashMap<>();
+    private static final Map<UUID, TextureTarget[]> HISTORIES = new HashMap<>();
     private static Object world;
     private static TextureTarget depth;
     private static ShaderInstance currentPost;
@@ -48,7 +50,7 @@ public final class ClientShaders {
         Minecraft mc = Minecraft.getInstance();
         Gpu gpu = new Gpu();
         try {
-            if (LOADED.size() >= 8) throw new IllegalStateException("At most 8 loaded shader effects");
+            if (LOADED.size() >= 32) throw new IllegalStateException("At most 32 loaded shader effects");
             if (definition.type.equals("POST")) {
                 // Bound resource-pack target allocation before vanilla PostChain allocates GPU memory.
                 try (Reader reader = mc.getResourceManager().getResourceOrThrow(new ResourceLocation(definition.shaderResource)).openAsReader()) {
@@ -117,6 +119,7 @@ public final class ClientShaders {
     }
     public static void clear() {
         CONTROLLER.instances.clear(); OBJECTS.clear(); LOADED.values().forEach(Gpu::close); LOADED.clear();
+        HISTORIES.values().forEach(targets -> Arrays.stream(targets).forEach(RenderTarget::destroyBuffers)); HISTORIES.clear();
         if (depth != null) { depth.destroyBuffers(); depth = null; } currentPost = null; world = null;
     }
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
@@ -133,6 +136,7 @@ public final class ClientShaders {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || CONTROLLER.instances.isEmpty()) {
             if (depth != null) { depth.destroyBuffers(); depth = null; }
+            HISTORIES.values().forEach(targets -> Arrays.stream(targets).forEach(RenderTarget::destroyBuffers)); HISTORIES.clear();
             return;
         }
         partial = mc.isPaused() ? 0 : framePartial;
@@ -142,6 +146,10 @@ public final class ClientShaders {
         if (depth == null) depth = new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX);
         else if (depth.width != main.width || depth.height != main.height) depth.resize(main.width, main.height, Minecraft.ON_OSX);
         depth.copyDepthFrom(main);
+        HISTORIES.entrySet().removeIf(entry -> {
+            if (CONTROLLER.instances.containsKey(entry.getKey())) return false;
+            Arrays.stream(entry.getValue()).forEach(RenderTarget::destroyBuffers); return true;
+        });
         RenderSystem.disableBlend(); RenderSystem.disableDepthTest(); RenderSystem.resetTextureMatrix();
         try {
             for (ShaderInstance instance : Arrays.stream(CONTROLLER.getAllInstances()).sorted(Comparator.comparingInt(ShaderInstance::getPriority)).toList()) {
@@ -149,10 +157,33 @@ public final class ClientShaders {
                 if (!load(instance.getId())) { fail(instance, "GPU resource loading failed"); continue; }
                 Gpu gpu = LOADED.get(instance.getId());
                 if (gpu.width != main.width || gpu.height != main.height) { gpu.post.resize(main.width, main.height); gpu.width = main.width; gpu.height = main.height; }
+                TextureTarget[] history = null;
+                if (instance.textures.containsKey("HistorySampler")) {
+                    history = HISTORIES.get(instance.token);
+                    if (history == null || history[0].width != main.width || history[0].height != main.height) {
+                        if (history != null) Arrays.stream(history).forEach(RenderTarget::destroyBuffers);
+                        history = new TextureTarget[3];
+                        for (int i = 0; i < history.length; i++) {
+                            history[i] = new TextureTarget(main.width, main.height, false, Minecraft.ON_OSX);
+                            copyColor(main, history[i]);
+                        }
+                        HISTORIES.put(instance.token, history);
+                    }
+                }
                 gpu.post.process(partial);
+                // Capture the completed effect, never read and write the same history texture.
+                if (history != null && !mc.isPaused() && !instance.isPaused()) {
+                    TextureTarget oldest = history[2]; history[2] = history[1]; history[1] = history[0]; history[0] = oldest;
+                    copyColor(main, oldest);
+                }
             }
         } catch (RuntimeException e) { if (currentPost != null) fail(currentPost, e.toString()); }
         finally { currentPost = null; main.copyDepthFrom(depth); main.bindWrite(true); RenderSystem.enableDepthTest(); }
+    }
+    private static void copyColor(RenderTarget source, RenderTarget target) {
+        GlStateManager._glBindFramebuffer(36008, source.frameBufferId);
+        GlStateManager._glBindFramebuffer(36009, target.frameBufferId);
+        GlStateManager._glBlitFrameBuffer(0, 0, source.width, source.height, 0, 0, target.width, target.height, 16384, 9728);
     }
     private static void fail(ShaderInstance instance, String message) {
         instance.error = message; instance.state = "ERROR";
@@ -166,12 +197,21 @@ public final class ClientShaders {
         effect.safeGetUniform("InverseWorldViewProjection").set(inverseWorldViewProjection);
         var camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         effect.safeGetUniform("CameraPosition").set((float)camera.x, (float)camera.y, (float)camera.z);
+        var player = Minecraft.getInstance().player;
+        if (currentPost.definition.json.has("followPlayer") && currentPost.definition.json.get("followPlayer").getAsBoolean() && player != null) {
+            var position = player.getPosition(partial);
+            effect.safeGetUniform("WorldPosition").set((float)position.x, (float)position.y + 0.9f, (float)position.z);
+        }
         currentPost.textures.forEach((name, id) -> { if (!name.equals("DiffuseSampler")) effect.setSampler(name, () -> texture(id)); });
     }
     private static int texture(String id) {
         Minecraft mc = Minecraft.getInstance();
         if (id.equals("minecraft:main")) return mc.getMainRenderTarget().getColorTextureId();
         if (id.equals("minecraft:depth")) return depth == null ? mc.getMainRenderTarget().getDepthTextureId() : depth.getDepthTextureId();
+        if (id.equals("cnpcplus:history") || id.equals("cnpcplus:history_2") || id.equals("cnpcplus:history_3")) {
+            TextureTarget[] targets = HISTORIES.get(currentPost.token);
+            return targets[id.equals("cnpcplus:history") ? 0 : id.equals("cnpcplus:history_2") ? 1 : 2].getColorTextureId();
+        }
         ResourceLocation resource = new ResourceLocation(id);
         if (mc.getResourceManager().getResource(resource).isEmpty()) throw new IllegalArgumentException("Missing sampler texture " + id);
         return mc.getTextureManager().getTexture(resource).getId();

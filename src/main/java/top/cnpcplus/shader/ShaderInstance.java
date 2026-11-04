@@ -77,7 +77,7 @@ public final class ShaderInstance {
     public String getTexture(String name) { return textures.get(name); }
     public String[] getTextureNames() { return definition.getSamplerNames(); }
     public boolean setTexture(String name, String id) {
-        if (!hasTexture(name) || name.equals("DiffuseSampler") || name.equals("DepthSampler") || name.equals("MaskSampler") && definition.type.equals("RENDER")) return false;
+        if (!hasTexture(name) || name.startsWith("HistorySampler") || name.equals("DiffuseSampler") || name.equals("DepthSampler") || name.equals("MaskSampler") && definition.type.equals("RENDER")) return false;
         textures.put(name, ShaderDefinition.resource(id)); changed(); return true;
     }
     public boolean resetTexture(String name) { if (!hasTexture(name)) return false; textures.put(name, definition.samplers.get(name)); changed(); return true; }

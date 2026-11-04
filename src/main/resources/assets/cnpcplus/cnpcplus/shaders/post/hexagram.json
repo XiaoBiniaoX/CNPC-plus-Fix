@@ -1,6 +1,6 @@
 {
   "type":"POST", "description":"Rotating world-space six-point seal", "shaderResource":"cnpcplus:shaders/post/world_glyph.json",
-  "remote":true, "defaultDuration":400, "supportsLoop":true, "supportsMultipleInstances":false, "priority":80,
+  "remote":true, "defaultDuration":400, "supportsLoop":true, "supportsMultipleInstances":true, "priority":80,
   "uniforms":[
     {"name":"WorldPosition","type":"vec3","default":[0,64,0],"min":-30000000,"max":30000000},
     {"name":"PlaneNormal","type":"vec3","default":[0,1,0],"min":-1,"max":1},

@@ -12,7 +12,9 @@ public final class ShaderManager {
     private final Map<String, ShaderDefinition> definitions = new LinkedHashMap<>();
     public ShaderManager() {
         for (String id : new String[]{"cnpcplus:post/black_hole", "cnpcplus:post/invert", "cnpcplus:render/tint",
-                "cnpcplus:post/blood_thorns", "cnpcplus:post/hexagram", "cnpcplus:post/strange_pattern", "cnpcplus:post/super_strike"}) {
+                "cnpcplus:post/blood_thorns", "cnpcplus:post/hexagram", "cnpcplus:post/strange_pattern", "cnpcplus:post/super_strike",
+                "cnpcplus:post/wormhole", "cnpcplus:post/time_dilation", "cnpcplus:post/reality_fracture", "cnpcplus:post/prism",
+                "cnpcplus:post/plasma_shield", "cnpcplus:post/arcane_beam", "cnpcplus:post/heat_haze", "cnpcplus:post/world_collapse"}) {
             ResourceLocation key = new ResourceLocation(id);
             try (InputStream input = ShaderManager.class.getResourceAsStream("/assets/" + key.getNamespace() + "/cnpcplus/shaders/" + key.getPath() + ".json");
                  Reader reader = new InputStreamReader(Objects.requireNonNull(input, id), StandardCharsets.UTF_8)) {
