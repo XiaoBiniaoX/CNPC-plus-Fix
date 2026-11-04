@@ -84,6 +84,12 @@ public class MixinGuiNpcManageRecipes {
             ci.cancel();
             return;
         }
+        if (button.id == 108) {
+            GuiTextFieldNop.unfocus();
+            ((GuiNpcManageRecipes)(Object)this).setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.container.recipe.availability));
+            ci.cancel();
+            return;
+        }
         if (button.id == 2) {
             SimpleContainer matrix = ((ContainerManageRecipesAccess)container).cnpcplus$getCraftingMatrix();
             int gridSize = this.container.size;
@@ -119,6 +125,7 @@ public class MixinGuiNpcManageRecipes {
     private void cnpcplus$renameRecipeMatchLabels(CallbackInfo ci) {
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
         GuiLabel fuzzyLabel = self.getLabel(0);
+        self.addButton(new GuiButtonNop(self, 108, self.guiLeft + 306, self.guiTop + 128, 84, 20, "availability.options"));
         if (fuzzyLabel != null) {
             fuzzyLabel.setMessage(Component.translatable("gui.ignoreDamage"));
         }

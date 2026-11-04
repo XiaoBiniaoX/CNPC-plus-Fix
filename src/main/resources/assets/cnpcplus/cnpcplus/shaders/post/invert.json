@@ -1,0 +1,6 @@
+{
+  "type":"POST", "description":"Color inversion", "shaderResource":"cnpcplus:shaders/post/invert.json", "remote":true,
+  "defaultDuration":200, "supportsLoop":true, "supportsMultipleInstances":false, "priority":0,
+  "uniforms":[{"name":"Intensity","type":"float","default":1,"min":0,"max":1},{"name":"Opacity","type":"float","default":1,"min":0,"max":1}],
+  "samplers":[{"name":"DiffuseSampler","default":"minecraft:main"}]
+}

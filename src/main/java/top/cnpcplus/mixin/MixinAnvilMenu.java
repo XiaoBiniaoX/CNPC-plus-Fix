@@ -3,6 +3,10 @@ package top.cnpcplus.mixin;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.*;
+import top.cnpcplus.anvil.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -24,12 +28,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * method 官方名+默认 remap → 由项目已配的 mixin refmap（cnpcplus.refmap.json）自动 SRG 映射。
  */
 @Mixin(AnvilMenu.class)
-public class MixinAnvilMenu {
+public abstract class MixinAnvilMenu extends ItemCombinerMenu {
+    protected MixinAnvilMenu(MenuType<?> type, int id, Inventory inventory, ContainerLevelAccess access) { super(type, id, inventory, access); }
 
     @Inject(method = "mayPickup", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$allowZeroNegativeCost(Player player, boolean canTake,
                                                 CallbackInfoReturnable<Boolean> cir) {
         AnvilMenu self = (AnvilMenu) (Object) this;
+        var recipes = player.level().isClientSide ? top.cnpcplus.anvil.client.AnvilClientData.get() : AnvilRecipeRegistry.list();
+        for (AnvilRecipeData recipe : recipes) {
+            if (AnvilCraftHandler.matchesSlot(recipe.inputA, inputSlots.getItem(0), recipe.nameOnly)
+                    && AnvilCraftHandler.matchesSlot(recipe.inputB, inputSlots.getItem(1), recipe.nameOnly)
+                    && !top.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player)) { cir.setReturnValue(false); return; }
+        }
         cir.setReturnValue(player.getAbilities().instabuild
                 || player.experienceLevel >= self.getCost());
     }

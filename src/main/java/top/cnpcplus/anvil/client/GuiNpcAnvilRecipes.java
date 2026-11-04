@@ -74,6 +74,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     /** 敲打一次消耗经验（-32767..32767，负数=给锻造者；新配方默认1），来自经验输入框/选中配方。 */
     private int expCost = 1;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public GuiNpcAnvilRecipes(ContainerAnvilRecipes container, Inventory inv, Component titleIn) {
         super(NoppesUtil.getLastNpc(), container, inv, titleIn);
@@ -123,6 +124,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
 
         // 经验输入框 + 仅名字检查开关：与槽位同生命周期（选中配方或草稿态都显示）
         if (this.draft || this.selectedId >= 0) {
@@ -230,6 +232,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
             return;
         }
         AnvilRecipeData d = this.recipes.get(index);
+        this.availability = d.availability;
         this.selectedId = d.id;
         this.selectedName = d.name;
         this.nameOnly = d.nameOnly;
@@ -242,6 +245,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability)); return; }
         if (button.id == BTN_NEW) {
             // 「添加配方」= 清空表单 + 清空三个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketAnvilSelect(-1) 查不到配方时把三槽设为 EMPTY 并归还物品），
@@ -249,6 +253,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
             AnvilPacketHandler.CHANNEL.sendToServer(new PacketAnvilSelect(-1));
             this.selectedId = -1;
             this.draft = true;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             this.nameOnly = false;
             this.expCost = 1;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
@@ -285,6 +290,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         }
         this.notice = null;
         AnvilRecipeData d = new AnvilRecipeData();
+        d.availability = this.availability;
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
         // 经验读输入框：未显示（无选中）兜底 1；越界由保存末尾统一夹（范围 -32767..32767）。

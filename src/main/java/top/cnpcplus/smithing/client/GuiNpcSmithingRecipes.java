@@ -64,6 +64,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     /** 230 仅名字检查：保存时随配方落盘（只校验物品id+物品名字，开关外观照抄熔炼）。 */
     private boolean nameOnly = false;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public GuiNpcSmithingRecipes(ContainerSmithingRecipes container, Inventory inv, Component titleIn) {
         super(NoppesUtil.getLastNpc(), container, inv, titleIn);
@@ -112,6 +113,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
 
         // 230 「仅名字检查」开关：照抄熔炼外观（命名牌图标+红绿框+悬停显示「仅名字检查」），
         // 位置=三个输入槽的左边（坐标见 SmithingLayout.nameOnlyX/Y，避开锤子贴图）。
@@ -199,6 +201,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             return;
         }
         SmithingRecipeData d = this.recipes.get(index);
+        this.availability = d.availability;
         this.selectedId = d.id;
         this.selectedName = d.name;
         this.nameOnly = d.nameOnly;
@@ -210,6 +213,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability)); return; }
         if (button.id == BTN_NEW) {
             // 「添加配方」= 清空表单 + 清空四个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketSmithingSelect(-1) 查不到配方时把四槽设为 EMPTY 并归还物品），
@@ -217,6 +221,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(-1));
             this.selectedId = -1;
             this.draft = true;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             this.nameOnly = false;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
@@ -252,6 +257,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         }
         this.notice = null;
         SmithingRecipeData d = new SmithingRecipeData();
+        d.availability = this.availability;
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
         String name = this.getTextField(30) != null ? this.getTextField(30).getValue() : "";

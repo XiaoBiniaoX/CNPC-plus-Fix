@@ -158,6 +158,7 @@ public final class ScriptApiCompletion {
                     + (context.equals("BlockDoorEvent") ? "IBlockScriptedDoor" : "IBlockScripted")));
         }
         roots.put("PosZero", load(API + "IPos"));
+        roots.put("CNPCPlusLog", org.slf4j.Logger.class);
         for (String name : new String[]{"AnimationType", "EntitiesType", "RoleType", "JobType",
                 "SideType", "PotionEffectType", "ParticleType"}) {
             roots.put(name, load(API + "constants." + name));

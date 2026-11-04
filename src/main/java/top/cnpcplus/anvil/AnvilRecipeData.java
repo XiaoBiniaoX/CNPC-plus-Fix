@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
  * 字段：A 槽 + B 槽 + 结果（A+B 敲打=C）+ 敲打一次消耗经验 + 仅名字检查开关。
  */
 public class AnvilRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     public ItemStack inputA = ItemStack.EMPTY;   // A 槽（消耗 1 个，onTake 原生无条件清空）
@@ -41,6 +42,7 @@ public class AnvilRecipeData {
         t.putString("Name", this.name == null ? "" : this.name);
         t.putInt("ExpCost", this.expCost);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.put("Availability", this.availability.save(new CompoundTag()));
         if (withItems) {
             t.put("InputA", this.inputA.save(new CompoundTag()));
             t.put("InputB", this.inputB.save(new CompoundTag()));
@@ -51,6 +53,7 @@ public class AnvilRecipeData {
 
     public static AnvilRecipeData fromNBT(CompoundTag t) {
         AnvilRecipeData d = new AnvilRecipeData();
+        d.availability.load(t.getCompound("Availability"));
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         // 旧档/异常档兼容：经验缺键=1，越界夹回 -32767..32767（231b 放宽，负数=给锻造者经验）

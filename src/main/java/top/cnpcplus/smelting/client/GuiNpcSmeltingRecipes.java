@@ -58,6 +58,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
     private static final int BTN_NAMEONLY = 8;
 
     private boolean blast = false, smoker = false, generic = false, nameOnly = false;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     /**
      * 「新建草稿」状态：点过「添加配方」但还没保存。
@@ -118,6 +119,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
 
         // 三个图标开关 + 时间/经验输入框：仅选中配方后显示
         if (hasSelected) {
@@ -251,6 +253,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             return;
         }
         SmeltingRecipeData d = this.recipes.get(index);
+        this.availability = d.availability;
         this.selectedId = d.id;
         this.selectedName = d.name;
         this.blast = d.blastAllowed;
@@ -264,6 +267,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability)); return; }
         if (button.id == BTN_NEW) {
             // 「添加配方」= 清空表单 + 清空三个槽 + 进入草稿 + 自动生成随机名字。
             // 既然是新建配方，旧配方留在槽里的物品就该清掉（用户明确要求）。
@@ -272,6 +276,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
             SmeltingPacketHandler.CHANNEL.sendToServer(new PacketSmeltingSelect(-1));
             this.selectedId = -1;
             this.draft = true;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             this.blast = this.smoker = this.generic = this.nameOnly = false;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
@@ -306,6 +311,7 @@ public class GuiNpcSmeltingRecipes extends GuiContainerNPCInterface2<ContainerSm
         }
         this.notice = null;
         SmeltingRecipeData d = new SmeltingRecipeData();
+        d.availability = this.availability;
         d.id = this.selectedId;
 
         String name = this.getTextField(30) != null ? this.getTextField(30).getValue() : "";

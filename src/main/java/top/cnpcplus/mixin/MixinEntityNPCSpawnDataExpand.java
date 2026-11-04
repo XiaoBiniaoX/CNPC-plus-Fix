@@ -44,11 +44,9 @@ public abstract class MixinEntityNPCSpawnDataExpand {
         c.putBoolean("ReturnToStart", this.ais.returnToStart);
         c.putInt("NavigationType", this.ais.getNavigationType());
         java.util.List<int[]> path = this.ais.getMovingPath();
-        if (path != null && !path.isEmpty()) {
-            c.put("MovingPathData", NBTTags.nbtIntegerArraySet(path));
-            c.putInt("MovingPathType", this.ais.getMovingPathType());
-            c.putBoolean("MovingPathPauses", this.ais.getMovingPathPauses());
-        }
+        c.put("MovingPathData", NBTTags.nbtIntegerArraySet(path));
+        c.putInt("MovingPathType", this.ais.getMovingPathType());
+        c.putBoolean("MovingPathPauses", this.ais.getMovingPathPauses());
         c.putBoolean("FactionAttackOther", this.advanced.attackOtherFactions);
         c.putBoolean("FactionDefend", this.advanced.defendFaction);
         c.put("FactionOptions", this.advanced.factions.save(new CompoundTag()));

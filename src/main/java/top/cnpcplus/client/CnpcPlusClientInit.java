@@ -28,6 +28,11 @@ public final class CnpcPlusClientInit {
             }
         });
         MinecraftForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandHitboxOverlay::render);
+        MinecraftForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandPathOverlay::render);
+        MinecraftForge.EVENT_BUS.register(top.cnpcplus.shader.client.ClientShaders.class);
+        net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext.get().getModEventBus().addListener(
+                (net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) -> event.registerReloadListener(
+                        (net.minecraft.server.packs.resources.ResourceManagerReloadListener)resources -> top.cnpcplus.shader.client.ClientShaders.reloadAll()));
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) ->
                 top.cnpcplus.transport.client.TransportClientCache.clear());
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickItem event) -> {

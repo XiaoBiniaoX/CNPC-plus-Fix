@@ -50,6 +50,7 @@ public final class SmeltingRecipeParser {
                     RECIPE_GROUP, CookingBookCategory.FOOD,
                     ingredient, data.output.copy(), data.xp, fastCookTime, fuelFor(data, fastCookTime), data.nameOnly, data.input.copy()));
         }
+        for (AbstractCookingRecipe recipe : out) ((SmeltingCookingRecipe)recipe).availability = data.availability;
         return out;
     }
 
@@ -72,6 +73,7 @@ public final class SmeltingRecipeParser {
 
     /** 熔炼配方（自定义子类，携带燃料匹配器与仅名字检查标志）。 */
     public static class SmeltingCookingRecipe extends AbstractCookingRecipe {
+        public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
         private final FuelMatcher fuelMatcher;
         private final boolean nameOnly;
         private final ItemStack nameOnlyInput;
@@ -106,6 +108,9 @@ public final class SmeltingRecipeParser {
          */
         @Override
         public boolean matches(net.minecraft.world.Container container, net.minecraft.world.level.Level level) {
+            if (!level.isClientSide && !top.cnpcplus.craftingview.RecipeAvailability.allows(availability,
+                    container instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity block
+                            ? top.cnpcplus.station.StationOperator.player(block) : null)) return false;
             if (!this.nameOnly) {
                 return super.matches(container, level);
             }

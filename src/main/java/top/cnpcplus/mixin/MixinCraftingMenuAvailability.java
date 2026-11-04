@@ -22,6 +22,10 @@ import java.util.Optional;
 
 @Mixin(CraftingMenu.class)
 public class MixinCraftingMenuAvailability {
+    @Inject(method = "m_7648_", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
+    private void cnpcplus$take(Player player, int slot, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ItemStack> cir) {
+        if (slot == 0 && !((CraftingMenu)(Object)this).getSlot(0).mayPickup(player)) cir.setReturnValue(ItemStack.EMPTY);
+    }
 
     @Inject(method = {"m_150546_", "setResultSlot"}, at = @At("RETURN"), remap = false)
     private static void cnpcplus$enforceCraftingAvailability(AbstractContainerMenu menu, Level level, Player player, CraftingContainer craftSlots, ResultContainer resultSlots, CallbackInfo ci) {

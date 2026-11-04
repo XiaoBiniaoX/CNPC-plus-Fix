@@ -1,0 +1,1 @@
+{"targets":["swap"],"passes":[{"name":"cnpcplus:world_glyph","intarget":"minecraft:main","outtarget":"swap"},{"name":"blit","intarget":"swap","outtarget":"minecraft:main"}]}

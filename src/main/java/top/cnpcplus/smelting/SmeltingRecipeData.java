@@ -8,6 +8,7 @@ import net.minecraft.world.item.ItemStack;
  * 名称可中文；id 为独立数字标识（改名不影响 id）。
  */
 public class SmeltingRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     public ItemStack input = ItemStack.EMPTY;   // 被熔炼物
@@ -45,11 +46,13 @@ public class SmeltingRecipeData {
         t.putBoolean("Smoker", this.smokerAllowed);
         t.putBoolean("GenericFuel", this.genericFuelAllowed);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.put("Availability", this.availability.save(new CompoundTag()));
         return t;
     }
 
     public static SmeltingRecipeData fromNBT(CompoundTag t) {
         SmeltingRecipeData d = new SmeltingRecipeData();
+        d.availability.load(t.getCompound("Availability"));
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         d.input = ItemStack.of(t.getCompound("Input"));

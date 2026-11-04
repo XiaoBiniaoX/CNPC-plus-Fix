@@ -15,6 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ContainerCarpentryBench.class)
 public class MixinContainerCarpentryBenchFix2 {
+    @Inject(method = "m_7648_", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
+    private void cnpcplus$take(Player player, int slot, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ItemStack> cir) {
+        if (slot == 0 && !((ContainerCarpentryBench)(Object)this).getSlot(0).mayPickup(player)) cir.setReturnValue(ItemStack.EMPTY);
+    }
 
     @Shadow(remap = false)
     private Player player;

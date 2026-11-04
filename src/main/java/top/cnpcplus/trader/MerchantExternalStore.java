@@ -158,6 +158,23 @@ public final class MerchantExternalStore {
         return ACTIVE.containsKey(role);
     }
 
+    /** Called on the server before clone NBT crosses to a client or loses its world/UUID. */
+    public static synchronized boolean makePortable(CompoundTag tag) {
+        if (!tag.contains(ID_KEY)) return true;
+        UUID id = parseId(tag.getString(ID_KEY));
+        State state = id == null ? null : readManifest(id);
+        try {
+            if (state == null || !verifyPages(state)) throw new IOException("missing merchant clone data");
+            attachPages(tag, state);
+            tag.remove(ID_KEY);
+            tag.remove(STATE_KEY);
+            return true;
+        } catch (IOException e) {
+            LOGGER.error("[merchant] cannot export portable clone {}", id, e);
+            return false;
+        }
+    }
+
     public static synchronized void initializePages(RoleTrader role) {
         State state = ACTIVE.get(role);
         if (state == null || state.pageData.isEmpty()) return;

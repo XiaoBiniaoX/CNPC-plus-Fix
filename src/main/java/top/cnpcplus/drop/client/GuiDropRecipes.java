@@ -70,6 +70,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
 
     /** 233c 音效 id（空=不播；保存随主 NBT 落盘）。 */
     private String soundId = "";
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     /** 233b 生效绑定（内存编辑态：loadRecipe 载入、绑定按钮改、保存写回）。 */
     private String bindDim = "";
@@ -165,6 +166,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 108, bx, by + bs * 3, 84, 20, "availability.options"));
 
         this.refreshScroll();
     }
@@ -247,6 +249,8 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         this.selectedName = d.name;
         this.nameOnly = d.nameOnly;
         this.soundId = d.soundId == null ? "" : d.soundId;
+        this.availability = new noppes.npcs.controllers.data.Availability();
+        this.availability.load(d.availability.save(new net.minecraft.nbt.CompoundTag()));
         this.bindDim = d.dim == null ? "" : d.dim;
         this.hasBindPos = d.hasBindPos;
         this.bindX = d.bindX;
@@ -261,6 +265,11 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 108) {
+            GuiTextFieldNop.unfocus();
+            this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability));
+            return;
+        }
         if (button.id == BTN_NEW) {
             // 「添加配方」= 清空表单 + 清空五个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketDropSelect(-1) 查不到配方时把五槽设为 EMPTY 并归还物品），
@@ -268,6 +277,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             DropPacketHandler.CHANNEL.sendToServer(new PacketDropSelect(-1));
             this.selectedId = -1;
             this.draft = true;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             this.nameOnly = false;
             this.soundId = "";
             this.bindDim = "";
@@ -318,6 +328,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
         d.soundId = this.soundId == null ? "" : this.soundId;
+        d.availability.load(this.availability.save(new net.minecraft.nbt.CompoundTag()));
         d.dim = this.bindDim == null ? "" : this.bindDim;
         d.hasBindPos = this.hasBindPos;
         d.bindX = this.bindX;

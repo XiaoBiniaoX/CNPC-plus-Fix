@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
  * 槽内 ItemStack 的 count 即该槽的消耗数量（如 木板×3）；空槽=该槽无需求。
  */
 public class DropRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     /** 2×2 四个输入槽（槽内 count=消耗数量；空=无需求；至少两槽有物才能注册，见 PacketDropSave）。 */
@@ -45,6 +46,7 @@ public class DropRecipeData {
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.put("Availability", this.availability.save(new CompoundTag()));
         t.putString("SoundId", this.soundId == null ? "" : this.soundId);
         t.putString("BindDim", this.dim == null ? "" : this.dim);
         t.putBoolean("BindPos", this.hasBindPos);
@@ -66,6 +68,7 @@ public class DropRecipeData {
 
     public static DropRecipeData fromNBT(CompoundTag t) {
         DropRecipeData d = new DropRecipeData();
+        d.availability.load(t.getCompound("Availability"));
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly");

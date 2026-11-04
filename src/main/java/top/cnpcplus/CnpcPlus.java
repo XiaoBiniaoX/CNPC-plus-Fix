@@ -49,6 +49,11 @@ public class CnpcPlus {
         // 生效层=DropCraftHandler 挂 EntityJoinLevel/Tick/Leave（服务端物品落地触发，下方注册）
         top.cnpcplus.drop.DropMenus.register();
         top.cnpcplus.drop.network.DropPacketHandler.init();
+        top.cnpcplus.station.StationMenu.MENUS.register(net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext.get().getModEventBus());
+        top.cnpcplus.station.StationPacket.init();
+        top.cnpcplus.shader.ShaderPacket.init();
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.shader.ShaderController.class);
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(top.cnpcplus.station.StationPacket.class);
         top.cnpcplus.transport.network.TransportPacketHandler.init();
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent e) ->
@@ -101,6 +106,7 @@ public class CnpcPlus {
                     // 233d-UI9：清掉落物「玩家丢出」身份集合（用户拍板「只加关服清理」）——
                     // 防单人换存档时残留实体 id 被新档复用误认成玩家丢出（id 每档从头计数）
                     top.cnpcplus.drop.DropCraftHandler.clearStatics();
+                    top.cnpcplus.station.StationRecipes.clear();
                 });
     }
 }

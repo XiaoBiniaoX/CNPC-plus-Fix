@@ -9,6 +9,7 @@ import net.minecraft.world.item.ItemStack;
  * 227：字段 = 模板/基座/升级材料/结果 4 槽（熔炼的 cookTime/xp/三开关按用户要求删除——锻造台没有时间与经验）。
  */
 public class SmithingRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     public ItemStack template = ItemStack.EMPTY;  // 模板（如模具/纹饰）
@@ -32,6 +33,7 @@ public class SmithingRecipeData {
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.put("Availability", this.availability.save(new CompoundTag()));
         if (withItems) {
             t.put("Template", this.template.save(new CompoundTag()));
             t.put("Base", this.base.save(new CompoundTag()));
@@ -43,6 +45,7 @@ public class SmithingRecipeData {
 
     public static SmithingRecipeData fromNBT(CompoundTag t) {
         SmithingRecipeData d = new SmithingRecipeData();
+        d.availability.load(t.getCompound("Availability"));
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly"); // 旧配方无此键 → 默认 false，兼容

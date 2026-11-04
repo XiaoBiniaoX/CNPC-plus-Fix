@@ -20,6 +20,11 @@ public final class WandTools {
 
     public static boolean inRange(double distanceSquared) { return distanceSquared >= 0 && distanceSquared <= RANGE_SQUARED; }
 
+    public static boolean showsPaths(ItemStack stack) {
+        return showsHitboxes(stack) || !stack.isEmpty() && net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem())
+                .equals(new net.minecraft.resources.ResourceLocation("customnpcs:npcmovingpath"));
+    }
+
     public static boolean matches(String query, String label) {
         String q = Pinyin.normalizeQuery(query), text = Pinyin.normalizeQuery(label);
         return text.contains(q) || Pinyin.fuzzy(q, Pinyin.normalizeQuery(Pinyin.of(label)));

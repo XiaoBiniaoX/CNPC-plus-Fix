@@ -28,6 +28,7 @@ import net.minecraft.world.level.Level;
  * 精确匹配只在服务端成立）。
  */
 public class CustomSmithingRecipe extends SmithingTransformRecipe {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     private final ItemStack exactTemplate;
     private final ItemStack exactBase;
@@ -123,7 +124,9 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             ItemStack addition = buf.readItem();
             ItemStack result = buf.readItem();
             boolean nameOnly = buf.readBoolean();
-            return new CustomSmithingRecipe(id, template, base, addition, result, nameOnly);
+            CustomSmithingRecipe recipe = new CustomSmithingRecipe(id, template, base, addition, result, nameOnly);
+            recipe.availability.load(buf.readNbt());
+            return recipe;
         }
 
         @Override
@@ -133,6 +136,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             buf.writeItem(recipe.exactAddition);
             buf.writeItem(recipe.exactResult);
             buf.writeBoolean(recipe.nameOnly);
+            buf.writeNbt(recipe.availability.save(new net.minecraft.nbt.CompoundTag()));
         }
     }
 }

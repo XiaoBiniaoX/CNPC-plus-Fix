@@ -54,6 +54,7 @@ public final class DropCraftHandler {
 
     /** 「玩家丢出」身份集合（合成输入过滤用；Leave 事件清理；重启后清空=老物品需重丢）。 */
     private static final Set<Integer> PLAYER_DROPPED = new HashSet<>();
+    private static final Map<Integer, java.util.UUID> OWNERS = new HashMap<>();
 
     /** 单次触发的链式合成防御上限（正常必在原料耗尽前退出）。 */
     private static final int CHAIN_LIMIT = 64;
@@ -72,6 +73,7 @@ public final class DropCraftHandler {
         ItemEntity item = event.getEntity();
         PENDING.put(item.getId(), item.level());
         PLAYER_DROPPED.add(item.getId());
+        OWNERS.put(item.getId(), event.getPlayer().getUUID());
     }
 
     @SubscribeEvent
@@ -79,6 +81,7 @@ public final class DropCraftHandler {
         if (!(event.getEntity() instanceof ItemEntity)) return;
         PENDING.remove(event.getEntity().getId());
         PLAYER_DROPPED.remove(event.getEntity().getId());
+        OWNERS.remove(event.getEntity().getId());
     }
 
     /**
@@ -90,6 +93,7 @@ public final class DropCraftHandler {
     public static void clearStatics() {
         PENDING.clear();
         PLAYER_DROPPED.clear();
+        OWNERS.clear();
     }
 
     @SubscribeEvent
@@ -152,7 +156,13 @@ public final class DropCraftHandler {
             List<Integer> matched = new ArrayList<>(); // 233d-UI8 诊断：本格全部命中配方 id
             for (DropRecipeData r : recipes) { // id 升序遍历，第一条命中即用（稳定优先级）
                 if (!boundOk(r, level, pos)) continue; // 233b：维度/坐标绑定过滤（空=不限）
-                CraftPlan p = CraftPlan.plan(inputs, r);
+                // Every consumed item must belong to an eligible player, not just the final thrower.
+                List<ItemEntity> eligible = r.availability.hasOptions() ? inputs.stream().filter(e -> {
+                    java.util.UUID id = OWNERS.get(e.getId());
+                    return top.cnpcplus.craftingview.RecipeAvailability.allows(r.availability,
+                            id == null ? null : level.getServer().getPlayerList().getPlayer(id));
+                }).toList() : inputs;
+                CraftPlan p = CraftPlan.plan(eligible, r);
                 if (p == null) continue;
                 matched.add(r.id);
                 if (plan == null) plan = p; // 选用仍=第一条命中（id 升序，规则不变）

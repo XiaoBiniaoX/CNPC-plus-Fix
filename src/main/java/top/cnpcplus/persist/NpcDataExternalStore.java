@@ -58,6 +58,11 @@ public final class NpcDataExternalStore {
         tag -> !tag.isEmpty()
     );
 
+    public static final NpcDataExternalStore RESISTANCES = new NpcDataExternalStore(
+        "resistances", "CNPCPlusResistancesId", "CNPCPlusResistancesState",
+        "Resistances"::equals, tag -> tag.contains("Resistances", Tag.TAG_COMPOUND)
+    );
+
     private static final int VERIFIED = 2;
     private static final int CLEANED = 5;
     private static final Logger LOGGER = LoggerFactory.getLogger("cnpcplus");
@@ -344,9 +349,10 @@ public final class NpcDataExternalStore {
 
     public static boolean makeAllPortable(CompoundTag tag) {
         boolean complete = true;
-        for (NpcDataExternalStore store : new NpcDataExternalStore[]{SPAWNER, INVENTORY, SCRIPTS, ADVANCED, MODEL}) {
+        for (NpcDataExternalStore store : new NpcDataExternalStore[]{SPAWNER, INVENTORY, SCRIPTS, ADVANCED, MODEL, RESISTANCES}) {
             complete &= store.makePortable(tag);
         }
+        complete &= top.cnpcplus.trader.MerchantExternalStore.makePortable(tag);
         return complete;
     }
 

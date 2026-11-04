@@ -22,12 +22,14 @@ public final class SmithingRecipeParser {
                 || (data.base != null && !data.base.isEmpty())
                 || (data.addition != null && !data.addition.isEmpty());
         if (!anyInput) return null;
-        return new CustomSmithingRecipe(
+        CustomSmithingRecipe recipe = new CustomSmithingRecipe(
                 new ResourceLocation("cnpcplus", "smithing/" + data.id),
                 data.template == null ? net.minecraft.world.item.ItemStack.EMPTY : data.template.copy(),
                 data.base == null ? net.minecraft.world.item.ItemStack.EMPTY : data.base.copy(),
                 data.addition == null ? net.minecraft.world.item.ItemStack.EMPTY : data.addition.copy(),
                 data.result.copy(),
                 data.nameOnly);
+        recipe.availability = data.availability;
+        return recipe;
     }
 }
