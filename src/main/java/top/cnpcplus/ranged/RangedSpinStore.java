@@ -2,16 +2,13 @@ package top.cnpcplus.ranged;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
 import noppes.npcs.entity.EntityProjectile;
 import noppes.npcs.entity.data.DataRanged;
 
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** Storage, persistence and projectile sync accessors for the three spin axes. */
+/** Storage, persistence and continuous render angles for the three spin axes. */
 public final class RangedSpinStore {
 
     public static final int AXIS_X = 0;
@@ -23,13 +20,6 @@ public final class RangedSpinStore {
     public static final String NBT_KEY_Y = "CNPCPlusSpinSpeedY";
     public static final String NBT_KEY_Z = "CNPCPlusSpinSpeedZ";
     public static final float MAX_SPIN = 1000.0f;
-
-    public static final EntityDataAccessor<Float> SPIN_X =
-            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
-    public static final EntityDataAccessor<Float> SPIN_Y =
-            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
-    public static final EntityDataAccessor<Float> SPIN_Z =
-            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
 
     private static final String[] NBT_KEYS = {NBT_KEY_X, NBT_KEY_Y, NBT_KEY_Z};
     private static final Map<DataRanged, float[]> SPINS = new WeakHashMap<>();
