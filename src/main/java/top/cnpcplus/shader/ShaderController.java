@@ -7,6 +7,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 
@@ -15,7 +16,7 @@ public final class ShaderController {
     private static final Map<UUID, ShaderController> PLAYERS = new HashMap<>();
     private static final Map<UUID, ShaderController> ENTITIES = new HashMap<>();
     private static final Map<String, ShaderController> BLOCKS = new HashMap<>();
-    private static final Map<UUID, ShaderController> ITEMS = new HashMap<>();
+    private static final Map<String, ShaderController> ITEMS = new HashMap<>();
     private final UUID player;
     private final Entity entity;
     private final Level level;
@@ -24,6 +25,27 @@ public final class ShaderController {
     public final String target;
     public final Map<UUID, ShaderInstance> instances = new LinkedHashMap<>();
     private final Set<UUID> dirty = new LinkedHashSet<>();
+    private ShaderSkill shieldSkill, arcaneSkill;
+    Level level() { return level; }
+    public ShaderInstance castShield(Map<?,?> options) {
+        stopSkill("shield");
+        shieldSkill = new ShaderSkill(this, skillCaster(), true, options);
+        return shieldSkill.effects.get(0);
+    }
+    public ShaderInstance castArcane(Map<?,?> options) {
+        stopSkill("arcane");
+        arcaneSkill = new ShaderSkill(this, skillCaster(), false, options);
+        return arcaneSkill.effects.get(0);
+    }
+    private ServerPlayer skillCaster() {
+        if (!server() || !target.equals("post")) throw new IllegalArgumentException("Skills require a server player controller");
+        return level.getServer().getPlayerList().getPlayer(player);
+    }
+    public void stopSkill(String kind) {
+        if (kind.equals("shield")) { if (shieldSkill != null) shieldSkill.stop(); shieldSkill = null; }
+        else if (kind.equals("arcane")) { if (arcaneSkill != null) arcaneSkill.stop(); arcaneSkill = null; }
+        else throw new IllegalArgumentException("Skill must be shield or arcane");
+    }
     private ShaderController(UUID player, Entity entity, Level level, BlockPos position, ItemStack item, String target) {
         this.player = player; this.entity = entity; this.level = level; this.position = position; this.item = item; this.target = target;
     }
@@ -51,11 +73,15 @@ public final class ShaderController {
         CompoundTag tag = stack.getOrCreateTag();
         if (!tag.hasUUID("CNPCPlusShaderItem")) tag.putUUID("CNPCPlusShaderItem", UUID.randomUUID());
         UUID id = tag.getUUID("CNPCPlusShaderItem");
-        return ITEMS.computeIfAbsent(id, key -> new ShaderController(player.getUUID(), null, player.level(), null, stack, "item:" + key));
+        return ITEMS.computeIfAbsent(player.getUUID() + ":" + id, key -> new ShaderController(player.getUUID(), null, player.level(), null, stack, "item:" + id));
     }
     public ShaderInstance play(String id) { return play(id, Map.of()); }
     public ShaderInstance play(String id, Map<?,?> options) {
-        ShaderDefinition definition = (server() ? ShaderManager.SERVER : ShaderRuntime.manager()).get(id);
+        return play(id, options, true);
+    }
+    ShaderInstance playBuiltin(String id, Map<?,?> options) { return play(id, options, false); }
+    private ShaderInstance play(String id, Map<?,?> options, boolean pack) {
+        ShaderDefinition definition = server() ? pack && player != null ? ShaderManager.forPlayer(player, id) : ShaderManager.SERVER.get(id) : ShaderRuntime.manager().get(id);
         if (server() && !definition.remote) throw new IllegalArgumentException("Shader is not remotely callable: " + id);
         if (!target.equals("post") && !definition.type.equals("RENDER") || target.equals("post") && !definition.type.equals("POST")) throw new IllegalArgumentException("Shader target/type mismatch: " + id);
         boolean replace = !options.containsKey("replace") || Boolean.TRUE.equals(options.get("replace"));
@@ -100,14 +126,52 @@ public final class ShaderController {
     public ShaderInstance getInstance(String id) { ShaderInstance result = null; for (ShaderInstance instance : getInstances(id)) result = instance; return result; }
     public ShaderInstance[] getInstances(String id) { return instances.values().stream().filter(i -> i.getId().equals(id) && i.isActive()).toArray(ShaderInstance[]::new); }
     public ShaderInstance[] getAllInstances() { return instances.values().stream().filter(ShaderInstance::isActive).toArray(ShaderInstance[]::new); }
+    public String[] getAvailableShaders() { return server() && player != null ? ShaderManager.available(player) : ShaderRuntime.manager().getAll(); }
     public void tick() {
+        if (arcaneSkill != null) {
+            boolean paused = arcaneSkill.effects.get(0).isPaused();
+            for (ShaderInstance effect : arcaneSkill.effects) {
+                if (paused) effect.pause(); else if (effect.isPaused()) effect.resume();
+            }
+        }
         for (ShaderInstance instance : instances.values()) {
             boolean active = instance.isActive(); instance.tick();
             if (active && !instance.isActive()) dirty.add(instance.token);
         }
+        if (shieldSkill != null) { if (shieldSkill.running()) { if (!shieldSkill.effects.get(0).isPaused()) shieldSkill.tick(); } else stopSkill("shield"); }
+        if (arcaneSkill != null) { if (arcaneSkill.running()) { if (!arcaneSkill.effects.get(0).isPaused()) arcaneSkill.tick(); } else stopSkill("arcane"); }
         if (server()) for (UUID token : dirty) { ShaderInstance instance = instances.get(token); if (instance != null) send(instance); }
         dirty.clear();
         instances.values().removeIf(i -> !i.isActive());
+    }
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void shieldDamage(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        if (event.getEntity().level().isClientSide) return;
+        ShaderController controller = PLAYERS.get(event.getEntity().getUUID());
+        ShaderSkill skill = controller == null ? null : controller.shieldSkill;
+        if (skill == null || !skill.running() || skill.effects.get(0).isPaused()) return;
+        Vec3 position = event.getSource().getSourcePosition();
+        if (position == null) return; // Environmental damage is not blocked by a spatial shield.
+        skill.impact(position);
+        event.setAmount(event.getAmount()*(1-skill.reduction));
+    }
+    @net.minecraftforge.eventbus.api.SubscribeEvent
+    public static void projectileImpact(net.minecraftforge.event.entity.ProjectileImpactEvent event) {
+        var projectile = event.getProjectile();
+        if (projectile.level().isClientSide) return;
+        for (ShaderController controller : PLAYERS.values()) {
+            ShaderSkill skill = controller.shieldSkill;
+            if (skill != null && skill.blockProjectiles && skill.running() && !skill.effects.get(0).isPaused() && skill.caster.level() == projectile.level()
+                    && skill.intercept(projectile, projectile.position(), event.getRayTraceResult().getLocation())) {
+                event.setImpactResult(net.minecraftforge.event.entity.ProjectileImpactEvent.ImpactResult.STOP_AT_CURRENT_NO_DAMAGE);
+                return;
+            }
+        }
+    }
+    public static void clearPlayer(UUID player) {
+        ShaderController post = PLAYERS.remove(player);
+        if (post != null) { post.clear(); post.tick(); }
+        ITEMS.values().removeIf(c -> { if (!player.equals(c.player)) return false; c.clear(); c.tick(); return true; });
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void serverTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
@@ -122,7 +186,8 @@ public final class ShaderController {
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void logout(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent event) {
-        PLAYERS.remove(event.getEntity().getUUID()); ITEMS.values().removeIf(c -> event.getEntity().getUUID().equals(c.player));
+        ShaderManager.clearPack(event.getEntity().getUUID());
+        clearPlayer(event.getEntity().getUUID());
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void login(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
@@ -136,18 +201,16 @@ public final class ShaderController {
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void dimension(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
-        PLAYERS.remove(event.getEntity().getUUID());
-        ITEMS.values().removeIf(c -> event.getEntity().getUUID().equals(c.player));
+        clearPlayer(event.getEntity().getUUID());
         login(new net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent(event.getEntity()));
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void respawn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent event) {
-        ShaderController post = PLAYERS.remove(event.getEntity().getUUID());
-        if (post != null) { post.clear(); post.tick(); }
+        clearPlayer(event.getEntity().getUUID());
         login(new net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent(event.getEntity()));
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent
-    public static void stopServer(net.minecraftforge.event.server.ServerStoppedEvent event) { PLAYERS.clear(); ENTITIES.clear(); BLOCKS.clear(); ITEMS.clear(); }
+    public static void stopServer(net.minecraftforge.event.server.ServerStoppedEvent event) { PLAYERS.clear(); ENTITIES.clear(); BLOCKS.clear(); ITEMS.clear(); ShaderManager.clearPacks(); }
     @net.minecraftforge.eventbus.api.SubscribeEvent
     public static void reload(net.minecraftforge.event.AddReloadListenerEvent event) {
         event.addListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener)resources -> {

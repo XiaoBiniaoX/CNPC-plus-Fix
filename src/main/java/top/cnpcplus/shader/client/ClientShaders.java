@@ -50,7 +50,10 @@ public final class ClientShaders {
         Minecraft mc = Minecraft.getInstance();
         Gpu gpu = new Gpu();
         try {
-            if (LOADED.size() >= 32) throw new IllegalStateException("At most 32 loaded shader effects");
+            if (LOADED.size() >= 32) {
+                for (String old : new ArrayList<>(LOADED.keySet())) if (unload(old)) break;
+                if (LOADED.size() >= 32) throw new IllegalStateException("At most 32 loaded shader effects");
+            }
             if (definition.type.equals("POST")) {
                 // Bound resource-pack target allocation before vanilla PostChain allocates GPU memory.
                 try (Reader reader = mc.getResourceManager().getResourceOrThrow(new ResourceLocation(definition.shaderResource)).openAsReader()) {
@@ -101,7 +104,25 @@ public final class ClientShaders {
     }
     public static void reloadAll() {
         clear(); MANAGER = new ShaderManager(); MANAGER.reloadDefinitions(Minecraft.getInstance().getResourceManager());
+        syncCatalog();
     }
+    public static void syncCatalog() {
+        if (Minecraft.getInstance().getConnection() == null) return;
+        ShaderPacket.CHANNEL.sendToServer(new ShaderCatalogPacket("", ""));
+        int count = 0;
+        for (String id : MANAGER.getAll()) {
+            ShaderDefinition definition = MANAGER.get(id);
+            if (!definition.remote) continue;
+            String json = definition.json.toString();
+            if (json.length() > 12288 || count >= 128) {
+                org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] pack catalog limit: {}", id);
+                continue;
+            }
+            ShaderPacket.CHANNEL.sendToServer(new ShaderCatalogPacket(id, json));
+            count++;
+        }
+    }
+    @SubscribeEvent public static void login(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) { syncCatalog(); }
     public static ShaderController objectController(String target) { return OBJECTS.computeIfAbsent(target, key -> ShaderController.localController(key)); }
     public static void accept(CompoundTag tag) {
         try {
@@ -198,7 +219,13 @@ public final class ClientShaders {
         var camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         effect.safeGetUniform("CameraPosition").set((float)camera.x, (float)camera.y, (float)camera.z);
         var player = Minecraft.getInstance().player;
-        if (currentPost.definition.json.has("followPlayer") && currentPost.definition.json.get("followPlayer").getAsBoolean() && player != null) {
+        if (currentPost.followEntity != null) {
+            for (var entity : Minecraft.getInstance().level.entitiesForRendering()) if (entity.getUUID().equals(currentPost.followEntity)) {
+                var position = entity.getPosition(partial);
+                effect.safeGetUniform("WorldPosition").set((float)position.x, (float)position.y + entity.getBbHeight()/2, (float)position.z);
+                break;
+            }
+        } else if (currentPost.definition.json.has("followPlayer") && currentPost.definition.json.get("followPlayer").getAsBoolean() && player != null) {
             var position = player.getPosition(partial);
             effect.safeGetUniform("WorldPosition").set((float)position.x, (float)position.y + 0.9f, (float)position.z);
         }

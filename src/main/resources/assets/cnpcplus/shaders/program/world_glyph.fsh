@@ -43,18 +43,63 @@ float triangle(vec2 p) {
 }
 
 float hexagram(vec2 p) { return min(triangle(p), triangle(-p)); }
+float apparatus(vec3 p) {
+    vec2 q=turn(p.xz,Rotation+Time*RotationSpeed);
+    float r=length(q),angle=atan(q.y,q.x);
+    float ring=max(abs(r-0.88)-0.025,abs(p.y)-0.028);
+    float slots=0.35-sin(angle*12.0+float(Shape)*0.8);
+    ring=max(ring,slots*0.04);
+    float inner=max(abs(r-0.52)-0.018,abs(p.y+0.04)-0.025);
+    float hub=max(max(abs(q.x),abs(q.y))-0.095,abs(p.y)-0.09);
+    float spokeAngle=mod(angle+PI/6.0,TAU/6.0)-PI/6.0;
+    vec3 spoke=vec3(cos(spokeAngle)*r,p.y,sin(spokeAngle)*r);
+    float girder=max(max(abs(spoke.x-0.42)-0.24,abs(spoke.z)-0.012),abs(spoke.y)-0.02);
+    float tower=max(max(abs(spoke.x-0.78)-0.045,abs(spoke.z)-0.055),abs(spoke.y-0.09)-0.12);
+    if(Shape==2) {
+        vec3 tilted=p;tilted.yz=turn(tilted.yz,0.22*sin(Time*0.6)+0.35);
+        inner=max(abs(length(tilted.xz)-0.48)-0.016,abs(tilted.y)-0.028);
+    }
+    if(Shape==3)hub=length(p)-0.14;
+    return min(min(ring,inner),min(hub,min(girder,tower)));
+}
 
 void main() {
     vec4 original = texture(DiffuseSampler, texCoord);
     fragColor = original;
     vec3 ray = normalize(unproject(texCoord, 1.0));
     vec3 normal = length(PlaneNormal) > 0.001 ? normalize(PlaneNormal) : vec3(0, 1, 0);
+    vec3 axis = normalize(cross(normal, abs(normal.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
+    float sceneDistance = length(unproject(texCoord, texture(DepthSampler, texCoord).r));
+    // Thick segmented hardware around each seal, visible edge-on and from below.
+    if(Shape>0) {
+        vec3 origin=CameraPosition-WorldPosition;
+        vec3 ro=vec3(dot(origin,axis),dot(origin,normal),dot(origin,cross(normal,axis)))/Radius;
+        vec3 rd=vec3(dot(ray,axis),dot(ray,normal),dot(ray,cross(normal,axis)));
+        float b=dot(ro,rd),h=b*b-dot(ro,ro)+1.18*1.18;
+        if(h>=0.0) {
+            float nearT=max(0.0,-b-sqrt(h)),end=min(-b+sqrt(h),sceneDistance/Radius);
+            float distance=nearT;
+            for(int i=0;i<64;i++) {
+                if(distance>=end)break;
+                vec3 pos=ro+rd*distance;float d=apparatus(pos);
+                if(d<0.001) {
+                    vec2 e=vec2(0.002,0);
+                    vec3 n=normalize(vec3(apparatus(pos+e.xyy)-apparatus(pos-e.xyy),apparatus(pos+e.yxy)-apparatus(pos-e.yxy),apparatus(pos+e.yyx)-apparatus(pos-e.yyx)));
+                    float lit=max(dot(n,normalize(vec3(-0.4,0.8,0.5))),0.0);
+                    float rim=pow(1.0-abs(dot(n,rd)),3.0);
+                    float circuit=pow(max(0.0,sin(atan(pos.z,pos.x)*24.0-Time*2.0)),12.0);
+                    vec3 metal=vec3(0.025,0.038,0.06)*(0.4+lit)+Color*(rim*0.2+circuit*0.22)*Intensity;
+                    fragColor=vec4(mix(original.rgb,metal,Opacity),original.a);
+                    break;
+                }
+                distance+=max(d*0.65,0.0005);
+            }
+        }
+    }
     float denominator = dot(ray, normal);
     if (abs(denominator) < 0.0001) return;
     float t = dot(WorldPosition - CameraPosition, normal) / denominator;
-    float sceneDistance = length(unproject(texCoord, texture(DepthSampler, texCoord).r));
     if (t <= 0.0 || t > sceneDistance) return;
-    vec3 axis = normalize(cross(normal, abs(normal.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
     vec3 hit = ray * t - (WorldPosition - CameraPosition);
     vec2 p = vec2(dot(hit, axis), dot(hit, cross(normal, axis))) / Radius;
     p = turn(p, Rotation + Time * RotationSpeed);
@@ -114,5 +159,5 @@ void main() {
     float halo = exp(-max(d - LineWidth, 0.0) / max(LineWidth * 4.0, aa)) * Glow;
     float edge = 1.0 - smoothstep(1.0, 1.08, r);
     vec3 color = Color * (stroke + halo) * pulse * Intensity * edge;
-    fragColor = vec4(original.rgb + color * Opacity, original.a);
+    fragColor = vec4(fragColor.rgb + color * Opacity, original.a);
 }

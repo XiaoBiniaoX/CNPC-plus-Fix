@@ -10,6 +10,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 public final class ShaderManager {
     public static final ShaderManager SERVER = new ShaderManager();
     private final Map<String, ShaderDefinition> definitions = new LinkedHashMap<>();
+    private static final Map<UUID, Map<String, ShaderDefinition>> PLAYER_PACKS = new HashMap<>();
     public ShaderManager() {
         for (String id : new String[]{"cnpcplus:post/black_hole", "cnpcplus:post/invert", "cnpcplus:render/tint",
                 "cnpcplus:post/blood_thorns", "cnpcplus:post/hexagram", "cnpcplus:post/strange_pattern", "cnpcplus:post/super_strike",
@@ -47,6 +48,25 @@ public final class ShaderManager {
         ShaderDefinition definition = definitions.get(ShaderDefinition.resource(id));
         if (definition == null) throw new IllegalArgumentException("Unregistered shader: " + id);
         return definition;
+    }
+    public static ShaderDefinition forPlayer(UUID player, String id) {
+        String key = ShaderDefinition.resource(id);
+        ShaderDefinition packed = PLAYER_PACKS.getOrDefault(player, Map.of()).get(key);
+        return packed == null ? SERVER.get(key) : packed;
+    }
+    public static void clearPack(UUID player) { PLAYER_PACKS.remove(player); }
+    public static String[] available(UUID player) {
+        Set<String> ids = new LinkedHashSet<>(Arrays.asList(SERVER.getAll()));
+        ids.addAll(PLAYER_PACKS.getOrDefault(player, Map.of()).keySet());
+        return ids.toArray(String[]::new);
+    }
+    public static void clearPacks() { PLAYER_PACKS.clear(); }
+    public static void acceptPack(UUID player, String id, JsonObject json) {
+        ShaderDefinition definition = new ShaderDefinition(id, json);
+        if (!definition.remote || SERVER.exists(id) && !SERVER.get(id).remote) throw new IllegalArgumentException("Not remotely callable: " + id);
+        Map<String, ShaderDefinition> pack = PLAYER_PACKS.computeIfAbsent(player, key -> new LinkedHashMap<>());
+        if (!pack.containsKey(definition.id) && pack.size() >= 128) throw new IllegalArgumentException("At most 128 resource-pack effects per player");
+        pack.put(definition.id, definition);
     }
     public ShaderDefinition getDefinition(String id) { return get(id); }
     public boolean exists(String id) { return definitions.containsKey(ShaderDefinition.resource(id)); }

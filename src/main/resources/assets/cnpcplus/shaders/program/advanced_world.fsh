@@ -87,15 +87,33 @@ vec3 otherWorld(vec2 p, vec3 ray) {
 float contact(vec3 direction, vec4 hit) {
     if (dot(hit.xyz,hit.xyz) < 0.01) return 0.0;
     float age = Time-hit.w;
-    if (age < 0.0 || age > 1.0) return 0.0;
+    if (age < 0.0 || age > 1.6) return 0.0;
     vec3 normal=normalize(hit.xyz);
     float distance=length(direction-normal);
-    float ring=exp(-abs(distance-age*1.5)*55.0);
+    float ring=exp(-abs(distance-age*1.3)*65.0)*exp(-age*2.0);
     vec3 axis=normalize(cross(normal, abs(normal.y)<0.9 ? vec3(0,1,0) : vec3(1,0,0)));
     float a=atan(dot(direction,cross(normal,axis)),dot(direction,axis));
-    float jagged=sin(a*7.0 + noise(direction*35.0+Time*8.0)*5.0 + distance*32.0);
-    float arcs=exp(-abs(jagged)*18.0)*exp(-distance*5.5);
-    return (arcs*3.0+ring)*(1.0-age);
+    float jagged=sin(a*9.0 + noise(direction*32.0)*4.0 + distance*18.0);
+    float cracks=exp(-abs(jagged)*35.0)*exp(-distance*4.5);
+    return (cracks*2.0+ring)*max(0.0,1.0-age/1.6);
+}
+float dent(vec3 direction, vec4 hit) {
+    float age=Time-hit.w;
+    if(dot(hit.xyz,hit.xyz)<0.01||age<0.0||age>1.6)return 0.0;
+    return exp(-length(direction-normalize(hit.xyz))*9.0)*sin(min(age*5.0,PI))*exp(-age*2.0);
+}
+// Cube-projected staggered triangular plates: stable cells, not animated noise painted on a sphere.
+vec3 plate(vec3 n) {
+    vec3 a=abs(n);vec2 uv;
+    if(a.x>a.y&&a.x>a.z)uv=n.zy/a.x;
+    else if(a.y>a.z)uv=n.xz/a.y;
+    else uv=n.xy/a.z;
+    uv=uv*4.0;
+    vec2 cell=floor(uv),f=fract(uv);
+    float diagonal=abs(f.x+f.y-1.0)*0.707;
+    float edge=min(min(f.x,1.0-f.x),min(f.y,1.0-f.y));
+    float seed=hash(vec3(cell,step(1.0,f.x+f.y)));
+    return vec3(min(edge,diagonal),seed,step(1.0,f.x+f.y));
 }
 
 // Six rising, curled stems with solid tapered conical barbs. Angular folding is 3D,
@@ -161,12 +179,26 @@ void main() {
         float t=interval.x>0.0?interval.x:interval.y;
         if (t<=0.0 || t>sceneDistance) return;
         vec3 n=normalize(ro+ray*t);
+        float depression=dent(n,Hit0)+dent(n,Hit1)+dent(n,Hit2)+dent(n,Hit3);
+        t+=depression*Radius*0.12;
+        if(t>sceneDistance)return;
+        n=normalize(ro+ray*t);
+        vec3 tile=plate(n);
         float fresnel=pow(1.0-abs(dot(n,ray)),2.0);
-        float flow=fbm(n*8.0+vec3(Time*0.6,-Time*1.2,Time*0.3));
-        float filaments=pow(1.0-abs(sin(flow*23.0+n.y*12.0-Time*2.0)),8.0);
+        float aa=max(fwidth(tile.x),0.002);
+        float seam=1.0-smoothstep(0.006,0.006+aa,tile.x);
+        float bevel=exp(-tile.x*38.0);
+        vec3 facet=normalize(n+vec3(tile.y-0.5,tile.z-0.5,0.2)*0.075);
         float hits=contact(n,Hit0)+contact(n,Hit1)+contact(n,Hit2)+contact(n,Hit3);
-        result=readScene(texCoord+n.xy*Distortion*(0.002+filaments*0.004));
-        result += Color*(0.035+fresnel*0.45+filaments*0.22+hits*(1.0+Glow))*Intensity;
+        vec4 bent=WorldViewProjection*vec4(ray*t+facet*Radius*(0.015+bevel*0.008)*Distortion,1.0);
+        vec2 uv=bent.xy/bent.w*0.5+0.5;
+        vec2 dispersion=(uv-texCoord)*0.18;
+        result=vec3(readScene(uv+dispersion).r,readScene(uv).g,readScene(uv-dispersion).b);
+        float light=pow(max(dot(facet,normalize(vec3(-0.4,0.8,0.5))-ray)*0.5,0.0),38.0);
+        float reconstruction=0.6+0.4*smoothstep(-0.1,0.1,sin(tile.y*TAU+Time*0.8));
+        result=mix(result,result*vec3(0.8,0.93,1.0),0.16+fresnel*0.2);
+        result+=Color*(fresnel*0.24+seam*0.10*reconstruction+bevel*light*0.8+hits*(1.0+Glow))*Intensity;
+        result+=vec3(0.8,0.94,1.0)*light*0.22*Intensity;
     } else if (Mode == 2) {
         // Analytic capped cylinder interval followed by 24 volume samples; opaque depth clips it.
         float b=dot(ro.xz,ray.xz), a=dot(ray.xz,ray.xz), c=dot(ro.xz,ro.xz)-Radius*Radius;
@@ -181,19 +213,32 @@ void main() {
             nearT=max(nearT,min(y0,y1)); farT=min(farT,max(y0,y1));
         } else if (ro.y<0.0 || ro.y>Height) return;
         if (farT<=nearT) return;
-        float density=0.0;
+        float density=0.0, strands=0.0;
         for (int i=0;i<24;i++) {
             float t=mix(nearT,farT,(float(i)+0.5)/24.0);
             vec3 p=ro+ray*t;
             float front=mix(Height,clamp(Time*Height*4.0,0.0,Height),Downward);
             if (p.y<Height-front) continue;
             float r=length(p.xz)/Radius;
-            float core=exp(-r*r*9.0);
-            float spiral=0.5+0.5*sin(atan(p.z,p.x)*6.0+p.y*2.0+mix(-1.0,1.0,Downward)*Time*18.0);
-            density+=(core+0.28*spiral*exp(-abs(r-0.75)*14.0))*(farT-nearT)/24.0;
+            float core=exp(-r*r*42.0);
+            float winding=abs(sin(atan(p.z,p.x)*3.0+p.y*0.7-Time*16.0));
+            float sheath=exp(-abs(r-0.28-0.04*sin(p.y*7.0-Time*30.0))*50.0);
+            density+=(core*1.5+sheath*0.35)*(farT-nearT)/24.0;
+            strands+=exp(-winding*38.0)*exp(-abs(r-0.62)*28.0)*(farT-nearT)/24.0;
         }
-        result+=Color*density*Intensity*(1.0+Glow);
-        result+=vec3(0.6,0.8,1.0)*density*density*0.12*Intensity;
+        result+=Color*(density*0.8+strands*0.45)*Intensity*(1.0+Glow);
+        result+=vec3(0.8,0.95,1.0)*(1.0-exp(-density))*Intensity;
+        // Shockfront intersects the real ground plane; not a permanent full-screen flash.
+        if(abs(ray.y)>0.00001) {
+            float ground=-ro.y/ray.y;
+            if(ground>0.0&&ground<=sceneDistance+0.05) {
+                vec3 p=ro+ray*ground;
+                float arrival=mix(0.0,0.25,Downward);
+                float elapsed=max(0.0,Time-arrival);
+                float wave=step(arrival+0.001,Time)*exp(-abs(length(p.xz)-elapsed*Radius*9.0)*12.0)*exp(-elapsed*4.0);
+                result+=Color*wave*Intensity;
+            }
+        }
     } else if (Mode == 3) {
         vec2 interval=sphere(ro,ray,Radius);
         if (interval.y<=0.0 || max(interval.x,0.0)>sceneDistance) return;

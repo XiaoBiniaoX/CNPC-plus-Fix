@@ -13,7 +13,10 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 public record ShaderPacket(CompoundTag data) {
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation("cnpcplus:shaders"), () -> "1", "1"::equals, "1"::equals);
-    public static void init() { CHANNEL.registerMessage(0, ShaderPacket.class, ShaderPacket::encode, ShaderPacket::decode, ShaderPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT)); }
+    public static void init() {
+        CHANNEL.registerMessage(0, ShaderPacket.class, ShaderPacket::encode, ShaderPacket::decode, ShaderPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(1, ShaderCatalogPacket.class, ShaderCatalogPacket::encode, ShaderCatalogPacket::decode, ShaderCatalogPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+    }
     public static void send(ServerPlayer player, CompoundTag data) {
         if (data.sizeInBytes() > 16384) throw new IllegalArgumentException("Shader packet exceeds 16 KiB");
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new ShaderPacket(data));

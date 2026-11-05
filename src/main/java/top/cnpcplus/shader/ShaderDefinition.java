@@ -25,6 +25,7 @@ public final class ShaderDefinition {
         loop = json.has("supportsLoop") && json.get("supportsLoop").getAsBoolean();
         duration = json.has("defaultDuration") ? json.get("defaultDuration").getAsInt() : 200;
         priority = json.has("priority") ? json.get("priority").getAsInt() : 0;
+        if (duration != -1 && (duration < 1 || duration > 1000000) || Math.abs((long)priority) > 1000000) throw new IllegalArgumentException("Invalid duration/priority");
         if (json.has("uniforms")) for (JsonElement element : json.getAsJsonArray("uniforms")) {
             JsonObject value = element.getAsJsonObject();
             String name = value.get("name").getAsString(), kind = value.get("type").getAsString();
@@ -38,8 +39,10 @@ public final class ShaderDefinition {
                 if (length != 1) throw new IllegalArgumentException("Vector default required: " + name);
                 data[0] = kind.equals("bool") ? (defaults.getAsBoolean() ? 1 : 0) : defaults.getAsFloat();
             }
-            uniforms.put(name, new Parameter(kind, data, value.has("min") ? value.get("min").getAsFloat() : -1000000,
-                    value.has("max") ? value.get("max").getAsFloat() : 1000000));
+            float min = value.has("min") ? value.get("min").getAsFloat() : -1000000;
+            float max = value.has("max") ? value.get("max").getAsFloat() : 1000000;
+            if (!name.matches("[A-Za-z_][A-Za-z0-9_]*") || uniforms.containsKey(name) || !Float.isFinite(min) || !Float.isFinite(max) || min > max) throw new IllegalArgumentException("Invalid/duplicate parameter: " + name);
+            uniforms.put(name, new Parameter(kind, data, min, max));
             validate(name, data);
         }
         if (uniforms.size() > 64) throw new IllegalArgumentException("At most 64 uniforms");

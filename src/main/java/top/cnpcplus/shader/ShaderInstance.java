@@ -13,6 +13,7 @@ public final class ShaderInstance {
     public float speed = 1, time;
     public boolean loop;
     public int stopping = -1;
+    public UUID followEntity;
     public final Map<String, float[]> uniforms = new LinkedHashMap<>();
     public final Map<String, String> textures = new LinkedHashMap<>();
     public final Map<String, Animation> animations = new LinkedHashMap<>();
@@ -23,6 +24,7 @@ public final class ShaderInstance {
         textures.putAll(definition.samplers);
     }
     private void changed() { if (controller != null) controller.changed(this); }
+    public void follow(noppes.npcs.api.entity.IEntity entity) { followEntity = entity.getMCEntity().getUUID(); changed(); }
     public String getId() { return definition.id; }
     public String getState() { return state; }
     public String getError() { return error; }
@@ -137,6 +139,7 @@ public final class ShaderInstance {
         CompoundTag tag = new CompoundTag(); tag.putUUID("Token", token); tag.putString("Id", getId()); tag.putString("Target", target);
         tag.putString("State", state); tag.putInt("Duration", duration); tag.putInt("FadeIn", fadeIn); tag.putInt("FadeOut", fadeOut);
         tag.putInt("Priority", priority); tag.putFloat("Speed", speed); tag.putFloat("Time", time); tag.putBoolean("Loop", loop); tag.putInt("Stopping", stopping);
+        if (followEntity != null) tag.putUUID("FollowEntity", followEntity);
         CompoundTag params = new CompoundTag(); uniforms.forEach((name, value) -> params.put(name, list(value))); tag.put("Uniforms", params);
         CompoundTag samplers = new CompoundTag(); textures.forEach(samplers::putString); tag.put("Textures", samplers);
         CompoundTag anims = new CompoundTag(); animations.forEach((name, value) -> {
@@ -150,6 +153,7 @@ public final class ShaderInstance {
         if (instance.target.equals("post") != instance.definition.type.equals("POST") || !instance.target.equals("post") && !instance.target.matches("(entity|item):[0-9a-f-]{36}|block:[a-z0-9_.-]+:[a-z0-9_./-]+:-?[0-9]+")) throw new IllegalArgumentException("Invalid shader target/type");
         instance.setPriority(tag.getInt("Priority")); instance.setSpeed(tag.getFloat("Speed")); instance.setTime(tag.getFloat("Time"));
         instance.loop = tag.getBoolean("Loop") && instance.definition.loop; instance.stopping = tag.getInt("Stopping");
+        if (tag.hasUUID("FollowEntity")) instance.followEntity = tag.getUUID("FollowEntity");
         if (instance.stopping < -1 || instance.stopping > 1000000) throw new IllegalArgumentException("Invalid stopping time");
         CompoundTag params = tag.getCompound("Uniforms");
         for (String name : params.getAllKeys()) { float[] value = array(params.getList(name, Tag.TAG_FLOAT)); instance.definition.validate(name, value); instance.uniforms.put(name, value); }
