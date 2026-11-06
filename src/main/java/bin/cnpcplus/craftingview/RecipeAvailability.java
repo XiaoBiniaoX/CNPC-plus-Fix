@@ -48,6 +48,9 @@ public final class RecipeAvailability {
                 || a.daytime != EnumDayTime.Always || !a.scoreboardObjective.isEmpty() || !a.scoreboard2Objective.isEmpty() || a.minPlayerLevel > 0;
     }
     public static boolean allows(Availability a, EntityPlayer player) { return !hasOptions(a) || player != null && a.isAvailable(player); }
+    // Keep CNPC field descriptors out of early vanilla mixins.
+    public static boolean allows(bin.cnpcplus.crafting.CustomRecipe recipe, EntityPlayer player) { return allows(recipe.availability, player); }
+    public static boolean hasOptions(bin.cnpcplus.smelting.SmeltingRecipeData recipe) { return hasOptions(recipe.availability); }
     public static void refreshCrafting(net.minecraft.inventory.Container container) {
         if (container instanceof net.minecraft.inventory.ContainerWorkbench) {
             net.minecraft.inventory.ContainerWorkbench bench = (net.minecraft.inventory.ContainerWorkbench)container;

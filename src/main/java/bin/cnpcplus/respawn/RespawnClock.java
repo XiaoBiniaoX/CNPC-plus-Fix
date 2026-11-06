@@ -58,7 +58,7 @@ public final class RespawnClock {
     @SubscribeEvent public static void tick(TickEvent.WorldTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !(event.world instanceof WorldServer)) return;
         RespawnClock clock = get((WorldServer) event.world); clock.checkWrite();
-        if (event.world.getGameRules().getBoolean("doDaylightCycle")) { clock.ticks++; clock.dirty = true; }
+        clock.ticks++; clock.dirty = true;
     }
     @SubscribeEvent public static void save(WorldEvent.Save event) {
         if (event.getWorld() instanceof WorldServer) get((WorldServer) event.getWorld()).save();

@@ -28,7 +28,7 @@ public class MixinFurnaceRecipesSmelting {
     private void cnpcplus$customResult(ItemStack input, CallbackInfoReturnable<ItemStack> cir) {
         SmeltingRecipeData data = SmeltingFuelRules.findByInput(input);
         if (data != null) {
-            cir.setReturnValue(bin.cnpcplus.craftingview.RecipeAvailability.hasOptions(data.availability) ? ItemStack.EMPTY : data.output.copy());
+            cir.setReturnValue(bin.cnpcplus.craftingview.RecipeAvailability.hasOptions(data) ? ItemStack.EMPTY : data.output.copy());
         }
     }
 

@@ -15,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Announce the current server page when a trader container opens, so the
- * client screen can resync its page state (server side is authoritative).
+ * Role NBT restores page zero on the client. Reset both server inventories
+ * before the container sends its slots, then announce the same page.
  */
 @Mixin(value = {ContainerNPCTrader.class, ContainerNPCTraderSetup.class}, remap = false)
 public class MixinContainerNPCTraderSync {
@@ -26,6 +26,7 @@ public class MixinContainerNPCTraderSync {
         if (!(player instanceof EntityPlayerMP)) return;
         if (!(npc.roleInterface instanceof RoleTrader)) return;
         RoleTrader role = (RoleTrader) npc.roleInterface;
+        TraderPager.switchPage(role, 0);
         CraftingViewNetwork.CHANNEL.sendTo(new PacketTraderPageSync(TraderPager.getPage(role)), (EntityPlayerMP) player);
     }
 }

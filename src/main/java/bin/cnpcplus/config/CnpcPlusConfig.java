@@ -112,7 +112,7 @@ public class CnpcPlusConfig {
         config.getBoolean("InventoryQuestTab", "client", true,
                 "Show CNPC quest tab in survival inventory; Quest Log opened by its key is unchanged");
         config.getBoolean("IndependentRespawnClock", "respawn", true,
-                "Persist an independent in-game respawn clock, paused while doDaylightCycle is false; off restores wall-time countdowns");
+                "Persist an independent in-game respawn clock that advances each server world tick regardless of doDaylightCycle; off restores wall-time countdowns");
         config.getBoolean("WandNpcHitboxes", "client", true,
                 "Show actual NPC collision boxes within 30 blocks while holding an NPC, clone or script wand");
         if (config.hasChanged()) {
@@ -142,7 +142,7 @@ public class CnpcPlusConfig {
 
     public static boolean independentRespawnClock() {
         return config == null || config.getBoolean("IndependentRespawnClock", "respawn", true,
-                "Persist an independent in-game respawn clock, paused while doDaylightCycle is false; off restores wall-time countdowns");
+                "Persist an independent in-game respawn clock that advances each server world tick regardless of doDaylightCycle; off restores wall-time countdowns");
     }
     public static boolean wandNpcHitboxes() {
         return config == null || config.getBoolean("WandNpcHitboxes", "client", true,
