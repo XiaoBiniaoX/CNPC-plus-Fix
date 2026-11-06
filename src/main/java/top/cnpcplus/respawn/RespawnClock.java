@@ -16,7 +16,6 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -114,7 +113,7 @@ public final class RespawnClock extends SavedData {
     }
     @SubscribeEvent public static void tick(LevelTickEvent.Post event) {
         if (event.getLevel() instanceof ServerLevel level)
-            get(level).advance(level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT));
+            get(level).advance(true);
     }
     @SubscribeEvent public static void stopping(ServerStoppingEvent event) {
         awaitDiskPending();

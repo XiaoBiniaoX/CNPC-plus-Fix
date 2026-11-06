@@ -24,7 +24,7 @@ public record PacketDropSync(List<DropRecipeData> data) implements CustomPacketP
                 buf.writeVarInt(count);
                 for (int i = 0; i < count; i++) {
                     DropRecipeData d = packet.data.get(i);
-                    buf.writeNbt(d.toMetadataNBT());
+                    buf.writeNbt(d.toMetadataNBT(buf.registryAccess()));
                     for (ItemStack input : d.inputs) STACK.encode(buf, input);
                     STACK.encode(buf, d.result);
                 }
@@ -35,7 +35,7 @@ public record PacketDropSync(List<DropRecipeData> data) implements CustomPacketP
                 for (int i = 0; i < count; i++) {
                     CompoundTag metadata = buf.readNbt();
                     if (metadata == null) throw new IllegalArgumentException("Missing drop recipe metadata");
-                    DropRecipeData d = DropRecipeData.fromMetadataNBT(metadata);
+                    DropRecipeData d = DropRecipeData.fromMetadataNBT(buf.registryAccess(), metadata);
                     for (int slot = 0; slot < 4; slot++) d.inputs[slot] = STACK.decode(buf);
                     d.result = STACK.decode(buf);
                     list.add(d);

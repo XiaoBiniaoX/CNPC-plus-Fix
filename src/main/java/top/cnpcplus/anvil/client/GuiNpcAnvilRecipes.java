@@ -68,9 +68,11 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     /** 「新建草稿」状态：点过「新建」但还没保存（沿用熔炼/锻造机制，防表单死锁）。 */
     private boolean draft = false;
+    private boolean pendingSave;
 
     /** 230 仅名字检查（铁砧同款）：保存时随配方落盘。 */
     private boolean nameOnly = false;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     /** 敲打一次消耗经验（-32767..32767，负数=给锻造者；新配方默认1），来自经验输入框/选中配方。 */
     private int expCost = 1;
@@ -94,6 +96,8 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     @Override
     public void init() {
+        if (selectedName != null && getTextField(30) != null) selectedName = getTextField(30).getValue();
+        if (selectedName != null && getTextField(FIELD_EXP) != null && getTextField(FIELD_EXP).isFloat()) expCost = (int)getTextField(FIELD_EXP).getFloat();
         super.init();
         // 界面整体偏移：guiLeft/guiTop 与 vanilla leftPos/topPos 一起按居中基准+偏移重算，
         // 不用 += 累加（m_7856_ 被二次调用时会叠加跑偏——熔炼版已实证，见 SmeltingLayout 注释）。
@@ -125,6 +129,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
 
         // 经验输入框 + 仅名字检查开关：与槽位同生命周期（选中配方或草稿态都显示）
         if (this.draft || this.selectedId >= 0) {
@@ -161,7 +166,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         if (this.notice != null) {
             graphics.drawString(this.font, this.notice,
                     this.guiLeft + AnvilLayout.btnX(),
-                    this.guiTop + AnvilLayout.btnY() + AnvilLayout.btnSpacing() * 3 + 6,
+                    this.guiTop + AnvilLayout.btnY() + AnvilLayout.btnSpacing() * 4 + 6,
                     0xFFFF5555, false);
         }
         // 经验输入框没有文字标签，悬停时说明它是哪个（父类渲染完再画，保证浮在最上层）
@@ -195,8 +200,8 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
     }
 
     private String nameText() {
+        if (this.selectedName != null) return this.selectedName;
         // 草稿态显示草稿名（228「点添加无反应」同款修复：nameText 只看 selectedId 会覆盖草稿名）
-        if (this.draft && this.selectedName != null) return this.selectedName;
         AnvilRecipeData d = AnvilClientData.byId(this.selectedId);
         return d == null ? "" : (d.name == null ? "" : d.name);
     }
@@ -228,14 +233,17 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
             this.nameOnly = false;
             this.expCost = 1;
             if (this.getTextField(30) != null) this.getTextField(30).setValue("");
+            this.availability = new noppes.npcs.controllers.data.Availability();
             if (this.getTextField(FIELD_EXP) != null) this.getTextField(FIELD_EXP).setValue("1");
             return;
         }
         AnvilRecipeData d = this.recipes.get(index);
         this.selectedId = d.id;
         this.selectedName = d.name;
+        this.pendingSave = false;
         this.nameOnly = d.nameOnly;
         this.expCost = d.expCost;
+        this.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(d.availability);
         // 选中列表里的正式配方 = 草稿结束（否则保存后 refreshFromServer 仍按草稿名匹配）
         this.draft = false;
         if (this.getTextField(30) != null) this.getTextField(30).setValue(d.name == null ? "" : d.name);
@@ -244,7 +252,12 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (getTextField(30) != null) selectedName = getTextField(30).getValue();
+        if (getTextField(FIELD_EXP) != null && getTextField(FIELD_EXP).isFloat()) expCost = (int)getTextField(FIELD_EXP).getFloat();
+        if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(availability)); return; }
         if (button.id == BTN_NEW) {
+            pendingSave = false;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             // 「添加配方」= 清空表单 + 清空三个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketAnvilSelect(-1) 查不到配方时把三槽设为 EMPTY 并归还物品），
             // 客户端不自己 setItem，避免与点击包的 stateId 对不上导致物品显示错乱。
@@ -258,6 +271,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
             if (this.getTextField(FIELD_EXP) != null) this.getTextField(FIELD_EXP).setValue("1");
             this.init();
         } else if (button.id == BTN_REMOVE) {
+            pendingSave = false;
             if (this.selectedId >= 0) {
                 PacketDistributor.sendToServer(new PacketAnvilRemove(this.selectedId));
                 this.selectedId = -1;
@@ -265,6 +279,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
                 this.nameOnly = false;
                 this.expCost = 1;
                 this.selectedName = null;
+                this.availability = new noppes.npcs.controllers.data.Availability();
                 // 服务端删除后会主动推 Sync（列表都由它收口），无需再手动 RequestList。
             }
         } else if (button.id == BTN_SAVE) {
@@ -311,7 +326,8 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         // 三槽物品刻意不带进包里：服务端只认它自己容器里的 ItemStack（见 PacketAnvilSave），
         // 客户端发过去的会被直接丢弃（C→S 32767 上限，潜影盒大 NBT 会撞线）。
         this.selectedName = d.name;
-        PacketDistributor.sendToServer(new PacketAnvilSave(d.id, d.name, d.expCost, d.nameOnly));
+        this.pendingSave = true;
+        PacketDistributor.sendToServer(new PacketAnvilSave(d.id, d.name, d.expCost, d.nameOnly, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
     }
 
     @Override
@@ -335,7 +351,9 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
      * 保存成功会触发同步下发，此时草稿已经变成正式配方，按名字把它选中，草稿状态收尾。
      */
     public void refreshFromServer() {
-        if (this.draft && this.selectedName != null) {
+        this.recipes.clear();
+        this.recipes.addAll(AnvilClientData.get());
+        if (this.pendingSave && this.selectedName != null) {
             for (int i = 0; i < AnvilClientData.get().size(); i++) {
                 AnvilRecipeData d = AnvilClientData.get().get(i);
                 if (this.selectedName.equals(d.name)) {

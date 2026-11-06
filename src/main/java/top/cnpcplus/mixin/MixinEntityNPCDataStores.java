@@ -32,6 +32,7 @@ public abstract class MixinEntityNPCDataStores {
         NpcDataExternalStore.SPAWNER.prepareLoad(npc, tag);
         NpcDataExternalStore.INVENTORY.prepareLoad(npc, tag);
         NpcDataExternalStore.ADVANCED.prepareLoad(npc, tag);
+        NpcDataExternalStore.RESISTANCES.prepareLoad(npc, tag);
     }
 
     @Inject(method = "addAdditionalSaveData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At("RETURN"), require = 1, remap = false)
@@ -40,5 +41,6 @@ public abstract class MixinEntityNPCDataStores {
         NpcDataExternalStore.SPAWNER.saveNpc(npc, tag);
         NpcDataExternalStore.INVENTORY.saveNpc(npc, tag);
         NpcDataExternalStore.ADVANCED.saveNpc(npc, tag);
+        NpcDataExternalStore.RESISTANCES.saveNpc(npc, tag);
     }
 }

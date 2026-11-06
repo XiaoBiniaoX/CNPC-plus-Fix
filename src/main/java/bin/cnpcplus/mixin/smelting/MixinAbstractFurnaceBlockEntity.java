@@ -16,6 +16,13 @@ public abstract class MixinAbstractFurnaceBlockEntity implements SmeltingFuelRul
 
     @Override public RecipeType<?> cnpcplus$getRecipeType() { return recipeType; }
 
+    @Inject(method = "canBurn", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
+    private static void cnpcplus$availability(net.minecraft.core.RegistryAccess registries, net.minecraft.world.item.crafting.RecipeHolder<?> holder,
+            net.minecraft.core.NonNullList<ItemStack> inventory, int maxStackSize, AbstractFurnaceBlockEntity furnace, CallbackInfoReturnable<Boolean> cir) {
+        if (holder != null && holder.value() instanceof bin.cnpcplus.smelting.SmeltingRecipeParser.CustomRecipe recipe
+                && !top.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, top.cnpcplus.station.StationOperator.player(furnace))) cir.setReturnValue(false);
+    }
+
     @Inject(method = "canPlaceItem", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
     private void cnpcplus$allowAnyFuelSlot(int slot, ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
         if (slot == 1 && stack != null && !stack.isEmpty()) cir.setReturnValue(true);

@@ -16,7 +16,7 @@ import top.cnpcplus.anvil.ContainerAnvilRecipes;
  * 物品槽位以服务端容器（当前打开的 ContainerAnvilRecipes）为准，客户端 NBT 只带 id/name/expCost/nameOnly。
  * 保存后立即 syncToPlayers 全员广播（配方不进 RecipeManager——AnvilCraftHandler 直查 Registry）。
  */
-public record PacketAnvilSave(int id, String name, int expCost, boolean nameOnly) implements CustomPacketPayload {
+public record PacketAnvilSave(int id, String name, int expCost, boolean nameOnly, net.minecraft.nbt.CompoundTag availability) implements CustomPacketPayload {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
     public static final Type<PacketAnvilSave> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "anvil_save"));
@@ -26,8 +26,9 @@ public record PacketAnvilSave(int id, String name, int expCost, boolean nameOnly
                 buf.writeUtf(packet.name == null ? "" : packet.name, 64);
                 buf.writeInt(packet.expCost);
                 buf.writeBoolean(packet.nameOnly);
+                buf.writeNbt(packet.availability);
             },
-            buf -> new PacketAnvilSave(buf.readVarInt(), buf.readUtf(64), buf.readInt(), buf.readBoolean()));
+            buf -> new PacketAnvilSave(buf.readVarInt(), buf.readUtf(64), buf.readInt(), buf.readBoolean(), buf.readNbt()));
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
@@ -43,6 +44,7 @@ public record PacketAnvilSave(int id, String name, int expCost, boolean nameOnly
             d.name = packet.name == null ? "" : packet.name;
             d.expCost = Math.max(-32767, Math.min(32767, packet.expCost));
             d.nameOnly = packet.nameOnly;
+            d.availability.load(sender.registryAccess(), packet.availability);
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             // 没有打开编辑容器就直接拒绝——否则会退化成信任客户端发来的 ItemStack（可伪造任意 NBT）。
             if (!(sender.containerMenu instanceof ContainerAnvilRecipes c)) {

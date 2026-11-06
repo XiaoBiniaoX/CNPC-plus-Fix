@@ -2,9 +2,6 @@ package top.cnpcplus.ranged;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
 import noppes.npcs.entity.EntityProjectile;
 import noppes.npcs.entity.data.DataRanged;
 
@@ -24,11 +21,6 @@ public final class RangedSpinStore {
     public static final String NBT_KEY_Z = "CNPCPlusSpinSpeedZ";
     public static final float MAX_SPIN = 1000.0f;
 
-    // 只由 EntityProjectile 的 <clinit> 尾部赋值：不得因 GUI 先加载本类而抢先分配 ID。
-    public static EntityDataAccessor<Float> SPIN_X;
-    public static EntityDataAccessor<Float> SPIN_Y;
-    public static EntityDataAccessor<Float> SPIN_Z;
-
     private static final String[] NBT_KEYS = {NBT_KEY_X, NBT_KEY_Y, NBT_KEY_Z};
     private static final Map<DataRanged, float[]> SPINS = new WeakHashMap<>();
     /** Client-side continuous angles: current XYZ followed by previous XYZ. */
@@ -36,13 +28,6 @@ public final class RangedSpinStore {
     private static final Object LOCK = new Object();
 
     private RangedSpinStore() {
-    }
-
-    /** 原生 ID 分配完成后、任何实体/Builder 构造前调用一次；两端时序一致。 */
-    public static void initializeProjectileData() {
-        SPIN_X = SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
-        SPIN_Y = SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
-        SPIN_Z = SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
     }
 
     public static float get(DataRanged ranged, int axis) {

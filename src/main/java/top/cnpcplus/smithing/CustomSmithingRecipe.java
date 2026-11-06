@@ -37,6 +37,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
     /** 父类的 result 字段是 net.minecraft 包私有（跨包读不到），网络序列化用本份引用。 */
     private final ItemStack exactResult;
     private final boolean nameOnly;
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public CustomSmithingRecipe(ItemStack template, ItemStack base,
                                 ItemStack addition, ItemStack result, boolean nameOnly) {
@@ -127,7 +128,9 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             ItemStack addition = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
             ItemStack result = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
             boolean nameOnly = buf.readBoolean();
-            return new CustomSmithingRecipe(template, base, addition, result, nameOnly);
+            CustomSmithingRecipe recipe = new CustomSmithingRecipe(template, base, addition, result, nameOnly);
+            recipe.availability.load(buf.registryAccess(), buf.readNbt());
+            return recipe;
         }
 
         private static void toNetwork(RegistryFriendlyByteBuf buf, CustomSmithingRecipe recipe) {
@@ -136,6 +139,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactAddition);
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactResult);
             buf.writeBoolean(recipe.nameOnly);
+            buf.writeNbt(recipe.availability.save(buf.registryAccess(), new net.minecraft.nbt.CompoundTag()));
         }
     }
 }

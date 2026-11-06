@@ -214,7 +214,7 @@ public class CnpcPlusConfig {
             .define("WandHitboxOverlay", true);
 
     public static final ModConfigSpec.BooleanValue NPC_RESPAWN_GAME_CLOCK = BUILDER
-            .comment("以游戏内时钟计算NPC复活；区块卸载后保留剩余时间，受停止时间流动影响。")
+            .comment("按服务器运行tick计算NPC复活；区块卸载后继续计时，不受昼夜循环开关影响。")
             .define("NpcRespawnGameClock", true);
 
     public static final ModConfigSpec SPEC = BUILDER.build();

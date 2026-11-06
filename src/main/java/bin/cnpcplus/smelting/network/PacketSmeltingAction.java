@@ -18,14 +18,17 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 public record PacketSmeltingAction(int action, int id, String name, float cookTime, float xp,
                                    boolean blast, boolean smoker, boolean generic,
-                                   boolean nameOnly) implements CustomPacketPayload {
+                                   boolean nameOnly, net.minecraft.nbt.CompoundTag availability) implements CustomPacketPayload {
+    public PacketSmeltingAction(int action, int id, String name, float cookTime, float xp, boolean blast, boolean smoker, boolean generic, boolean nameOnly) {
+        this(action, id, name, cookTime, xp, blast, smoker, generic, nameOnly, new net.minecraft.nbt.CompoundTag());
+    }
     public static final Type<PacketSmeltingAction> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(CnpcPlus.MODID, "smelting_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, PacketSmeltingAction> STREAM_CODEC = StreamCodec.of(
             (buf, packet) -> { buf.writeVarInt(packet.action); buf.writeVarInt(packet.id); buf.writeUtf(packet.name, 256);
                 buf.writeFloat(packet.cookTime); buf.writeFloat(packet.xp); buf.writeBoolean(packet.blast);
-                buf.writeBoolean(packet.smoker); buf.writeBoolean(packet.generic); buf.writeBoolean(packet.nameOnly); },
+                buf.writeBoolean(packet.smoker); buf.writeBoolean(packet.generic); buf.writeBoolean(packet.nameOnly); buf.writeNbt(packet.availability); },
             buf -> new PacketSmeltingAction(buf.readVarInt(), buf.readVarInt(), buf.readUtf(256), buf.readFloat(),
-                    buf.readFloat(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean()));
+                    buf.readFloat(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(), buf.readNbt()));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void handle(PacketSmeltingAction packet, IPayloadContext context) {
@@ -51,6 +54,7 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
             }
             if (packet.action == 2) {
                 if (packet.id >= 0 && SmeltingRecipeRegistry.remove(registries, packet.id)) {
+                    if (player.containerMenu instanceof ContainerSmeltingRecipes menu && menu.selectedId == packet.id) menu.clearRecipe();
                     SmeltingRecipeBootstrap.markReloadPending();
                 }
             }
@@ -59,6 +63,7 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
                 data.id = packet.id; data.name = packet.name; data.cookTime = packet.cookTime; data.xp = packet.xp;
                 data.blastAllowed = packet.blast; data.smokerAllowed = packet.smoker; data.genericFuelAllowed = packet.generic;
                 data.nameOnly = packet.nameOnly;
+                data.availability.load(registries, packet.availability);
                 data.input = menu.input().copy(); data.fuel = menu.fuel().copy(); data.output = menu.output().copy();
                 if (!data.input.isEmpty() && !data.output.isEmpty()) {
                     if (data.id < 0) {

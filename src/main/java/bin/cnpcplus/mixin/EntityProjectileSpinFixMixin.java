@@ -4,7 +4,7 @@ import noppes.npcs.entity.EntityProjectile;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import top.cnpcplus.ranged.RangedSpinStore;
+import top.cnpcplus.ranged.ProjectileSpinAccess;
 
 /**
  * EntityProjectile.tick() pulls xRot 20% toward the motion-derived pitch every tick
@@ -24,9 +24,7 @@ public class EntityProjectileSpinFixMixin {
                      ordinal = 1), require = 1)
     private void cnpcplus$skipLerpWhileRotating(EntityProjectile self, float value) {
         // 自定义XYZ沿用来源的运动朝向；只有原生自旋保留已有的插值抑制。
-        var data = self.getEntityData();
-        if (!self.isRotating() || data.get(RangedSpinStore.SPIN_X) != 0.0f
-                || data.get(RangedSpinStore.SPIN_Y) != 0.0f || data.get(RangedSpinStore.SPIN_Z) != 0.0f) {
+        if (!self.isRotating() || ((ProjectileSpinAccess)self).cnpcplus$hasCustomSpin()) {
             self.setXRot(value);
         }
     }

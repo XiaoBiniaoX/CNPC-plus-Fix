@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
  * 字段：A 槽 + B 槽 + 结果（A+B 敲打=C）+ 敲打一次消耗经验 + 仅名字检查开关。
  */
 public class AnvilRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     public ItemStack inputA = ItemStack.EMPTY;   // A 槽（消耗 1 个，onTake 原生无条件清空）
@@ -32,9 +33,10 @@ public class AnvilRecipeData {
         t.putString("Name", this.name == null ? "" : this.name);
         t.putInt("ExpCost", this.expCost);
         t.putBoolean("NameOnly", this.nameOnly);
-        t.put("InputA", this.inputA.save(registries, new CompoundTag()));
-        t.put("InputB", this.inputB.save(registries, new CompoundTag()));
-        t.put("Result", this.result.save(registries, new CompoundTag()));
+        t.put("Availability", availability.save(registries, new CompoundTag()));
+        t.put("InputA", this.inputA.saveOptional(registries));
+        t.put("InputB", this.inputB.saveOptional(registries));
+        t.put("Result", this.result.saveOptional(registries));
         return t;
     }
 
@@ -48,6 +50,7 @@ public class AnvilRecipeData {
         if (d.expCost < -32767) d.expCost = -32767;
         if (d.expCost > 32767) d.expCost = 32767;
         d.nameOnly = t.getBoolean("NameOnly");
+        if (t.contains("Availability")) d.availability.load(registries, t.getCompound("Availability"));
         d.inputA = boundedStack(ItemStack.parse(registries, t.getCompound("InputA")).orElse(ItemStack.EMPTY));
         d.inputB = boundedStack(ItemStack.parse(registries, t.getCompound("InputB")).orElse(ItemStack.EMPTY));
         d.result = boundedStack(ItemStack.parse(registries, t.getCompound("Result")).orElse(ItemStack.EMPTY));
@@ -63,6 +66,7 @@ public class AnvilRecipeData {
         copy.result = this.result.copy();
         copy.expCost = this.expCost;
         copy.nameOnly = this.nameOnly;
+        copy.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(availability);
         return copy;
     }
 

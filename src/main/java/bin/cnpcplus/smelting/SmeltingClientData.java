@@ -7,12 +7,15 @@ import java.util.List;
 public final class SmeltingClientData {
     private static final List<SmeltingRecipeData> RECIPES = new ArrayList<>();
     private static int selectedId = -1;
+    private static int revision;
     private SmeltingClientData() {}
     public static synchronized void set(List<SmeltingRecipeData> recipes, int selectedId) {
         SmeltingClientData.selectedId = selectedId;
         RECIPES.clear();
         RECIPES.addAll(recipes);
+        revision++;
     }
     public static synchronized int selectedId() { return selectedId; }
+    public static synchronized int revision() { return revision; }
     public static synchronized List<SmeltingRecipeData> get() { return List.copyOf(RECIPES); }
 }

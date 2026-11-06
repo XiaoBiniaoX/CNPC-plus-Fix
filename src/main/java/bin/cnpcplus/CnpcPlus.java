@@ -38,8 +38,10 @@ public class CnpcPlus {
         modEventBus.addListener(AnvilMenus::register);
         modEventBus.addListener(SmithingMenus::register);
         modEventBus.addListener(DropMenus::register);
+        modEventBus.addListener(top.cnpcplus.station.StationMenu::register);
         SmithingSerializers.register(modEventBus);
         NeoForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
+        NeoForge.EVENT_BUS.register(top.cnpcplus.shader.ShaderController.class);
         NeoForge.EVENT_BUS.register(SmeltingRecipeBootstrap.class);
         NeoForge.EVENT_BUS.register(AnvilCraftHandler.class);
         NeoForge.EVENT_BUS.register(AnvilRecipeRegistry.class);

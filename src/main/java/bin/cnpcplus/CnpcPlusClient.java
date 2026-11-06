@@ -21,7 +21,9 @@ public class CnpcPlusClient {
 
     public CnpcPlusClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(top.cnpcplus.shader.client.ClientShaders.class);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandHitboxOverlay::render);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandPathOverlay::render);
     }
 
     @net.neoforged.bus.api.SubscribeEvent
@@ -30,5 +32,10 @@ public class CnpcPlusClient {
         event.register(AnvilMenus.TYPE, GuiNpcAnvilRecipes::new);
         event.register(SmithingMenus.TYPE, GuiNpcSmithingRecipes::new);
         event.register(DropMenus.TYPE, GuiDropRecipes::new);
+        event.register(top.cnpcplus.station.StationMenu.TYPE, top.cnpcplus.station.StationScreen::new);
+    }
+    @net.neoforged.bus.api.SubscribeEvent
+    public static void reloadShaders(net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener((net.minecraft.server.packs.resources.ResourceManagerReloadListener) resources -> top.cnpcplus.shader.client.ClientShaders.reloadAll());
     }
 }

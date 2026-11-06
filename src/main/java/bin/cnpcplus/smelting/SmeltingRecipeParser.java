@@ -27,18 +27,23 @@ public final class SmeltingRecipeParser {
 
     private static void add(List<AbstractCookingRecipe> result, RecipeType<?> type, RecipeSerializer<?> serializer,
                             SmeltingRecipeData data, int time, CookingBookCategory category) {
-        final boolean nameOnly = data.nameOnly;
-        final String requiredName = data.input.getHoverName().getString();
-        result.add(new AbstractCookingRecipe(type, "cnpcplus_smelting", category, Ingredient.of(data.input), data.output.copy(), data.xp, time) {
-            @Override public RecipeSerializer<?> getSerializer() { return serializer; }
-
-            /** 仅名字检查：物品类型（super 的 Ingredient 匹配）之外再比显示名；关闭时保持原版行为。 */
-            @Override public boolean matches(SingleRecipeInput input, net.minecraft.world.level.Level level) {
-                if (!super.matches(input, level)) return false;
-                if (!nameOnly) return true;
-                ItemStack stack = input.getItem(0);
-                return requiredName.equals(stack.getHoverName().getString());
-            }
-        });
+        result.add(new CustomRecipe(type, serializer, data, time, category));
+    }
+    public static final class CustomRecipe extends AbstractCookingRecipe {
+        public final noppes.npcs.controllers.data.Availability availability;
+        private final RecipeSerializer<?> serializer;
+        private final boolean nameOnly;
+        private final String requiredName;
+        private CustomRecipe(RecipeType<?> type, RecipeSerializer<?> serializer, SmeltingRecipeData data, int time, CookingBookCategory category) {
+            super(type, "cnpcplus_smelting", category, Ingredient.of(data.input), data.output.copy(), data.xp, time);
+            this.serializer = serializer;
+            availability = top.cnpcplus.craftingview.RecipeAvailability.copy(data.availability);
+            nameOnly = data.nameOnly;
+            requiredName = data.input.getHoverName().getString();
+        }
+        @Override public RecipeSerializer<?> getSerializer() { return serializer; }
+        @Override public boolean matches(SingleRecipeInput input, net.minecraft.world.level.Level level) {
+            return super.matches(input, level) && (!nameOnly || requiredName.equals(input.getItem(0).getHoverName().getString()));
+        }
     }
 }

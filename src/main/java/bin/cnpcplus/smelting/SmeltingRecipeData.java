@@ -5,6 +5,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 
 public final class SmeltingRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     public ItemStack input = ItemStack.EMPTY;
@@ -22,15 +23,16 @@ public final class SmeltingRecipeData {
         CompoundTag tag = new CompoundTag();
         tag.putInt("Id", id);
         tag.putString("Name", name == null ? "" : name);
-        tag.put("Input", input.save(registries, new CompoundTag()));
-        tag.put("Fuel", fuel.save(registries, new CompoundTag()));
-        tag.put("Output", output.save(registries, new CompoundTag()));
+        tag.put("Input", input.saveOptional(registries));
+        tag.put("Fuel", fuel.saveOptional(registries));
+        tag.put("Output", output.saveOptional(registries));
         tag.putFloat("CookTime", Float.isFinite(cookTime) ? Math.max(0.01F, cookTime) : 200.0F);
         tag.putFloat("Xp", Float.isFinite(xp) ? xp : 0.0F);
         tag.putBoolean("Blast", blastAllowed);
         tag.putBoolean("Smoker", smokerAllowed);
         tag.putBoolean("GenericFuel", genericFuelAllowed);
         tag.putBoolean("NameOnly", nameOnly);
+        tag.put("Availability", availability.save(registries, new CompoundTag()));
         return tag;
     }
 
@@ -39,15 +41,16 @@ public final class SmeltingRecipeData {
         data.id = tag.getInt("Id");
         data.name = tag.getString("Name");
         if (data.name.length() > 256) data.name = data.name.substring(0, 256);
-        data.input = boundedStack(ItemStack.parse(registries, tag.getCompound("Input")).orElse(ItemStack.EMPTY));
-        data.fuel = boundedStack(ItemStack.parse(registries, tag.getCompound("Fuel")).orElse(ItemStack.EMPTY));
-        data.output = boundedStack(ItemStack.parse(registries, tag.getCompound("Output")).orElse(ItemStack.EMPTY));
+        data.input = boundedStack(ItemStack.parseOptional(registries, tag.getCompound("Input")));
+        data.fuel = boundedStack(ItemStack.parseOptional(registries, tag.getCompound("Fuel")));
+        data.output = boundedStack(ItemStack.parseOptional(registries, tag.getCompound("Output")));
         data.cookTime = Float.isFinite(tag.getFloat("CookTime")) ? Math.max(0.01F, tag.getFloat("CookTime")) : 200.0F;
         data.xp = Float.isFinite(tag.getFloat("Xp")) ? tag.getFloat("Xp") : 0.0F;
         data.blastAllowed = tag.getBoolean("Blast");
         data.smokerAllowed = tag.getBoolean("Smoker");
         data.genericFuelAllowed = tag.getBoolean("GenericFuel");
         data.nameOnly = tag.getBoolean("NameOnly");
+        if (tag.contains("Availability")) data.availability.load(registries, tag.getCompound("Availability"));
         return data;
     }
 

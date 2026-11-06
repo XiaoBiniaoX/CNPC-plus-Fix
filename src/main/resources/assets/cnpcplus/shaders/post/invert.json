@@ -1,0 +1,1 @@
+{"targets":["swap"],"passes":[{"name":"cnpcplus:invert","intarget":"minecraft:main","outtarget":"swap"},{"name":"blit","intarget":"swap","outtarget":"minecraft:main"}]}

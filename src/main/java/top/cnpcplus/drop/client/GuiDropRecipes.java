@@ -64,12 +64,14 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
 
     /** 「新建草稿」状态：点过「新建」但还没保存（沿用熔炼/锻造机制，防表单死锁）。 */
     private boolean draft = false;
+    private boolean pendingSave;
 
     /** 232 本轮 GUI 不放开关，固定 false 落盘；data 字段已留位（用户后续要改再加控件）。 */
     private boolean nameOnly = false;
 
     /** 233c 音效 id（空=不播；保存随主 NBT 落盘）。 */
     private String soundId = "";
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     /** 233b 生效绑定（内存编辑态：loadRecipe 载入、绑定按钮改、保存写回）。 */
     private String bindDim = "";
@@ -112,6 +114,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
 
     @Override
     public void init() {
+        if (selectedName != null && getTextField(30) != null) selectedName = getTextField(30).getValue();
         super.init();
         // 界面整体偏移：guiLeft/guiTop 与 vanilla leftPos/topPos 一起按居中基准+偏移重算，
         // 不用 += 累加（m_7856_ 被二次调用时会叠加跑偏——熔炼版已实证）。
@@ -165,6 +168,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 108, bx, by + bs * 3, 84, 20, "availability.options"));
 
         this.refreshScroll();
     }
@@ -180,7 +184,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             // 233d-UI7 按钮列缩到 3 个后，提示语下移到列尾（bs*3+6）
             graphics.drawString(this.font, this.notice,
                     this.guiLeft + DropLayout.btnX(),
-                    this.guiTop + DropLayout.btnY() + DropLayout.btnSpacing() * 3 + 6,
+                    this.guiTop + DropLayout.btnY() + DropLayout.btnSpacing() * 4 + 6,
                     0xFFFF5555, false);
         }
         // 233d-UI7：绑定信息小字已按用户判定无用移除（bindDim/hasBindPos 数据字段保留兼容 NBT）
@@ -204,8 +208,8 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
     }
 
     private String nameText() {
+        if (this.selectedName != null) return this.selectedName;
         // 草稿态显示草稿名（228「点添加无反应」同款修复：nameText 只看 selectedId 会覆盖草稿名）
-        if (this.draft && this.selectedName != null) return this.selectedName;
         DropRecipeData d = DropClientData.byId(this.selectedId);
         return d == null ? "" : (d.name == null ? "" : d.name);
     }
@@ -240,12 +244,15 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             this.hasBindPos = false;
             this.fxFinal.clear();
             if (this.getTextField(30) != null) this.getTextField(30).setValue("");
+            this.availability = new noppes.npcs.controllers.data.Availability();
             return;
         }
         DropRecipeData d = this.recipes.get(index);
         this.selectedId = d.id;
         this.selectedName = d.name;
+        this.pendingSave = false;
         this.nameOnly = d.nameOnly;
+        this.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(d.availability);
         this.soundId = d.soundId == null ? "" : d.soundId;
         this.bindDim = d.dim == null ? "" : d.dim;
         this.hasBindPos = d.hasBindPos;
@@ -261,7 +268,11 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (getTextField(30) != null) selectedName = getTextField(30).getValue();
+        if (button.id == 108) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(availability)); return; }
         if (button.id == BTN_NEW) {
+            pendingSave = false;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             // 「添加配方」= 清空表单 + 清空五个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketDropSelect(-1) 查不到配方时把五槽设为 EMPTY 并归还物品），
             // 客户端不自己 setItem，避免与点击包的 stateId 对不上导致物品显示错乱。
@@ -277,12 +288,14 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
             this.init();
         } else if (button.id == BTN_REMOVE) {
+            pendingSave = false;
             if (this.selectedId >= 0) {
                 PacketDistributor.sendToServer(new PacketDropRemove(this.selectedId));
                 this.selectedId = -1;
                 this.draft = false;
                 this.nameOnly = false;
                 this.selectedName = null;
+                this.availability = new noppes.npcs.controllers.data.Availability();
                 // 服务端删除后会主动推 Sync（列表都由它收口），无需再手动 RequestList。
             }
         } else if (button.id == BTN_SAVE) {
@@ -317,6 +330,7 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         DropRecipeData d = new DropRecipeData();
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
+        d.availability = this.availability;
         d.soundId = this.soundId == null ? "" : this.soundId;
         d.dim = this.bindDim == null ? "" : this.bindDim;
         d.hasBindPos = this.hasBindPos;
@@ -334,13 +348,14 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
         // 客户端发过去的会被直接丢弃（C→S 32767 上限，潜影盒大 NBT 会撞线）。
         if (d.name.length() > 64) d.name = d.name.substring(0, 64);
         this.selectedName = d.name;
+        this.pendingSave = true;
         // 233d-UI6 打点：音效绑定是否随本次保存落盘（用户「绑定音效完全没有」排查）
         // 233d-UI8：fxs 由「数量」改「明细 particleId:[TYPE,…]」（客户端侧「出来是圆形」决定性日志）
         String fxsDetail = String.join(", ",
                 d.fxs.stream().map(fx -> fx.summary()).toList());
         LOGGER.debug("[drop] 配方保存 id={} name={} soundId={} fxs={} (音效未选=空串则合成不播)",
                 d.id, d.name, d.soundId, fxsDetail);
-        PacketDistributor.sendToServer(new PacketDropSave(d.toMetadataNBT()));
+        PacketDistributor.sendToServer(new PacketDropSave(d.toMetadataNBT(minecraft.level.registryAccess())));
     }
 
     @Override
@@ -387,7 +402,9 @@ public class GuiDropRecipes extends GuiContainerNPCInterface2<ContainerDropRecip
      * 保存成功会触发同步下发，此时草稿已经变成正式配方，按名字把它选中，草稿状态收尾。
      */
     public void refreshFromServer() {
-        if (this.draft && this.selectedName != null) {
+        this.recipes.clear();
+        this.recipes.addAll(DropClientData.get());
+        if (this.pendingSave && this.selectedName != null) {
             for (int i = 0; i < DropClientData.get().size(); i++) {
                 DropRecipeData d = DropClientData.get().get(i);
                 if (this.selectedName.equals(d.name)) {

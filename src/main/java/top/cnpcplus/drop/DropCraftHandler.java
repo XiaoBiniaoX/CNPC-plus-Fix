@@ -151,7 +151,10 @@ public final class DropCraftHandler {
             List<Integer> matched = new ArrayList<>(); // 233d-UI8 诊断：本格全部命中配方 id
             for (DropRecipeData r : recipes) { // id 升序遍历，第一条命中即用（稳定优先级）
                 if (!boundOk(r, level, pos)) continue; // 233b：维度/坐标绑定过滤（空=不限）
-                CraftPlan p = CraftPlan.plan(inputs, r);
+                List<ItemEntity> eligible = r.availability.hasOptions() ? inputs.stream().filter(e ->
+                        top.cnpcplus.craftingview.RecipeAvailability.allows(r.availability,
+                                e.getOwner() instanceof net.minecraft.world.entity.player.Player player ? player : null)).toList() : inputs;
+                CraftPlan p = CraftPlan.plan(eligible, r);
                 if (p == null) continue;
                 matched.add(r.id);
                 if (plan == null) plan = p; // 选用仍=第一条命中（id 升序，规则不变）

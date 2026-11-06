@@ -37,7 +37,7 @@ public record PacketDropSave(CompoundTag data) implements CustomPacketPayload {
                 LOGGER.debug("[drop] Save拒绝: NBT为空");
                 return;
             }
-            DropRecipeData d = DropRecipeData.fromMetadataNBT(packet.data);
+            DropRecipeData d = DropRecipeData.fromMetadataNBT(sender.registryAccess(), packet.data);
             // 名称长度设上限：它会落盘并被 S→C 同步包重新广播，而 S→C 自定义载荷上限是 1MB。
             if (d.name != null && d.name.length() > 64) d.name = d.name.substring(0, 64);
             if (d.soundId.length() > 256) d.soundId = d.soundId.substring(0, 256);

@@ -60,6 +60,7 @@ public final class AnvilCraftHandler {
         for (AnvilRecipeData d : list) {
             if (d.result.isEmpty() || d.inputA.isEmpty() || d.inputB.isEmpty()) continue;
             if (matchesSlot(d.inputA, left, d.nameOnly) && matchesSlot(d.inputB, right, d.nameOnly)) {
+                if (!top.cnpcplus.craftingview.RecipeAvailability.allows(d.availability, player)) { event.setCanceled(true); return; }
                 event.setOutput(d.result.copy());
                 event.setCost(Math.max(EXP_MIN, Math.min(EXP_MAX, d.expCost)));
                 event.setMaterialCost(1); // B 槽消耗 1 个（A 槽由 onTake 原生无条件清空）
@@ -75,7 +76,7 @@ public final class AnvilCraftHandler {
      * = CNPC NoppesUtilPlayer.compareItemDetails 反编译 L27-30 同链）。
      * 注意对象顺序：配方栈为左（isSame 非对称有 ItemStackTag 短路差异，固定 方=配方 右=槽内）。
      */
-    private static boolean matchesSlot(ItemStack recipe, ItemStack stack, boolean nameOnly) {
+    public static boolean matchesSlot(ItemStack recipe, ItemStack stack, boolean nameOnly) {
         if (nameOnly) {
             return stack.is(recipe.getItem())
                     && stack.getHoverName().getString().equals(recipe.getHoverName().getString());

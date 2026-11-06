@@ -61,9 +61,11 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     /** 「新建草稿」状态：点过「新建」但还没保存（沿用熔炼版机制，防表单死锁）。 */
     private boolean draft = false;
+    private boolean pendingSave;
 
     /** 230 仅名字检查：保存时随配方落盘（只校验物品id+物品名字，开关外观照抄熔炼）。 */
     private boolean nameOnly = false;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public GuiNpcSmithingRecipes(ContainerSmithingRecipes container, Inventory inv, Component titleIn) {
         super(NoppesUtil.getLastNpc(), container, inv, titleIn);
@@ -84,6 +86,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     @Override
     public void init() {
+        if (selectedName != null && getTextField(30) != null) selectedName = getTextField(30).getValue();
         super.init();
         // 界面整体偏移：guiLeft/guiTop 与 vanilla leftPos/topPos 一起按居中基准+偏移重算，
         // 不用 += 累加（m_7856_ 被二次调用时会叠加跑偏——熔炼版已实证，见 SmeltingLayout 注释）。
@@ -112,6 +115,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, bx, by, 84, 20, "gui.add"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
+        this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
 
         // 230 「仅名字检查」开关：照抄熔炼外观（命名牌图标+红绿框+悬停显示「仅名字检查」），
         // 位置=三个输入槽的左边（坐标见 SmithingLayout.nameOnlyX/Y，避开锤子贴图）。
@@ -139,7 +143,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         if (this.notice != null) {
             graphics.drawString(this.font, this.notice,
                     this.guiLeft + SmithingLayout.btnX(),
-                    this.guiTop + SmithingLayout.btnY() + SmithingLayout.btnSpacing() * 3 + 6,
+                    this.guiTop + SmithingLayout.btnY() + SmithingLayout.btnSpacing() * 4 + 6,
                     0xFFFF5555, false);
         }
     }
@@ -162,10 +166,10 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
     }
 
     private String nameText() {
+        if (this.selectedName != null) return this.selectedName;
         // 228 修「点添加无反应」：草稿态显示草稿名。nameText() 只看 selectedId（草稿=-1→空串），
         // 会把 buttonEvent 里 setValue 的 new<时间戳> 在 m_7856_ 重建文本框时覆盖掉，
         // 造成名称框/列表/槽位全无变化的"零视觉反馈"。
-        if (this.draft && this.selectedName != null) return this.selectedName;
         SmithingRecipeData d = SmithingClientData.byId(this.selectedId);
         return d == null ? "" : (d.name == null ? "" : d.name);
     }
@@ -196,12 +200,15 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             this.draft = false;
             this.nameOnly = false;
             if (this.getTextField(30) != null) this.getTextField(30).setValue("");
+            this.availability = new noppes.npcs.controllers.data.Availability();
             return;
         }
         SmithingRecipeData d = this.recipes.get(index);
         this.selectedId = d.id;
         this.selectedName = d.name;
+        this.pendingSave = false;
         this.nameOnly = d.nameOnly;
+        this.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(d.availability);
         // 选中列表里的正式配方 = 草稿结束（否则保存后 refreshFromServer 仍按草稿名匹配，
         // 且 nameText 的草稿分支会一直生效）
         this.draft = false;
@@ -210,7 +217,11 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (getTextField(30) != null) selectedName = getTextField(30).getValue();
+        if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(availability)); return; }
         if (button.id == BTN_NEW) {
+            pendingSave = false;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             // 「添加配方」= 清空表单 + 清空四个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketSmithingSelect(-1) 查不到配方时把四槽设为 EMPTY 并归还物品），
             // 客户端不自己 setItem，避免与点击包的 stateId 对不上导致物品显示错乱。
@@ -222,12 +233,14 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
             this.init();
         } else if (button.id == BTN_REMOVE) {
+            pendingSave = false;
             if (this.selectedId >= 0) {
                 PacketDistributor.sendToServer(new PacketSmithingRemove(this.selectedId));
                 this.selectedId = -1;
                 this.draft = false;
                 this.nameOnly = false;
                 this.selectedName = null;
+                this.availability = new noppes.npcs.controllers.data.Availability();
                 // 服务端删除后会主动推 Sync（列表+热移除都由它收口），无需再手动 RequestList。
             }
         } else if (button.id == BTN_SAVE) {
@@ -267,7 +280,8 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         // 否则玩家在名称框改过名后匹配不上 → draft 不结束 → 再点保存会重复新建同名配方。
         if (d.name.length() > 64) d.name = d.name.substring(0, 64);
         this.selectedName = d.name;
-        PacketDistributor.sendToServer(new PacketSmithingSave(d.id, d.name, d.nameOnly));
+        this.pendingSave = true;
+        PacketDistributor.sendToServer(new PacketSmithingSave(d.id, d.name, d.nameOnly, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
     }
 
     @Override
@@ -291,11 +305,13 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
      * 保存成功会触发同步下发，此时草稿已经变成正式配方，按名字把它选中，草稿状态收尾。
      */
     public void refreshFromServer() {
-        if (this.draft && this.selectedName != null) {
-            for (SmithingRecipeData d : SmithingClientData.get()) {
+        this.recipes.clear();
+        this.recipes.addAll(SmithingClientData.get());
+        if (this.pendingSave && this.selectedName != null) {
+            for (int i = 0; i < recipes.size(); i++) {
+                SmithingRecipeData d = recipes.get(i);
                 if (this.selectedName.equals(d.name)) {
-                    this.selectedId = d.id;
-                    this.draft = false;
+                    this.loadRecipe(i);
                     break;
                 }
             }

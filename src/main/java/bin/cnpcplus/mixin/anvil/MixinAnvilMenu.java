@@ -26,7 +26,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * method 官方名+默认 remap → 由项目已配的 mixin refmap（cnpcplus.refmap.json）自动 SRG 映射。
  */
 @Mixin(value = AnvilMenu.class, remap = false)
-public class MixinAnvilMenu {
+public abstract class MixinAnvilMenu extends net.minecraft.world.inventory.ItemCombinerMenu {
+    protected MixinAnvilMenu(net.minecraft.world.inventory.MenuType<?> type, int id, net.minecraft.world.entity.player.Inventory inventory, net.minecraft.world.inventory.ContainerLevelAccess access) { super(type, id, inventory, access); }
 
     // onTake 随后会清空cost，必须在HEAD读取；只在服务端补原版跳过的创造模式奖励。
     @Inject(method = "onTake(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;)V",
@@ -42,6 +43,15 @@ public class MixinAnvilMenu {
     private void cnpcplus$allowZeroNegativeCost(Player player, boolean canTake,
                                                 CallbackInfoReturnable<Boolean> cir) {
         AnvilMenu self = (AnvilMenu) (Object) this;
+        var recipes = player.level().isClientSide ? top.cnpcplus.anvil.client.AnvilClientData.get() : top.cnpcplus.anvil.AnvilRecipeRegistry.list(player.registryAccess());
+        for (var recipe : recipes) {
+            if (recipe.result.isEmpty() || recipe.inputA.isEmpty() || recipe.inputB.isEmpty()) continue;
+            if (top.cnpcplus.anvil.AnvilCraftHandler.matchesSlot(recipe.inputA, inputSlots.getItem(0), recipe.nameOnly)
+                    && top.cnpcplus.anvil.AnvilCraftHandler.matchesSlot(recipe.inputB, inputSlots.getItem(1), recipe.nameOnly)) {
+                if (!top.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player)) { cir.setReturnValue(false); return; }
+                break;
+            }
+        }
         cir.setReturnValue(player.getAbilities().instabuild
                 || player.experienceLevel >= self.getCost());
     }

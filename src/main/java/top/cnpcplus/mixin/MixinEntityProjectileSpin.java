@@ -1,28 +1,40 @@
 package top.cnpcplus.mixin;
 
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
 import noppes.npcs.entity.EntityProjectile;
 import noppes.npcs.entity.data.DataRanged;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.ranged.RangedSpinStore;
+import top.cnpcplus.ranged.ProjectileSpinAccess;
 
 /** Projectile-side spin snapshot and per-axis rotation consumer. */
 @Mixin(value = EntityProjectile.class, remap = false)
-public class MixinEntityProjectileSpin {
+public class MixinEntityProjectileSpin implements ProjectileSpinAccess {
 
-    @Inject(method = "<clinit>", at = @At("RETURN"), require = 1, remap = false)
-    private static void cnpcplus$initializeSpinIds(CallbackInfo ci) {
-        RangedSpinStore.initializeProjectileData();
+    // Mixin appends these initializers to the target <clinit>, after all native IDs.
+    @Unique private static final EntityDataAccessor<Float> cnpcplus$spinX =
+            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
+    @Unique private static final EntityDataAccessor<Float> cnpcplus$spinY =
+            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
+    @Unique private static final EntityDataAccessor<Float> cnpcplus$spinZ =
+            SynchedEntityData.defineId(EntityProjectile.class, EntityDataSerializers.FLOAT);
+
+    @Override public boolean cnpcplus$hasCustomSpin() {
+        var data = ((EntityProjectile)(Object)this).getEntityData();
+        return data.get(cnpcplus$spinX) != 0.0f || data.get(cnpcplus$spinY) != 0.0f || data.get(cnpcplus$spinZ) != 0.0f;
     }
 
     @Inject(method = "defineSynchedData", at = @At("RETURN"), require = 1, remap = false)
     private void cnpcplus$defineSpinFactors(SynchedEntityData.Builder builder, CallbackInfo ci) {
-        builder.define(RangedSpinStore.SPIN_X, 0.0f);
-        builder.define(RangedSpinStore.SPIN_Y, 0.0f);
-        builder.define(RangedSpinStore.SPIN_Z, 0.0f);
+        builder.define(cnpcplus$spinX, 0.0f);
+        builder.define(cnpcplus$spinY, 0.0f);
+        builder.define(cnpcplus$spinZ, 0.0f);
     }
 
     @Inject(method = "getStatProperties", at = @At("RETURN"), require = 1, remap = false)
@@ -33,9 +45,9 @@ public class MixinEntityProjectileSpin {
         float y = RangedSpinStore.get(stats, RangedSpinStore.AXIS_Y);
         float z = RangedSpinStore.get(stats, RangedSpinStore.AXIS_Z);
         SynchedEntityData data = projectile.getEntityData();
-        data.set(RangedSpinStore.SPIN_X, x);
-        data.set(RangedSpinStore.SPIN_Y, y);
-        data.set(RangedSpinStore.SPIN_Z, z);
+        data.set(cnpcplus$spinX, x);
+        data.set(cnpcplus$spinY, y);
+        data.set(cnpcplus$spinZ, z);
 
     }
 
@@ -43,9 +55,9 @@ public class MixinEntityProjectileSpin {
     private void cnpcplus$advanceContinuousSpin(CallbackInfo ci) {
         EntityProjectile self = (EntityProjectile) (Object) this;
         SynchedEntityData data = self.getEntityData();
-        float x = data.get(RangedSpinStore.SPIN_X);
-        float y = data.get(RangedSpinStore.SPIN_Y);
-        float z = data.get(RangedSpinStore.SPIN_Z);
+        float x = data.get(cnpcplus$spinX);
+        float y = data.get(cnpcplus$spinY);
+        float z = data.get(cnpcplus$spinZ);
         if (!self.level().isClientSide || self.isArrow() || !self.isRotating()) return;
         if (x == 0.0f && y == 0.0f && z == 0.0f) return;
 

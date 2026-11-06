@@ -26,6 +26,7 @@ public record PacketSmithingSync(List<SmithingRecipeData> data) implements Custo
                     buf.writeVarInt(d.id);
                     buf.writeUtf(d.name == null ? "" : d.name, 64);
                     buf.writeBoolean(d.nameOnly);
+                    buf.writeNbt(d.availability.save(buf.registryAccess(), new net.minecraft.nbt.CompoundTag()));
                     STACK.encode(buf, d.template);
                     STACK.encode(buf, d.base);
                     STACK.encode(buf, d.addition);
@@ -40,6 +41,7 @@ public record PacketSmithingSync(List<SmithingRecipeData> data) implements Custo
                     d.id = buf.readVarInt();
                     d.name = buf.readUtf(64);
                     d.nameOnly = buf.readBoolean();
+                    d.availability.load(buf.registryAccess(), buf.readNbt());
                     d.template = STACK.decode(buf);
                     d.base = STACK.decode(buf);
                     d.addition = STACK.decode(buf);

@@ -17,7 +17,7 @@ import top.cnpcplus.smithing.SmithingRecipeRegistry;
  * 物品槽位以服务端容器（当前打开的 ContainerSmithingRecipes）为准，客户端 NBT 只带 id/name。
  * 保存后立即注入 RecipeManager 并广播 = 热添加（原版锻造台下一次操作即可用）。
  */
-public record PacketSmithingSave(int id, String name, boolean nameOnly) implements CustomPacketPayload {
+public record PacketSmithingSave(int id, String name, boolean nameOnly, net.minecraft.nbt.CompoundTag availability) implements CustomPacketPayload {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
     public static final Type<PacketSmithingSave> TYPE = new Type<>(
@@ -27,7 +27,8 @@ public record PacketSmithingSave(int id, String name, boolean nameOnly) implemen
                 buf.writeVarInt(packet.id);
                 buf.writeUtf(packet.name == null ? "" : packet.name, 64);
                 buf.writeBoolean(packet.nameOnly);
-            }, buf -> new PacketSmithingSave(buf.readVarInt(), buf.readUtf(64), buf.readBoolean()));
+                buf.writeNbt(packet.availability);
+            }, buf -> new PacketSmithingSave(buf.readVarInt(), buf.readUtf(64), buf.readBoolean(), buf.readNbt()));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void handle(PacketSmithingSave packet, IPayloadContext context) {
@@ -41,6 +42,7 @@ public record PacketSmithingSave(int id, String name, boolean nameOnly) implemen
             d.id = packet.id;
             d.name = packet.name == null ? "" : packet.name;
             d.nameOnly = packet.nameOnly;
+            d.availability.load(sender.registryAccess(), packet.availability);
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             // 没有打开编辑容器就直接拒绝——否则会退化成信任客户端发来的 ItemStack（可伪造任意 NBT）。
             if (!(sender.containerMenu instanceof ContainerSmithingRecipes c)) {

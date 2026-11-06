@@ -37,7 +37,11 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
     private GuiCustomScrollNop scroll;
     private int selectedId = -1;
     private boolean blast, smoker, generic, nameOnly;
-    private String lastRecipeSnapshot = "";
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
+    private SmeltingRecipeData editing = new SmeltingRecipeData();
+    private int displayedId = Integer.MIN_VALUE;
+    private int revision = -1;
+    private boolean draft, pendingChange;
 
     public SmeltingScreen(ContainerSmeltingRecipes container, Inventory inv, Component title) {
         super(NoppesUtil.getLastNpc(), container, inv, title);
@@ -51,9 +55,17 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
     }
 
     @Override public void init() {
+        if (displayedId == selectedId) capture();
+        else {
+            SmeltingRecipeData data = selected();
+            editing = data == null ? new SmeltingRecipeData() : data.copy(minecraft.level.registryAccess());
+            blast = editing.blastAllowed; smoker = editing.smokerAllowed; generic = editing.genericFuelAllowed; nameOnly = editing.nameOnly;
+            availability = editing.availability;
+            displayedId = selectedId;
+        }
         super.init();
-        guiLeft += SmeltingLayout.guiOffsetX();
-        guiTop += SmeltingLayout.guiOffsetY();
+        guiLeft = (width - imageWidth) / 2 + SmeltingLayout.guiOffsetX();
+        guiTop = (height - imageHeight) / 2 + SmeltingLayout.guiOffsetY();
         leftPos = guiLeft;
         topPos = guiTop;
         repositionMenu();
@@ -69,6 +81,7 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         addButton(new GuiButtonNop((IGuiInterface) this, BTN_NEW, guiLeft + SmeltingLayout.btnX(), guiTop + SmeltingLayout.btnY(), 84, 20, "gui.add"));
         addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, guiLeft + SmeltingLayout.btnX(), guiTop + SmeltingLayout.btnY() + SmeltingLayout.btnSpacing(), 84, 20, "gui.remove"));
         addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, guiLeft + SmeltingLayout.btnX(), guiTop + SmeltingLayout.btnY() + SmeltingLayout.btnSpacing() * 2, 84, 20, "gui.save"));
+        addButton(new GuiButtonNop(this, 90, guiLeft + SmeltingLayout.btnX(), guiTop + SmeltingLayout.btnY() + SmeltingLayout.btnSpacing() * 3, 84, 20, "availability.options"));
         addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_BLAST, guiLeft + SmeltingLayout.toggleX(), guiTop + SmeltingLayout.toggleY(), SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Blocks.BLAST_FURNACE), blast, Component.translatable("cnpcplus.smelting.blast")));
         addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_SMOKER, guiLeft + SmeltingLayout.toggleX(), guiTop + SmeltingLayout.toggleY() + SmeltingLayout.toggleSpacing(), SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Blocks.SMOKER), smoker, Component.translatable("cnpcplus.smelting.smoker")));
         addButton(new GuiIconToggleButton((IGuiInterface) this, BTN_GENERIC, guiLeft + SmeltingLayout.toggleX(), guiTop + SmeltingLayout.toggleY() + SmeltingLayout.toggleSpacing() * 2, SmeltingLayout.toggleWidth(), SmeltingLayout.toggleHeight(), new ItemStack(Items.COAL), generic, Component.translatable("cnpcplus.smelting.generic")));
@@ -92,9 +105,14 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
 
     private List<SmeltingRecipeData> recipes() { return SmeltingClientData.get(); }
     private SmeltingRecipeData selected() { for (SmeltingRecipeData d : recipes()) if (d.id == selectedId) return d; return null; }
-    private String selectedName() { SmeltingRecipeData d = selected(); return d == null ? "" : d.name; }
-    private String selectedCookTime() { SmeltingRecipeData d = selected(); return d == null ? "200.0" : Float.toString(d.cookTime); }
-    private String selectedXp() { SmeltingRecipeData d = selected(); return d == null ? "0.0" : Float.toString(d.xp); }
+    private String selectedName() { return editing.name; }
+    private String selectedCookTime() { return Float.toString(editing.cookTime); }
+    private String selectedXp() { return Float.toString(editing.xp); }
+    private void capture() {
+        if (getTextField(30) != null) editing.name = getTextField(30).getValue();
+        if (getTextField(20) != null && getTextField(20).isFloat()) editing.cookTime = getTextField(20).getFloat();
+        if (getTextField(21) != null && getTextField(21).isFloat()) editing.xp = getTextField(21).getFloat();
+    }
     private void refreshScroll() {
         List<String> names = new ArrayList<>();
         List<SmeltingRecipeData> list = recipes();
@@ -110,8 +128,14 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
     }
 
     @Override public void buttonEvent(GuiButtonNop button) {
+        capture();
+        if (button.id == 90) { GuiTextFieldNop.unfocus(); setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(availability)); return; }
         if (button.id == BTN_NEW) {
+            draft = true;
+            pendingChange = false;
+            availability = new noppes.npcs.controllers.data.Availability();
             selectedId = -1;
+            displayedId = Integer.MIN_VALUE;
             container.selectedId = -1;
             blast = smoker = generic = nameOnly = false;
             PacketDistributor.sendToServer(new PacketSmeltingAction(5, -1, "", 0, 0, false, false, false, false));
@@ -119,8 +143,8 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
             if (getTextField(30) != null) getTextField(30).setValue("new_recipe");
             return;
         }
-        if (button.id == BTN_REMOVE) { send(2); return; }
-        if (button.id == BTN_SAVE) { send(1); return; }
+        if (button.id == BTN_REMOVE) { pendingChange = true; send(2); return; }
+        if (button.id == BTN_SAVE) { pendingChange = true; send(1); return; }
         if (button.id == BTN_BLAST) blast = button.getValue() == 1;
         if (button.id == BTN_SMOKER) smoker = button.getValue() == 1;
         if (button.id == BTN_GENERIC) generic = button.getValue() == 1;
@@ -131,7 +155,7 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         GuiTextFieldNop name = getTextField(30), time = getTextField(20), xp = getTextField(21);
         float cook = time == null || !time.isFloat() ? 200 : Math.max(0.01f, time.getFloat());
         float experience = xp == null || !xp.isFloat() ? 0 : xp.getFloat();
-        PacketDistributor.sendToServer(new PacketSmeltingAction(action, selectedId, name == null ? "" : name.getValue(), cook, experience, blast, smoker, generic, nameOnly));
+        PacketDistributor.sendToServer(new PacketSmeltingAction(action, selectedId, name == null ? "" : name.getValue(), cook, experience, blast, smoker, generic, nameOnly, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
     }
 
     @Override public void scrollClicked(double x, double y, int button, GuiCustomScrollNop source) {
@@ -139,15 +163,16 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
         List<SmeltingRecipeData> list = recipes();
         if (index < 0 || index >= list.size()) return;
         SmeltingRecipeData d = list.get(index); selectedId = d.id; container.selectedId = d.id;
+        draft = pendingChange = false;
+        displayedId = Integer.MIN_VALUE;
         blast = d.blastAllowed; smoker = d.smokerAllowed; generic = d.genericFuelAllowed; nameOnly = d.nameOnly;
+        availability = top.cnpcplus.craftingview.RecipeAvailability.copy(d.availability);
         PacketDistributor.sendToServer(new PacketSmeltingAction(4, d.id, "", 0, 0, false, false, false, false));
         init();
     }
     @Override public void scrollDoubleClicked(String selection, GuiCustomScrollNop source) {}
 
     @Override protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
-        String snapshot = recipeSnapshot();
-        if (!snapshot.equals(lastRecipeSnapshot)) { lastRecipeSnapshot = snapshot; if (scroll != null) refreshScroll(); }
         super.renderBg(graphics, partialTicks, mouseX, mouseY);
         drawSlotBg(graphics, 0); drawSlotBg(graphics, 1); drawSlotBg(graphics, 2);
         int ticks = Minecraft.getInstance().gui.getGuiTicks();
@@ -157,23 +182,14 @@ public final class SmeltingScreen extends GuiContainerNPCInterface2<ContainerSme
     }
     private void drawSlotBg(GuiGraphics g, int index) { if (index >= container.slots.size()) return; var slot = container.slots.get(index); g.blit(SLOT, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 0, 18, 18); }
 
-    private String recipeSnapshot() {
-        StringBuilder snapshot = new StringBuilder();
-        for (SmeltingRecipeData data : recipes()) snapshot.append(data.id).append(':').append(data.name).append(';');
-        return snapshot.toString();
-    }
-
     @Override public void containerTick() {
-        String snapshot = recipeSnapshot();
-        int serverSelectedId = SmeltingClientData.selectedId();
-        if (serverSelectedId != selectedId) {
-            selectedId = container.selectedId = serverSelectedId;
-        }
-        if (!snapshot.equals(lastRecipeSnapshot)) {
-            lastRecipeSnapshot = snapshot;
-            if (selectedId < 0) {
-                List<SmeltingRecipeData> list = recipes();
-                if (!list.isEmpty()) selectedId = container.selectedId = list.get(list.size() - 1).id;
+        if (SmeltingClientData.revision() != revision) {
+            boolean initial = revision < 0;
+            revision = SmeltingClientData.revision();
+            if (pendingChange || initial && !draft) {
+                selectedId = container.selectedId = SmeltingClientData.selectedId();
+                displayedId = Integer.MIN_VALUE;
+                draft = pendingChange = false;
             }
             init();
         }

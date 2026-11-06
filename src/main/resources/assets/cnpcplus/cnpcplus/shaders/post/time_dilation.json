@@ -1,0 +1,17 @@
+{
+  "type":"POST", "description":"Screen-space time lens: untouched center, warped boundary and three real frame histories", "shaderResource":"cnpcplus:shaders/post/advanced_screen.json",
+  "remote":true, "defaultDuration":400, "supportsLoop":true, "supportsMultipleInstances":false, "priority":110,
+  "uniforms":[
+    {"name":"ScreenCenter","type":"vec2","default":[0.5,0.5],"min":0,"max":1},
+    {"name":"Color","type":"vec3","default":[0.2,0.45,1],"min":0,"max":4},
+    {"name":"Radius","type":"float","default":0.42,"min":0.05,"max":2},
+    {"name":"Distortion","type":"float","default":1.8,"min":0,"max":4},
+    {"name":"Dispersion","type":"float","default":1.2,"min":0,"max":4},
+    {"name":"Trail","type":"float","default":0.72,"min":0,"max":0.95},
+    {"name":"Intensity","type":"float","default":1,"min":0,"max":4},
+    {"name":"Opacity","type":"float","default":1,"min":0,"max":1},
+    {"name":"Time","type":"float","default":0},
+    {"name":"Mode","type":"int","default":0,"min":0,"max":3}
+  ],
+  "samplers":[{"name":"DiffuseSampler","default":"minecraft:main"},{"name":"HistorySampler","default":"cnpcplus:history"},{"name":"HistorySampler2","default":"cnpcplus:history_2"},{"name":"HistorySampler3","default":"cnpcplus:history_3"}]
+}

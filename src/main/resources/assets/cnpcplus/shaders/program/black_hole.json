@@ -1,0 +1,27 @@
+{
+  "vertex":"blit", "fragment":"cnpcplus:black_hole", "attributes":["Position"],
+  "samplers":[{"name":"DiffuseSampler"},{"name":"DepthSampler"},{"name":"MaskSampler"}],
+  "uniforms":[
+    {"name":"ProjMat","type":"matrix4x4","count":16,"values":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name":"WorldViewProjection","type":"matrix4x4","count":16,"values":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name":"InverseWorldViewProjection","type":"matrix4x4","count":16,"values":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
+    {"name":"CameraPosition","type":"float","count":3,"values":[0,0,0]},
+    {"name":"OutSize","type":"float","count":2,"values":[1,1]},
+    {"name":"WorldPosition","type":"float","count":3,"values":[0,64,0]},
+    {"name":"Radius","type":"float","count":1,"values":[1.2]},
+    {"name":"InfluenceRadius","type":"float","count":1,"values":[6]},
+    {"name":"Intensity","type":"float","count":1,"values":[1]},
+    {"name":"Distortion","type":"float","count":1,"values":[0.8]},
+    {"name":"Falloff","type":"float","count":1,"values":[2]},
+    {"name":"Rotation","type":"float","count":1,"values":[0]},
+    {"name":"DiskRadius","type":"float","count":1,"values":[2.8]},
+    {"name":"DiskWidth","type":"float","count":1,"values":[0.65]},
+    {"name":"DiskNormal","type":"float","count":3,"values":[0.25,1,0.35]},
+    {"name":"DiskIntensity","type":"float","count":1,"values":[1.5]},
+    {"name":"DiskColor","type":"float","count":3,"values":[1,0.45,0.12]},
+    {"name":"CoreColor","type":"float","count":3,"values":[0,0,0]},
+    {"name":"Opacity","type":"float","count":1,"values":[1]},
+    {"name":"Time","type":"float","count":1,"values":[0]},
+    {"name":"LensStrength","type":"float","count":1,"values":[1]}
+  ]
+}

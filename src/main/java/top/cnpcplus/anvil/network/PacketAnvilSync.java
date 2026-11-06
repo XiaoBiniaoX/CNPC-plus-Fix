@@ -27,6 +27,7 @@ public record PacketAnvilSync(List<AnvilRecipeData> data) implements CustomPacke
                     buf.writeUtf(d.name == null ? "" : d.name, 64);
                     buf.writeInt(d.expCost);
                     buf.writeBoolean(d.nameOnly);
+                    buf.writeNbt(d.availability.save(buf.registryAccess(), new net.minecraft.nbt.CompoundTag()));
                     STACK.encode(buf, d.inputA);
                     STACK.encode(buf, d.inputB);
                     STACK.encode(buf, d.result);
@@ -42,6 +43,7 @@ public record PacketAnvilSync(List<AnvilRecipeData> data) implements CustomPacke
                     d.name = buf.readUtf(64);
                     d.expCost = Math.max(-32767, Math.min(32767, buf.readInt()));
                     d.nameOnly = buf.readBoolean();
+                    d.availability.load(buf.registryAccess(), buf.readNbt());
                     d.inputA = STACK.decode(buf);
                     d.inputB = STACK.decode(buf);
                     d.result = STACK.decode(buf);

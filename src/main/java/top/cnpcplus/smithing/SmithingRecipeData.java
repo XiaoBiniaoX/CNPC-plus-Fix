@@ -10,6 +10,7 @@ import net.minecraft.world.item.ItemStack;
  * 227：字段 = 模板/基座/升级材料/结果 4 槽（熔炼的 cookTime/xp/三开关按用户要求删除——锻造台没有时间与经验）。
  */
 public class SmithingRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     public ItemStack template = ItemStack.EMPTY;  // 模板（如模具/纹饰）
@@ -26,6 +27,7 @@ public class SmithingRecipeData {
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.put("Availability", availability.save(registries, new CompoundTag()));
         t.put("Template", this.template.saveOptional(registries));
         t.put("Base", this.base.saveOptional(registries));
         t.put("Addition", this.addition.saveOptional(registries));
@@ -39,6 +41,7 @@ public class SmithingRecipeData {
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly"); // 旧配方无此键 → 默认 false，兼容
+        if (t.contains("Availability")) d.availability.load(registries, t.getCompound("Availability"));
         d.template = ItemStack.parseOptional(registries, t.getCompound("Template"));
         d.base = ItemStack.parseOptional(registries, t.getCompound("Base"));
         d.addition = ItemStack.parseOptional(registries, t.getCompound("Addition"));
@@ -51,6 +54,7 @@ public class SmithingRecipeData {
         d.id = this.id;
         d.name = this.name;
         d.nameOnly = this.nameOnly;
+        d.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(availability);
         d.template = this.template.copy();
         d.base = this.base.copy();
         d.addition = this.addition.copy();

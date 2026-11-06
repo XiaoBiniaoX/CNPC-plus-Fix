@@ -17,6 +17,10 @@ public final class WandTools {
         return item == CustomItems.wand || item == CustomItems.cloner || item == CustomItems.scripter;
     }
     public static boolean inRange(double distanceSquared) { return distanceSquared >= 0 && distanceSquared <= RANGE_SQUARED; }
+    public static boolean showsPaths(ItemStack stack) {
+        return showsHitboxes(stack) || !stack.isEmpty() && net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())
+                .equals(net.minecraft.resources.ResourceLocation.parse("customnpcs:npcmovingpath"));
+    }
     public static boolean matches(String query, String label) {
         String q = Pinyin.normalizeQuery(query), text = Pinyin.normalizeQuery(label);
         return text.contains(q) || Pinyin.fuzzy(q, Pinyin.normalizeQuery(Pinyin.of(label)));

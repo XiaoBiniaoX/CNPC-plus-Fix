@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
  * 槽内 ItemStack 的 count 即该槽的消耗数量（如 木板×3）；空槽=该槽无需求。
  */
 public class DropRecipeData {
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
     public String name = "";
     /** 2×2 四个输入槽（槽内 count=消耗数量；空=无需求；至少两槽有物才能注册，见 PacketDropSave）。 */
@@ -32,7 +33,7 @@ public class DropRecipeData {
             top.cnpcplus.drop.fx.DropFxCaps.newList();
 
     public CompoundTag toNBT(HolderLookup.Provider registries) {
-        CompoundTag t = toMetadataNBT();
+        CompoundTag t = toMetadataNBT(registries);
         for (int i = 0; i < 4; i++) t.put("Input" + i, this.inputs[i].saveOptional(registries));
         t.put("Result", this.result.saveOptional(registries));
         return t;
@@ -41,11 +42,12 @@ public class DropRecipeData {
     /**
      * 保存请求仅带元数据与粒子配置，不带物品；五槽物品始终取服务端编辑容器。
      */
-    public CompoundTag toMetadataNBT() {
+    public CompoundTag toMetadataNBT(HolderLookup.Provider registries) {
         CompoundTag t = new CompoundTag();
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.put("Availability", availability.save(registries, new CompoundTag()));
         t.putString("SoundId", this.soundId == null ? "" : this.soundId);
         t.putString("BindDim", this.dim == null ? "" : this.dim);
         t.putBoolean("BindPos", this.hasBindPos);
@@ -59,12 +61,13 @@ public class DropRecipeData {
         return t;
     }
 
-    public static DropRecipeData fromMetadataNBT(CompoundTag t) {
+    public static DropRecipeData fromMetadataNBT(HolderLookup.Provider registries, CompoundTag t) {
         DropRecipeData d = new DropRecipeData();
         if (t == null) return d;
         d.id = t.getInt("Id");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly");
+        if (t.contains("Availability")) d.availability.load(registries, t.getCompound("Availability"));
         d.soundId = t.getString("SoundId");
         d.dim = t.getString("BindDim");
         d.hasBindPos = t.getBoolean("BindPos");
@@ -81,7 +84,7 @@ public class DropRecipeData {
     }
 
     public static DropRecipeData fromNBT(HolderLookup.Provider registries, CompoundTag t) {
-        DropRecipeData d = fromMetadataNBT(t);
+        DropRecipeData d = fromMetadataNBT(registries, t);
         if (t == null) return d;
         for (int i = 0; i < 4; i++) {
             d.inputs[i] = ItemStack.parseOptional(registries, t.getCompound("Input" + i));
@@ -104,6 +107,7 @@ public class DropRecipeData {
         d.id = this.id;
         d.name = this.name;
         d.nameOnly = this.nameOnly;
+        d.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(availability);
         d.soundId = this.soundId;
         d.dim = this.dim;
         d.hasBindPos = this.hasBindPos;
