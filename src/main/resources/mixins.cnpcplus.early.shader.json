@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.shader",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": [],
+  "client": ["ShaderGroupAccess", "ResourceManagerAccess", "FallbackManagerAccess", "ResourcePackAccess", "ShaderUniformAccess", "ShaderProgramAccess", "ShaderBlendAccess", "MixinShaderPost", "MixinFramebufferDepth", "MixinShaderDraw", "MixinRenderEntityTarget", "MixinRenderItemTarget", "MixinRenderTileTarget", "MixinRenderPlayerArms"],
+  "injectors": {"defaultRequire": 1}
+}

@@ -1,0 +1,14 @@
+{
+  "vertex":"cnpcplus:tint_entity", "fragment":"cnpcplus:tint_entity", "attributes":[],
+  "samplers":[{"name":"Sampler0"},{"name":"Sampler2"}],
+  "uniforms":[
+    {"name":"Tint","type":"float","count":4,"values":[1,1,1,1]},
+    {"name":"Opacity","type":"float","count":1,"values":[1]},
+    {"name":"Time","type":"float","count":1,"values":[0]},
+    {"name":"Pulse","type":"float","count":1,"values":[0]},
+    {"name":"Textured","type":"int","count":1,"values":[1]},
+    {"name":"Lighting","type":"int","count":1,"values":[0]},
+    {"name":"Lightmap","type":"int","count":1,"values":[0]},
+    {"name":"FogMode","type":"int","count":1,"values":[0]}
+  ]
+}

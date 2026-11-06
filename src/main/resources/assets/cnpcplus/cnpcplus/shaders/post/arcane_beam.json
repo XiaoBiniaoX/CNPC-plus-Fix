@@ -1,0 +1,98 @@
+{
+  "type": "POST",
+  "description": "Depth-clipped world-space volumetric cylinder with a luminous core and helical energy",
+  "shaderResource": "cnpcplus:shaders/post/advanced_world.json",
+  "remote": true,
+  "defaultDuration": 100,
+  "supportsLoop": true,
+  "supportsMultipleInstances": true,
+  "priority": 90,
+  "uniforms": [
+    {
+      "name": "WorldPosition",
+      "type": "vec3",
+      "default": [
+        0,
+        64,
+        0
+      ],
+      "min": -30000000,
+      "max": 30000000
+    },
+    {
+      "name": "Color",
+      "type": "vec3",
+      "default": [
+        0.2,
+        0.6,
+        1
+      ],
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Radius",
+      "type": "float",
+      "default": 2.5,
+      "min": 0.05,
+      "max": 128
+    },
+    {
+      "name": "Height",
+      "type": "float",
+      "default": 24,
+      "min": 0.05,
+      "max": 256
+    },
+    {
+      "name": "Downward",
+      "type": "float",
+      "default": 0,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Glow",
+      "type": "float",
+      "default": 0.7,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Intensity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Opacity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "Mode",
+      "type": "int",
+      "default": 2,
+      "min": 0,
+      "max": 4
+    }
+  ],
+  "samplers": [
+    {
+      "name": "DiffuseSampler",
+      "default": "minecraft:main"
+    },
+    {
+      "name": "DepthSampler",
+      "default": "minecraft:depth"
+    }
+  ]
+}

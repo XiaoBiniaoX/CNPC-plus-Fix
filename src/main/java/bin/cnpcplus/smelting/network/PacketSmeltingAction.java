@@ -37,6 +37,7 @@ public class PacketSmeltingAction implements IMessage {
     private boolean smoker;
     private boolean generic;
     private boolean nameOnly;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public PacketSmeltingAction() {}
 
@@ -47,7 +48,7 @@ public class PacketSmeltingAction implements IMessage {
 
     public PacketSmeltingAction(int action, int id, String name, float cookTime, float xp,
                                 boolean blast, boolean smoker, boolean generic,
-                                boolean nameOnly) {
+                                boolean nameOnly, noppes.npcs.controllers.data.Availability availability) {
         this.action = action;
         this.id = id;
         this.name = name == null ? "" : name;
@@ -57,6 +58,7 @@ public class PacketSmeltingAction implements IMessage {
         this.smoker = smoker;
         this.generic = generic;
         this.nameOnly = nameOnly;
+        this.availability = availability;
     }
 
     @Override
@@ -70,6 +72,7 @@ public class PacketSmeltingAction implements IMessage {
         this.smoker = buf.readBoolean();
         this.generic = buf.readBoolean();
         this.nameOnly = buf.readBoolean();
+        this.availability = bin.cnpcplus.craftingview.RecipeAvailability.read(ByteBufUtils.readTag(buf));
     }
 
     @Override
@@ -83,6 +86,7 @@ public class PacketSmeltingAction implements IMessage {
         buf.writeBoolean(this.smoker);
         buf.writeBoolean(this.generic);
         buf.writeBoolean(this.nameOnly);
+        ByteBufUtils.writeTag(buf, this.availability.writeToNBT(new net.minecraft.nbt.NBTTagCompound()));
     }
 
     public static class Handler implements IMessageHandler<PacketSmeltingAction, IMessage> {
@@ -169,6 +173,7 @@ public class PacketSmeltingAction implements IMessage {
             data.smokerAllowed = msg.smoker;
             data.genericFuelAllowed = msg.generic;
             data.nameOnly = msg.nameOnly;
+            data.availability = msg.availability;
             if (data.input.isEmpty() || data.output.isEmpty()) {
                 return;
             }

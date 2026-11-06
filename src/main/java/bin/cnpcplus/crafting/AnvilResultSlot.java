@@ -31,6 +31,7 @@ public final class AnvilResultSlot extends Slot {
         if (!access.cnpcplus$isCustomRecipe()) return vanilla.canTakeStack(player);
         if (!getHasStack()) return false;
         CustomRecipe recipe = access.cnpcplus$customRecipe();
+        if (!world.isRemote && (recipe == null || !bin.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player))) return false;
         if (recipe != null && (container.getSlot(0).getStack().getCount() < recipe.inputs[0].getCount()
                 || container.getSlot(1).getStack().getCount() < recipe.inputs[1].getCount())) return false;
         return player.capabilities.isCreativeMode || container.maximumCost <= player.experienceLevel;

@@ -17,6 +17,7 @@ public final class CustomRecipe {
     public final ItemStack[] inputs;
     public ItemStack result = ItemStack.EMPTY;
     public List<FxConfig> effects = new ArrayList<>();
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public CustomRecipe(CraftKind kind) {
         this.kind = kind;
@@ -29,6 +30,7 @@ public final class CustomRecipe {
         tag.setInteger("Id", id);
         tag.setString("Name", name);
         tag.setBoolean("NameOnly", nameOnly);
+        tag.setTag("Availability", availability.writeToNBT(new NBTTagCompound()));
         if (kind == CraftKind.ANVIL) tag.setInteger("ExpCost", experience);
         if (kind == CraftKind.DROP) {
             tag.setString("SoundId", sound);
@@ -49,6 +51,7 @@ public final class CustomRecipe {
         recipe.id = tag.hasKey("Id", 99) ? tag.getInteger("Id") : -1;
         recipe.name = SmeltingRecipeData.clampName(tag.getString("Name"));
         recipe.nameOnly = tag.getBoolean("NameOnly");
+        recipe.availability = bin.cnpcplus.craftingview.RecipeAvailability.read(tag.getCompoundTag("Availability"));
         recipe.experience = tag.hasKey("ExpCost", 99) ? Math.max(-32767, Math.min(32767, tag.getInteger("ExpCost"))) : 1;
         recipe.sound = SmeltingRecipeData.clampName(tag.getString("SoundId"));
         recipe.dimension = SmeltingRecipeData.clampName(tag.getString("BindDim"));

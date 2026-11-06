@@ -45,7 +45,8 @@ public final class NpcExternalData {
                 "NpcKillLines", "NpcInteractNPCLines", "CNPCPlusMeleeLines", "OrderedLines", "NpcIdleSound", "NpcAngrySound",
                 "NpcHurtSound", "NpcDeathSound", "NpcStepSound", "DisablePitch", "CNPCPlusSoundArrays", "NPCDialogOptions",
                 "BossBar", "BossColor", "CNPCPlusBossbar", "TransformAdvanced", "TransformRole"}),
-        MODEL("model", "CNPCPlusModelRef", "", new String[]{"NpcModelData", "TransformDisplay", "TransformJob"});
+        MODEL("model", "CNPCPlusModelRef", "", new String[]{"NpcModelData", "TransformDisplay", "TransformJob"}),
+        RESISTANCES("resistances", "CNPCPlusResistancesRef", "", new String[]{"Resistances"});
         final String folder, reference, parent;
         final String[] keys;
         Group(String folder, String reference, String parent, String[] keys) {
@@ -296,8 +297,18 @@ public final class NpcExternalData {
                 CnpcPlus.LOGGER.error("Cannot export NPC {} snapshot; retaining inline NBT/reference {}", group.folder, reference, error);
             }
         }
-        NBTTagList passengers = tag.getTagList("Passengers", 10);
-        for (int i = 0; i < passengers.tagCount(); i++) complete &= makePortable(passengers.getCompoundTagAt(i));
+        // Spawner entries and transformation data also contain NPC snapshots, not only Passengers.
+        for (String key : new java.util.ArrayList<>(tag.getKeySet())) {
+            NBTBase value = tag.getTag(key);
+            if (value instanceof NBTTagCompound) complete &= makePortable((NBTTagCompound)value);
+            else if (value instanceof NBTTagList) {
+                NBTTagList list = (NBTTagList)value;
+                for (int i = 0; i < list.tagCount(); i++) {
+                    NBTBase child = list.get(i);
+                    if (child instanceof NBTTagCompound) complete &= makePortable((NBTTagCompound)child);
+                }
+            }
+        }
         return complete;
     }
 

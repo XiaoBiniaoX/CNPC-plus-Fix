@@ -28,6 +28,14 @@ import java.util.List;
 @Mixin(ContainerWorkbench.class)
 public class MixinContainerWorkbenchGate {
 
+    @Inject(method = "transferStackInSlot", at = @At("HEAD"), cancellable = true)
+    private void cnpcplus$shiftGate(EntityPlayer player, int slot, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ItemStack> cir) {
+        if (slot != 0 || player.world.isRemote) return;
+        ContainerWorkbench self = (ContainerWorkbench)(Object)this;
+        bin.cnpcplus.craftingview.RecipeAvailability.refreshCrafting(self);
+        if (!self.getSlot(0).getHasStack()) cir.setReturnValue(ItemStack.EMPTY);
+    }
+
     @Inject(method = "func_75130_a", at = @At("RETURN"), remap = false)
     private void cnpcplusGate(IInventory inv, CallbackInfo ci) {
         ContainerWorkbench self = (ContainerWorkbench) (Object) this;

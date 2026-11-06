@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 public final class DropCrafting {
     private static final Map<WorldServer, Deque<Pending>> PENDING = new IdentityHashMap<>();
     private static final Set<EntityItem> ELIGIBLE = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Map<EntityItem, java.util.UUID> OPERATORS = new WeakHashMap<>();
     private static final class Pending {
         final EntityItem item;
         final long expires;
@@ -42,6 +43,7 @@ public final class DropCrafting {
         if (!(item.world instanceof WorldServer)) return;
         WorldServer world = (WorldServer) item.world;
         ELIGIBLE.add(item);
+        OPERATORS.put(item, event.getPlayer().getUniqueID());
         PENDING.computeIfAbsent(world, ignored -> new ArrayDeque<>()).addLast(new Pending(item, world.getTotalWorldTime() + 200));
     }
 
@@ -66,6 +68,8 @@ public final class DropCrafting {
         BlockPos position = trigger.getPosition();
         List<CustomRecipe> recipes = RecipeStore.list(CraftKind.DROP);
         if (recipes.isEmpty()) return false;
+        java.util.UUID operator = OPERATORS.get(trigger);
+        net.minecraft.entity.player.EntityPlayer player = operator == null ? null : world.getMinecraftServer().getPlayerList().getPlayerByUUID(operator);
         boolean crafted = false;
         for (int chain = 0; chain < 64; chain++) {
             List<EntityItem> items = world.getEntitiesWithinAABB(EntityItem.class, new AxisAlignedBB(position)).stream()
@@ -75,7 +79,8 @@ public final class DropCrafting {
             int[] deduction = null;
             for (CustomRecipe candidate : recipes) {
                 if (!bound(candidate, world, position)) continue;
-                int[] plan = plan(items, candidate);
+                if (!bin.cnpcplus.craftingview.RecipeAvailability.allows(candidate.availability, player)) continue;
+                int[] plan = plan(items, candidate, operator);
                 if (plan != null) { recipe = candidate; deduction = plan; break; }
             }
             if (recipe == null) return crafted;
@@ -103,14 +108,15 @@ public final class DropCrafting {
         return crafted;
     }
 
-    private static int[] plan(List<EntityItem> items, CustomRecipe recipe) {
+    private static int[] plan(List<EntityItem> items, CustomRecipe recipe, java.util.UUID operator) {
         int[] stock = new int[items.size()], needed = new int[recipe.inputs.length];
         boolean[][] matches = new boolean[needed.length][stock.length];
         for (int i = 0; i < stock.length; i++) stock[i] = items.get(i).getItem().getCount();
         for (int i = 0; i < needed.length; i++) {
             ItemStack input = recipe.inputs[i];
             needed[i] = input.isEmpty() ? 0 : input.getCount();
-            for (int j = 0; j < stock.length; j++) matches[i][j] = CustomRecipe.matches(items.get(j).getItem(), input, recipe.nameOnly);
+            for (int j = 0; j < stock.length; j++) matches[i][j] = CustomRecipe.matches(items.get(j).getItem(), input, recipe.nameOnly)
+                    && (!bin.cnpcplus.craftingview.RecipeAvailability.hasOptions(recipe.availability) || operator.equals(OPERATORS.get(items.get(j))));
         }
         return CraftPlanner.plan(stock, needed, matches);
     }
@@ -130,7 +136,8 @@ public final class DropCrafting {
         if (event.getWorld() instanceof WorldServer) {
             PENDING.remove(event.getWorld());
             ELIGIBLE.removeIf(item -> item.world == event.getWorld());
+            OPERATORS.keySet().removeIf(item -> item.world == event.getWorld());
         }
     }
-    public static void clear() { PENDING.clear(); ELIGIBLE.clear(); }
+    public static void clear() { PENDING.clear(); ELIGIBLE.clear(); OPERATORS.clear(); }
 }

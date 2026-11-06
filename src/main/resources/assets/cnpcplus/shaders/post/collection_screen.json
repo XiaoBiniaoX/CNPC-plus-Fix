@@ -1,0 +1,17 @@
+{
+  "targets": [
+    "swap"
+  ],
+  "passes": [
+    {
+      "name": "cnpcplus:collection_screen",
+      "intarget": "minecraft:main",
+      "outtarget": "swap"
+    },
+    {
+      "name": "cnpcplus:legacy_copy",
+      "intarget": "swap",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}

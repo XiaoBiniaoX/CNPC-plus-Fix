@@ -62,6 +62,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
     private boolean smoker;
     private boolean generic;
     private boolean nameOnly;
+    private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     /**
      * The npc must not be null. Every top menu button routes through
@@ -104,8 +105,6 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
         this.cnpcplus$syncVanillaOrigin();
         this.repositionMenu();
 
-        this.pullFromRegistry();
-
         if (this.scroll == null) {
             this.scroll = new GuiCustomScroll(this, 0);
         }
@@ -127,6 +126,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
         this.addButton(new GuiNpcButton(BTN_NEW, bx, by, bw, bh, "gui.add"));
         this.addButton(new GuiNpcButton(BTN_REMOVE, bx, by + bs, bw, bh, "gui.remove"));
         this.addButton(new GuiNpcButton(BTN_SAVE, bx, by + bs * 2, bw, bh, "gui.save"));
+        this.addButton(new GuiNpcButton(9, bx, by + bs * 3, 104, bh, "availability.options"));
 
         // Only the generic fuel toggle exists in 1.12.2: this version has a single
         // furnace, so blast and smoker have nothing to apply to. It takes the middle
@@ -246,6 +246,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
         this.smoker = selected.smokerAllowed;
         this.generic = selected.genericFuelAllowed;
         this.nameOnly = selected.nameOnly;
+        this.availability = selected.availability;
     }
 
     /** Same-named recipes get their id appended so the list stays unambiguous. */
@@ -274,6 +275,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
         if (serverSelectedId != this.selectedId) {
             this.selectedId = serverSelectedId;
         }
+        this.pullFromRegistry();
         this.initGui();
     }
 
@@ -306,6 +308,7 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
             this.smoker = false;
             this.generic = false;
             this.nameOnly = false;
+            this.availability = new noppes.npcs.controllers.data.Availability();
             // The server clears its own slots and echoes the result back.
             this.send(PacketSmeltingAction.ACTION_NEW, -1);
             this.initGui();
@@ -319,7 +322,11 @@ public class GuiSmeltingRecipes extends GuiContainerNPCInterface2
             CraftingViewNetwork.CHANNEL.sendToServer(new PacketSmeltingAction(
                     PacketSmeltingAction.ACTION_SAVE, this.selectedId, this.recipeName,
                     this.cookTime, this.xp, this.blast, this.smoker, this.generic,
-                    this.nameOnly));
+                    this.nameOnly, this.availability));
+        } else if (id == 9) {
+            this.readFields();
+            GuiNpcTextField.unfocus();
+            this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability));
         }
     }
 

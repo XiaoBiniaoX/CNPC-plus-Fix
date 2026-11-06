@@ -21,10 +21,16 @@ public abstract class MixinGlobalRecipeMenus {
             self.addButton(new GuiNpcButton(102 + kind.ordinal(), self.guiLeft + 285,
                     self.guiTop + 120 + 22 * kind.ordinal(), 100, 20, kind.title()));
         }
+        for (int i = 0; i < 3; i++) self.addButton(new GuiNpcButton(105 + i, self.guiLeft + 285,
+                self.guiTop + 10 + 22 * i, 100, 20, "cnpcplus.station." + bin.cnpcplus.station.StationRecipes.KINDS[i]));
     }
 
     @Inject(method = "func_146284_a", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$openRecipeMenu(GuiButton button, CallbackInfo ci) {
+        if (button.id >= 105 && button.id <= 107) {
+            CraftingViewNetwork.CHANNEL.sendToServer(new bin.cnpcplus.station.StationPacket(0, button.id - 105, -1, new NBTTagCompound()));
+            ci.cancel(); return;
+        }
         if (button.id < 102 || button.id > 104) return;
         CraftingViewNetwork.CHANNEL.sendToServer(new PacketRecipeAction(PacketRecipeAction.OPEN,
                 CraftKind.values()[button.id - 102], -1, new NBTTagCompound()));

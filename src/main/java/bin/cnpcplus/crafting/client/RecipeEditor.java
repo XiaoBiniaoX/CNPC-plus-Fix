@@ -96,6 +96,7 @@ public final class RecipeEditor extends GuiContainerNPCInterface2 implements ICu
         this.addButton(new GuiNpcButton(1, this.guiLeft + 306, this.guiTop + 12, 84, 20, "gui.add"));
         this.addButton(new GuiNpcButton(2, this.guiLeft + 306, this.guiTop + 34, 84, 20, "gui.remove"));
         this.addButton(new GuiNpcButton(3, this.guiLeft + 306, this.guiTop + 56, 84, 20, "gui.save"));
+        this.addButton(new GuiNpcButton(10, this.guiLeft + 306, this.guiTop + 144, 104, 20, "availability.options"));
         int nx = container.kind == CraftKind.DROP ? 112 : container.kind == CraftKind.SMITHING ? 118 : 142;
         int ny = container.kind == CraftKind.DROP ? 59 : container.kind == CraftKind.SMITHING ? 47 : 53;
         this.addButton(new GuiIconToggleButton(4, this.guiLeft + nx, this.guiTop + ny, 18, 18,
@@ -162,6 +163,7 @@ public final class RecipeEditor extends GuiContainerNPCInterface2 implements ICu
                 break;
             case 8: edit.dimension = ""; edit.bindPosition = false; break;
             case 9: edit.sound = ""; this.initGui(); break;
+            case 10: this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(edit.availability)); break;
             default: break;
         }
     }

@@ -15,11 +15,14 @@ import org.spongepowered.asm.mixin.injection.callback.*;
 @Mixin(value = ScriptContainer.class, remap = false)
 public abstract class MixinScriptContainerDiagnostic {
     @Shadow @Final private static HashMap<String, Object> Data;
+    @Inject(method = "<clinit>", at = @At("TAIL"), require = 1)
+    private static void cnpcplus$logBinding(CallbackInfo ci) { Data.put("CNPCPlusLog", bin.cnpcplus.CnpcPlus.LOGGER); }
     @Inject(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At("HEAD"), require = 1)
     private void cnpcplus$observeHook(String type, Object event, CallbackInfo ci) { ScriptHooks.observe((ScriptContainer) (Object) this, type, event); }
     @Redirect(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At(value = "INVOKE", target = "Ljava/lang/Throwable;printStackTrace(Ljava/io/PrintWriter;)V"), require = 1)
     private void cnpcplus$captureError(Throwable error, PrintWriter writer) {
         ScriptDiagnostics.capture((ScriptContainer) (Object) this, error);
+        bin.cnpcplus.CnpcPlus.LOGGER.error("[script] execution failed", error);
         error.printStackTrace(writer);
     }
     @Inject(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At("RETURN"), require = 1)

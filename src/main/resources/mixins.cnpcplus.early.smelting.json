@@ -9,7 +9,11 @@
     "MixinTileEntityFurnaceSmelting",
     "MixinTileEntityFurnaceBurnContext",
     "MixinSlotFurnaceFuelSmelting",
-    "MixinSlotFurnaceOutputSmelting"
+    "MixinSlotFurnaceOutputSmelting",
+    "MixinContainerRecipeTakeGate",
+    "MixinBrewingRecipes",
+    "MixinBrewingPotionSlot",
+    "MixinBrewingIngredientSlot"
   ],
   "client": [],
   "server": [],

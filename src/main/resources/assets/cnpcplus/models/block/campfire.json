@@ -1,0 +1,7 @@
+{
+  "parent": "cnpcplus:block/template_campfire",
+  "textures": {
+    "fire": "cnpcplus:blocks/campfire_fire",
+    "lit_log": "cnpcplus:blocks/campfire_log_lit"
+  }
+}

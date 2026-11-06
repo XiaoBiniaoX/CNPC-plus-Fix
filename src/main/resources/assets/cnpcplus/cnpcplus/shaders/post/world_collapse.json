@@ -1,0 +1,104 @@
+{
+  "type": "POST",
+  "description": "World-anchored singularity, nonlinear pull, RGB tearing, particle mask, full-frame contraction and release",
+  "shaderResource": "cnpcplus:shaders/post/advanced_screen.json",
+  "remote": true,
+  "defaultDuration": 260,
+  "supportsLoop": false,
+  "supportsMultipleInstances": false,
+  "priority": 200,
+  "uniforms": [
+    {
+      "name": "WorldPosition",
+      "type": "vec3",
+      "default": [
+        0,
+        64,
+        0
+      ],
+      "min": -30000000,
+      "max": 30000000
+    },
+    {
+      "name": "ScreenCenter",
+      "type": "vec2",
+      "default": [
+        0.5,
+        0.5
+      ],
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Color",
+      "type": "vec3",
+      "default": [
+        0.6,
+        0.15,
+        1
+      ],
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Radius",
+      "type": "float",
+      "default": 0.5,
+      "min": 0.05,
+      "max": 2
+    },
+    {
+      "name": "Distortion",
+      "type": "float",
+      "default": 1.5,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Dispersion",
+      "type": "float",
+      "default": 1.6,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Progress",
+      "type": "float",
+      "default": 0,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Intensity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Opacity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "Mode",
+      "type": "int",
+      "default": 3,
+      "min": 0,
+      "max": 3
+    }
+  ],
+  "samplers": [
+    {
+      "name": "DiffuseSampler",
+      "default": "minecraft:main"
+    }
+  ]
+}

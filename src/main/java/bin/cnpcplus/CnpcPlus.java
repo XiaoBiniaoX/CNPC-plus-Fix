@@ -24,13 +24,15 @@ import org.apache.logging.log4j.Logger;
 public class CnpcPlus {
     public static final String MODID = "cnpcplus";
     public static final String NAME = "CNPCPlus";
-    public static final String VERSION = "4.0.6";
+    public static final String VERSION = "4.1.0";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
         CnpcPlusConfig.init(event.getSuggestedConfigurationFile());
         CraftingViewNetwork.init();
+        net.minecraftforge.fml.common.registry.GameRegistry.registerTileEntity(bin.cnpcplus.station.CampfireTile.class,
+                new net.minecraft.util.ResourceLocation(MODID, "campfire"));
     }
 
     @Mod.EventHandler
@@ -45,6 +47,7 @@ public class CnpcPlus {
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.crafting.network.PacketRecipeUpload.class);
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.transport.TransportImages.class);
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.respawn.RespawnClock.class);
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.shader.ShaderController.class);
         SmeltingGuiOpener.register();
     }
 
@@ -54,12 +57,14 @@ public class CnpcPlus {
         SmeltingRecipeRegistry.clearCache();
         bin.cnpcplus.fx.FxEngine.clear();
         bin.cnpcplus.crafting.RecipeStore.clear();
+        bin.cnpcplus.station.StationRecipes.clear();
         bin.cnpcplus.crafting.DropCrafting.clear();
         bin.cnpcplus.crafting.network.PacketRecipeUpload.clear();
         bin.cnpcplus.data.NpcExternalData.clear();
         bin.cnpcplus.villagertrade.TradeStore.clear();
         bin.cnpcplus.transport.TransportImages.clear();
         bin.cnpcplus.respawn.RespawnClock.clear();
+        bin.cnpcplus.shader.ShaderController.stopServer();
     }
 
     @Mod.EventHandler
@@ -68,6 +73,7 @@ public class CnpcPlus {
         // Only now is CustomNpcs.Dir usable and vanilla recipe registration done.
         SmeltingRecipeRegistry.markReady();
         bin.cnpcplus.crafting.RecipeStore.start();
+        bin.cnpcplus.station.StationRecipes.start();
         event.registerServerCommand(new CommandCnpcPlus());
     }
 }

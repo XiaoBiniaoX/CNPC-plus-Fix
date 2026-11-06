@@ -14,11 +14,14 @@ public abstract class MixinDataDisplayHitbox {
     @Inject(method = "readToNBT", at = @At("HEAD"), require = 1)
     private void cnpcplus$read(NBTTagCompound tag, CallbackInfo ci) {
         NpcHitboxStore.put((DataDisplay) (Object) this, NpcHitboxStore.Settings.read(tag));
+        float shadow = tag.hasKey("CNPCPlusShadowScale", 99) ? tag.getFloat("CNPCPlusShadowScale") : 1;
+        NpcHitboxStore.shadow((DataDisplay)(Object)this, Float.isFinite(shadow) ? Math.max(0, Math.min(1, shadow)) : 1);
         NpcHitboxStore.solid((DataDisplay) (Object) this, tag.getByte("IsStatue") == 2);
     }
     @Inject(method = "writeToNBT", at = @At("RETURN"), require = 1)
     private void cnpcplus$write(NBTTagCompound tag, CallbackInfoReturnable<NBTTagCompound> cir) {
         NpcHitboxStore.get((DataDisplay) (Object) this).write(cir.getReturnValue());
+        cir.getReturnValue().setFloat("CNPCPlusShadowScale", NpcHitboxStore.shadow((DataDisplay)(Object)this));
         cir.getReturnValue().setByte("IsStatue", (byte) NpcHitboxStore.mode((DataDisplay) (Object) this));
     }
     @Inject(method = "getHasHitbox", at = @At("HEAD"), cancellable = true, require = 1)

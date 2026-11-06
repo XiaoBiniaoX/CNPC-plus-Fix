@@ -1,0 +1,69 @@
+{
+  "type": "POST",
+  "description": "Irregular screen-space Voronoi cracks with independent shard displacement and alien fissures",
+  "shaderResource": "cnpcplus:shaders/post/advanced_screen.json",
+  "remote": true,
+  "defaultDuration": 400,
+  "supportsLoop": true,
+  "supportsMultipleInstances": false,
+  "priority": 100,
+  "uniforms": [
+    {
+      "name": "Color",
+      "type": "vec3",
+      "default": [
+        0.6,
+        0.08,
+        1
+      ],
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Distortion",
+      "type": "float",
+      "default": 1.5,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Dispersion",
+      "type": "float",
+      "default": 0.7,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Intensity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Opacity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "Mode",
+      "type": "int",
+      "default": 1,
+      "min": 0,
+      "max": 3
+    }
+  ],
+  "samplers": [
+    {
+      "name": "DiffuseSampler",
+      "default": "minecraft:main"
+    }
+  ]
+}

@@ -19,7 +19,7 @@ public final class KnockbackResistanceUtil {
             float resistance = ((EntityNPCInterface) target).stats.resistances.knockback;
             if (Float.isFinite(resistance)) {
                 // CNPC stores 0% as 1, 100% as 2, and negative resistance below 1.
-                knockback *= Math.max(0.0D, Math.min(2.0D, 2.0D - resistance));
+                knockback *= Math.max(0.0D, 2.0D - resistance);
             }
         }
         IAttributeInstance attribute = living.getEntityAttribute(SharedMonsterAttributes.KNOCKBACK_RESISTANCE);

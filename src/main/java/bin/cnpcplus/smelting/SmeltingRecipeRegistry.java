@@ -39,6 +39,7 @@ public final class SmeltingRecipeRegistry {
     private static Map<Integer, SmeltingRecipeData> cache;
     private static int nextId = 1;
     private static boolean ready;
+    private static boolean failed;
 
     /**
      * Disk writes run here, off the server thread.
@@ -138,6 +139,7 @@ public final class SmeltingRecipeRegistry {
             cache = null;
             nextId = 1;
             ready = false;
+            failed = false;
         }
     }
 
@@ -181,6 +183,7 @@ public final class SmeltingRecipeRegistry {
                 return null;
             }
             Map<Integer, SmeltingRecipeData> map = ensure();
+            if (failed) return null;
             if (map.size() >= MAX_RECIPES) {
                 CnpcPlus.LOGGER.warn("[Smelting] recipe limit {} reached, refusing new recipe", MAX_RECIPES);
                 return null;
@@ -201,6 +204,7 @@ public final class SmeltingRecipeRegistry {
                 return false;
             }
             Map<Integer, SmeltingRecipeData> map = ensure();
+            if (failed) return false;
             // Never silently create on update: an unknown id means a stale client.
             if (!map.containsKey(Integer.valueOf(data.id))) {
                 return false;
@@ -216,7 +220,8 @@ public final class SmeltingRecipeRegistry {
             if (!ready) {
                 return false;
             }
-            if (ensure().remove(Integer.valueOf(id)) == null) {
+            Map<Integer, SmeltingRecipeData> map = ensure();
+            if (failed || map.remove(Integer.valueOf(id)) == null) {
                 return false;
             }
             writeDisk();
@@ -250,6 +255,7 @@ public final class SmeltingRecipeRegistry {
                 map.put(Integer.valueOf(data.id), data);
             }
         } catch (Exception e) {
+            failed = true;
             CnpcPlus.LOGGER.error("[Smelting] failed to read " + FILE_NAME, e);
         }
         return map;

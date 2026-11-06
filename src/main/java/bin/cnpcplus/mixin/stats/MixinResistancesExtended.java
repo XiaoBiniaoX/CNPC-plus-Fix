@@ -1,6 +1,7 @@
 package bin.cnpcplus.mixin.stats;
 
 import bin.cnpcplus.common.IResistanceExtendedAccess;
+import bin.cnpcplus.stats.DamageResistanceTable;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.DamageSource;
 import noppes.npcs.Resistances;
@@ -23,14 +24,14 @@ public abstract class MixinResistancesExtended implements IResistanceExtendedAcc
     @Inject(method = "writeToNBT", at = @At("RETURN"))
     private void cnpcplus$onWriteToNBT(CallbackInfoReturnable<NBTTagCompound> cir) {
         NBTTagCompound compound = cir.getReturnValue();
-        compound.setFloat("CNPCPlusGenericDamage", cnpcplus$genericDamage);
-        compound.setFloat("CNPCPlusMagicDamage", cnpcplus$magicDamage);
+        DamageResistanceTable.write((Resistances)(Object)this, compound);
     }
 
     @Inject(method = "readToNBT", at = @At("TAIL"))
     private void cnpcplus$onReadToNBT(NBTTagCompound compound, CallbackInfo ci) {
         cnpcplus$genericDamage = cnpcplus$valid(compound.hasKey("CNPCPlusGenericDamage", 99) ? compound.getFloat("CNPCPlusGenericDamage") : 1.0f);
         cnpcplus$magicDamage = cnpcplus$valid(compound.hasKey("CNPCPlusMagicDamage", 99) ? compound.getFloat("CNPCPlusMagicDamage") : 1.0f);
+        DamageResistanceTable.read((Resistances)(Object)this, compound);
     }
 
     @Inject(method = "applyResistance", at = @At("HEAD"), cancellable = true)
@@ -38,34 +39,32 @@ public abstract class MixinResistancesExtended implements IResistanceExtendedAcc
         if (source == null || !Float.isFinite(damage)) {
             return;
         }
-        String type = source.damageType;
-        if ("generic".equals(type) || "cramming".equals(type) || "anvil".equals(type) || "cactus".equals(type)) {
-            cir.setReturnValue(damage * (2.0f - cnpcplus$genericDamage));
-            return;
-        }
-        if ("indirectMagic".equals(type) || "thorns".equals(type) || "magic".equals(type) || "lightningBolt".equals(type) || "genericKill".equals(type)) {
-            cir.setReturnValue(damage * (2.0f - cnpcplus$magicDamage));
-        }
+        int index = DamageResistanceTable.source(source);
+        float percent = index >= 0 ? DamageResistanceTable.values((Resistances)(Object)this)[index]
+                : "genericKill".equals(source.damageType) ? DamageResistanceTable.get((Resistances)(Object)this, "magic") : 0;
+        cir.setReturnValue(Math.max(0, damage * (1 - percent / 100)));
     }
 
     @Override
     public float cnpcplus$getGenericDamage() {
-        return cnpcplus$genericDamage;
+        return 1 + DamageResistanceTable.get((Resistances)(Object)this, "generic") / 100;
     }
 
     @Override
     public void cnpcplus$setGenericDamage(float value) {
         cnpcplus$genericDamage = cnpcplus$valid(value);
+        for (String type : new String[]{"generic", "cramming", "falling_anvil", "cactus"}) DamageResistanceTable.set((Resistances)(Object)this, type, (cnpcplus$genericDamage - 1) * 100);
     }
 
     @Override
     public float cnpcplus$getMagicDamage() {
-        return cnpcplus$magicDamage;
+        return 1 + DamageResistanceTable.get((Resistances)(Object)this, "magic") / 100;
     }
 
     @Override
     public void cnpcplus$setMagicDamage(float value) {
         cnpcplus$magicDamage = cnpcplus$valid(value);
+        for (String type : new String[]{"indirect_magic", "thorns", "magic", "lightning_bolt"}) DamageResistanceTable.set((Resistances)(Object)this, type, (cnpcplus$magicDamage - 1) * 100);
     }
 
     @Unique

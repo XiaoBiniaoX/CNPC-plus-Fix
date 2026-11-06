@@ -33,10 +33,12 @@ public abstract class MixinContainerRepairRecipes extends Container implements I
     @Unique private boolean cnpcplus$customRecipe, cnpcplus$takingRecipe;
     @Unique private CustomRecipe cnpcplus$matched;
     @Unique private int cnpcplus$lastCost = Integer.MIN_VALUE, cnpcplus$lastMode = -1;
+    @Unique private EntityPlayer cnpcplus$operator;
 
     @Inject(method = "<init>(Lnet/minecraft/entity/player/InventoryPlayer;Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/entity/player/EntityPlayer;)V", at = @At("RETURN"), require = 1)
     private void cnpcplus$installResultSlot(InventoryPlayer inventory, World world, BlockPos pos, EntityPlayer player, CallbackInfo ci) {
         ContainerRepair self = (ContainerRepair) (Object) this;
+        cnpcplus$operator = player;
         Slot slot = self.inventorySlots.get(2);
         self.inventorySlots.set(2, new AnvilResultSlot(self, slot, world, pos));
     }
@@ -50,6 +52,7 @@ public abstract class MixinContainerRepairRecipes extends Container implements I
         ItemStack left = inputSlots.getStackInSlot(0), right = inputSlots.getStackInSlot(1);
         if (left.isEmpty() || right.isEmpty()) return;
         for (CustomRecipe recipe : RecipeStore.list(CraftKind.ANVIL)) {
+            if (!bin.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, cnpcplus$operator)) continue;
             if (!CustomRecipe.matches(left, recipe.inputs[0], recipe.nameOnly)
                     || !CustomRecipe.matches(right, recipe.inputs[1], recipe.nameOnly)) continue;
             // 配方写了数量就必须凑够；否则 4 个铁锭的配方会被 1 个铁锭顶掉。

@@ -15,6 +15,7 @@ public final class NpcHitboxStore {
     public static final Settings AUTO = new Settings(0, 0, 0);
     private static final Map<DataDisplay, Settings> VALUES = new WeakHashMap<>();
     private static final Map<DataDisplay, Boolean> SOLID = new WeakHashMap<>();
+    private static final Map<DataDisplay, Float> SHADOW = new WeakHashMap<>();
     private static final Map<EntityNPCInterface, float[]> DIMENSIONS = new WeakHashMap<>();
     private NpcHitboxStore() { }
 
@@ -36,6 +37,8 @@ public final class NpcHitboxStore {
         }
     }
     public static Settings get(DataDisplay display) { return VALUES.getOrDefault(display, AUTO); }
+    public static float shadow(DataDisplay display) { return SHADOW.getOrDefault(display, 1f); }
+    public static void shadow(DataDisplay display, float value) { SHADOW.put(display, value); }
     public static void put(DataDisplay display, Settings settings) { VALUES.put(display, settings); }
     public static boolean isSolid(DataDisplay display) { return SOLID.containsKey(display); }
     public static int mode(DataDisplay display) { return isSolid(display) ? 2 : display.getHasHitbox() ? 0 : 1; }

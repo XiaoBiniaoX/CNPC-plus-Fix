@@ -73,7 +73,20 @@ public final class SmeltingFuelRules {
         if (furnace == null) {
             return null;
         }
-        return findByInput(furnace.getStackInSlot(SLOT_INPUT));
+        ItemStack input = furnace.getStackInSlot(SLOT_INPUT);
+        for (SmeltingRecipeData data : SmeltingRecipeRegistry.list()) {
+            if (data.output.isEmpty() || !(data.nameOnly ? nameMatches(input, data.input) : stackMatches(input, data.input))) continue;
+            if (furnace.getWorld().isRemote || bin.cnpcplus.craftingview.RecipeAvailability.allows(data.availability,
+                    bin.cnpcplus.craftingview.RecipeAvailability.operator(furnace))) return data;
+        }
+        return null;
+    }
+
+    public static ItemStack result(TileEntityFurnace furnace, ItemStack input) {
+        SmeltingRecipeData data = findForFurnace(furnace);
+        if (data != null) return data.output.copy();
+        if (findByInput(input) != null) return ItemStack.EMPTY;
+        return net.minecraft.item.crafting.FurnaceRecipes.instance().getSmeltingResult(input);
     }
 
     /**

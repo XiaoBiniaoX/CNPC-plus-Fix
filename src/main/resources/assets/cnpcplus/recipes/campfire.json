@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [" S ", "SCS", "LLL"],
+  "key": {
+    "S": {"item": "minecraft:stick"},
+    "C": {"item": "minecraft:coal", "data": 32767},
+    "L": {"type": "forge:ore_dict", "ore": "logWood"}
+  },
+  "result": {"item": "cnpcplus:campfire"}
+}

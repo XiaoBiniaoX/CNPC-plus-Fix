@@ -103,6 +103,7 @@ public final class ScriptApiCompletion {
         if (context.equals("BlockEvent") || context.equals("BlockDoorEvent"))
             roots.put(eventName + ".block", load(API + "block." + (context.equals("BlockDoorEvent") ? "IBlockScriptedDoor" : "IBlockScripted")));
         roots.put("PosZero", load(API + "IPos"));
+        roots.put("CNPCPlusLog", org.apache.logging.log4j.Logger.class);
         for (String name : new String[]{"AnimationType", "EntityType", "RoleType", "JobType", "SideType", "TacticalType", "ParticleType"}) roots.put(name, load(API + "constants." + name));
         // ponytail: local declarations and API chains, not a JS type checker. Unknown/dynamic values stay unknown.
         m = ASSIGN.matcher(code.substring(scope, Math.max(scope, Math.min(cursor, code.length()))));
@@ -173,6 +174,8 @@ public final class ScriptApiCompletion {
             case "IItemStack": wrapper = "ItemStackWrapper"; break;
             case "INbt": wrapper = "NBTWrapper"; break;
             case "IPos": wrapper = "BlockPosWrapper"; break;
+            case "INPCDisplay": return load("noppes.npcs.entity.data.DataDisplay");
+            case "INPCStats": return load("noppes.npcs.entity.data.DataStats");
             default: wrapper = owner.getSimpleName().substring(1) + "Wrapper";
         }
         Class<?> runtime = load(API + "wrapper." + wrapper);

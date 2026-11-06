@@ -29,7 +29,8 @@ public final class SmithingContainer extends Container {
         for (int i = 0; i < 3; i++) addSlotToContainer(new Slot(input, i, 8 + i * 18, 48));
         addSlotToContainer(new Slot(output, 0, 98, 48) {
             @Override public boolean isItemValid(ItemStack stack) { return false; }
-            @Override public boolean canTakeStack(EntityPlayer player) { return getHasStack(); }
+            @Override public boolean canTakeStack(EntityPlayer player) { return getHasStack() && (world.isRemote || matched != null
+                    && bin.cnpcplus.craftingview.RecipeAvailability.allows(matched.availability, player)); }
             @Override public ItemStack onTake(EntityPlayer player, ItemStack stack) {
                 if (!world.isRemote) {
                     taking = true;
@@ -59,6 +60,7 @@ public final class SmithingContainer extends Container {
         ItemStack result = ItemStack.EMPTY;
         matched = null;
         for (CustomRecipe recipe : RecipeStore.list(CraftKind.SMITHING)) {
+            if (!bin.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, owner)) continue;
             boolean matches = true;
             for (int i = 0; i < 3; i++) {
                 matches &= CustomRecipe.matches(input.getStackInSlot(i), recipe.inputs[i], recipe.nameOnly);
@@ -118,6 +120,7 @@ public final class SmithingContainer extends Container {
         ItemStack original = slot.getStack().copy();
         ItemStack stack = slot.getStack();
         if (index == 3) {
+            if (!slot.canTakeStack(player)) return ItemStack.EMPTY;
             int space = 0;
             for (int i = 4; i < inventorySlots.size(); i++) {
                 Slot target = inventorySlots.get(i);

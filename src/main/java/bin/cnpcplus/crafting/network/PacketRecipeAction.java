@@ -46,7 +46,12 @@ public final class PacketRecipeAction implements IMessage {
                 case SELECT: container.select(RecipeStore.get(kind, id)); break;
                 case SAVE:
                     if (id != container.recipe.id) return;
-                    CustomRecipe recipe = CustomRecipe.fromNBT(kind, message.data);
+                    CustomRecipe recipe;
+                    try { recipe = CustomRecipe.fromNBT(kind, message.data); }
+                    catch (IllegalArgumentException error) {
+                        bin.cnpcplus.CnpcPlus.LOGGER.warn("Rejected invalid {} recipe from {}", kind.id, player.getName(), error);
+                        return;
+                    }
                     container.readSlots(recipe);
                     if (recipe.name.trim().isEmpty()) recipe.name = "new";
                     CustomRecipe saved = RecipeStore.save(recipe);

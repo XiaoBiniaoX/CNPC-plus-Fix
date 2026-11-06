@@ -51,6 +51,16 @@ public final class SmeltingGuiOpener implements IGuiHandler {
         player.openGui(getMod(), 75, player.world, pos.getX(), pos.getY(), pos.getZ());
     }
 
+    public static void openStation(EntityPlayerMP player, int kind) {
+        player.openGui(getMod(), 78 + kind, player.world, 0, 0, 0);
+        if (player.openContainer instanceof bin.cnpcplus.station.StationContainer)
+            bin.cnpcplus.station.StationPacket.sync(player, (bin.cnpcplus.station.StationContainer)player.openContainer, "", 0);
+    }
+
+    public static void openGrindstone(EntityPlayerMP player, net.minecraft.util.math.BlockPos pos) {
+        player.openGui(getMod(), 81, player.world, pos.getX(), pos.getY(), pos.getZ());
+    }
+
     public static void openVillager(EntityPlayerMP player, noppes.npcs.entity.EntityNPCInterface npc, boolean editing) {
         player.openGui(getMod(), editing ? 77 : 76, player.world, npc.getEntityId(), 0, 0);
         if (player.openContainer instanceof bin.cnpcplus.villagertrade.VillagerContainer) {
@@ -60,6 +70,8 @@ public final class SmeltingGuiOpener implements IGuiHandler {
 
     @Override
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
+        if (id >= 78 && id <= 80 && SmeltingPermissions.canEdit(player)) return new bin.cnpcplus.station.StationContainer(player, id - 78);
+        if (id == 81) return new bin.cnpcplus.station.GrindstoneContainer(player, new net.minecraft.util.math.BlockPos(x, y, z));
         if ((id == 76 || id == 77) && player instanceof EntityPlayerMP) {
             net.minecraft.entity.Entity entity = world.getEntityByID(x);
             if (!(entity instanceof noppes.npcs.entity.EntityNPCInterface)) return null;
@@ -86,6 +98,8 @@ public final class SmeltingGuiOpener implements IGuiHandler {
     @Override
     @SideOnly(Side.CLIENT)
     public Object getClientGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
+        if (id >= 78 && id <= 80) return new bin.cnpcplus.station.StationScreen(new bin.cnpcplus.station.StationContainer(player, id - 78));
+        if (id == 81) return new bin.cnpcplus.station.GrindstoneScreen(new bin.cnpcplus.station.GrindstoneContainer(player, new net.minecraft.util.math.BlockPos(x, y, z)));
         if ((id == 76 || id == 77) && player != null) {
             net.minecraft.entity.Entity entity = world.getEntityByID(x);
             return new bin.cnpcplus.villagertrade.client.VillagerScreen(new bin.cnpcplus.villagertrade.VillagerContainer(player,

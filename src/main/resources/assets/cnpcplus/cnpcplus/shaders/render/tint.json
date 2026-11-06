@@ -1,0 +1,45 @@
+{
+  "type": "RENDER",
+  "description": "Object-local tint with animated pulse",
+  "shaderResource": "cnpcplus:tint_entity",
+  "blockShaderResource": "cnpcplus:tint_block",
+  "remote": true,
+  "defaultDuration": 200,
+  "supportsLoop": true,
+  "supportsMultipleInstances": false,
+  "priority": 0,
+  "uniforms": [
+    {
+      "name": "Tint",
+      "type": "vec4",
+      "default": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Opacity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "Pulse",
+      "type": "float",
+      "default": 0,
+      "min": 0,
+      "max": 1
+    }
+  ],
+  "samplers": []
+}

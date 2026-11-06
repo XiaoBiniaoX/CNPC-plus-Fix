@@ -37,7 +37,7 @@ public class CnpcPlusEarlyMixinLoader implements IFMLLoadingPlugin, IEarlyMixinL
         // GuiScreen is touched by another coremod's early mixin during mod construction,
         // so a DEFAULT-phase config targeting it dies with MixinTargetAlreadyLoadedException.
         // The wheel forwarder must therefore live in the early phase.
-        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json", "mixins.cnpcplus.early.ai.json", "mixins.cnpcplus.early.crafting.json", "mixins.cnpcplus.early.gui.json");
+        return Arrays.asList("mixins.cnpcplus.early.json", "mixins.cnpcplus.early.animation.json", "mixins.cnpcplus.early.bard.json", "mixins.cnpcplus.early.smelting.json", "mixins.cnpcplus.early.ai.json", "mixins.cnpcplus.early.crafting.json", "mixins.cnpcplus.early.gui.json", "mixins.cnpcplus.early.shader.json");
     }
 
     @Override

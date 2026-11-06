@@ -25,9 +25,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class MixinTileEntityFurnaceSmelting {
     @Inject(method = "getCookTime", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$customCookTime(ItemStack stack, CallbackInfoReturnable<Integer> cir) {
-        SmeltingRecipeData data = SmeltingFuelRules.findByInput(stack);
+        SmeltingRecipeData data = SmeltingFuelRules.findForFurnace((TileEntityFurnace)(Object)this);
         if (data != null) {
             cir.setReturnValue(Integer.valueOf(Math.max(1, Math.round(data.cookTime))));
         }
+    }
+    @org.spongepowered.asm.mixin.injection.Redirect(method = {"canSmelt", "smeltItem"}, at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/item/crafting/FurnaceRecipes;getSmeltingResult(Lnet/minecraft/item/ItemStack;)Lnet/minecraft/item/ItemStack;"))
+    private ItemStack cnpcplus$availableResult(net.minecraft.item.crafting.FurnaceRecipes recipes, ItemStack input) {
+        return SmeltingFuelRules.result((TileEntityFurnace)(Object)this, input);
     }
 }

@@ -1,0 +1,150 @@
+{
+  "type": "POST",
+  "description": "World-space black hole with depth-tested scene lensing",
+  "shaderResource": "cnpcplus:shaders/post/black_hole.json",
+  "remote": true,
+  "defaultDuration": 400,
+  "supportsLoop": true,
+  "supportsMultipleInstances": false,
+  "priority": 100,
+  "uniforms": [
+    {
+      "name": "WorldPosition",
+      "type": "vec3",
+      "default": [
+        0,
+        64,
+        0
+      ],
+      "min": -30000000,
+      "max": 30000000
+    },
+    {
+      "name": "Radius",
+      "type": "float",
+      "default": 1.2,
+      "min": 0.01,
+      "max": 128
+    },
+    {
+      "name": "InfluenceRadius",
+      "type": "float",
+      "default": 6,
+      "min": 0.01,
+      "max": 512
+    },
+    {
+      "name": "Intensity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Distortion",
+      "type": "float",
+      "default": 0.8,
+      "min": 0,
+      "max": 4
+    },
+    {
+      "name": "Falloff",
+      "type": "float",
+      "default": 2,
+      "min": 0.1,
+      "max": 16
+    },
+    {
+      "name": "Rotation",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "DiskRadius",
+      "type": "float",
+      "default": 2.8,
+      "min": 0.01,
+      "max": 256
+    },
+    {
+      "name": "DiskWidth",
+      "type": "float",
+      "default": 0.65,
+      "min": 0.01,
+      "max": 128
+    },
+    {
+      "name": "DiskNormal",
+      "type": "vec3",
+      "default": [
+        0.25,
+        1,
+        0.35
+      ],
+      "min": -1,
+      "max": 1
+    },
+    {
+      "name": "DiskIntensity",
+      "type": "float",
+      "default": 1.5,
+      "min": 0,
+      "max": 16
+    },
+    {
+      "name": "DiskColor",
+      "type": "vec3",
+      "default": [
+        1,
+        0.45,
+        0.12
+      ],
+      "min": 0,
+      "max": 16
+    },
+    {
+      "name": "CoreColor",
+      "type": "vec3",
+      "default": [
+        0,
+        0,
+        0
+      ],
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Opacity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "LensStrength",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 4
+    }
+  ],
+  "samplers": [
+    {
+      "name": "DiffuseSampler",
+      "default": "minecraft:main"
+    },
+    {
+      "name": "DepthSampler",
+      "default": "minecraft:depth"
+    },
+    {
+      "name": "MaskSampler",
+      "default": "minecraft:textures/blocks/concrete_white.png"
+    }
+  ]
+}

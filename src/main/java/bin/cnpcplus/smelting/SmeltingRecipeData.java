@@ -32,6 +32,7 @@ public class SmeltingRecipeData {
     public boolean genericFuelAllowed = false;
     /** 仅名字检查：匹配时只比对物品ID+显示名称，跳过耐久/NBT（与 1.20.1 同语义同 NBT 键）。 */
     public boolean nameOnly = false;
+    public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public NBTTagCompound toNBT() {
         NBTTagCompound tag = new NBTTagCompound();
@@ -46,6 +47,7 @@ public class SmeltingRecipeData {
         tag.setBoolean("Smoker", this.smokerAllowed);
         tag.setBoolean("GenericFuel", this.genericFuelAllowed);
         tag.setBoolean("NameOnly", this.nameOnly);
+        tag.setTag("Availability", availability.writeToNBT(new NBTTagCompound()));
         return tag;
     }
 
@@ -65,6 +67,7 @@ public class SmeltingRecipeData {
         data.smokerAllowed = tag.getBoolean("Smoker");
         data.genericFuelAllowed = tag.getBoolean("GenericFuel");
         data.nameOnly = tag.getBoolean("NameOnly");
+        data.availability = bin.cnpcplus.craftingview.RecipeAvailability.read(tag.getCompoundTag("Availability"));
         return data;
     }
 

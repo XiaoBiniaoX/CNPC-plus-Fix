@@ -7,6 +7,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import noppes.npcs.client.renderer.RenderNPCInterface;
 import noppes.npcs.entity.EntityCustomNpc;
+import noppes.npcs.entity.EntityNPCInterface;
+import bin.cnpcplus.data.NpcHitboxStore;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -22,17 +24,19 @@ public class MixinRenderNPCShadow {
             remap = false)
     private void cnpcplus$useModelShadow(Entity entity, double x, double y, double z,
                                          float yaw, float partialTicks, CallbackInfo ci) {
-        if (!(entity instanceof EntityCustomNpc)) return;
-        EntityCustomNpc npc = (EntityCustomNpc) entity;
-        EntityLivingBase modelEntity = npc.modelData.getEntity(npc);
-        if (modelEntity == null) return;
-        Render<?> modelRenderer = Minecraft.getMinecraft().getRenderManager().getEntityRenderObject(modelEntity);
-        if (!(modelRenderer instanceof RenderLivingBase)) return;
+        if (!(entity instanceof EntityNPCInterface)) return;
+        EntityNPCInterface npc = (EntityNPCInterface) entity;
         try {
             Field shadow = Render.class.getDeclaredField("field_76989_e");
             shadow.setAccessible(true);
-            float radius = shadow.getFloat(modelRenderer) * npc.display.getSize() / 5.0F;
-            shadow.setFloat(this, radius);
+            // RenderNPCInterface resets its radius to NPC width before this call.
+            float radius = shadow.getFloat(this);
+            if (npc instanceof EntityCustomNpc) {
+                EntityLivingBase modelEntity = ((EntityCustomNpc)npc).modelData.getEntity(npc);
+                Render<?> modelRenderer = modelEntity == null ? null : Minecraft.getMinecraft().getRenderManager().getEntityRenderObject(modelEntity);
+                if (modelRenderer instanceof RenderLivingBase) radius = shadow.getFloat(modelRenderer) * npc.display.getSize() / 5.0F;
+            }
+            shadow.setFloat(this, radius * NpcHitboxStore.shadow(npc.display));
         } catch (ReflectiveOperationException ignored) {
         }
     }

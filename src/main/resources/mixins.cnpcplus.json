@@ -5,6 +5,9 @@
   "package": "bin.cnpcplus.mixin",
   "refmap": "refmap.cnpcplus.json",
   "mixins": [
+    "script.MixinEntityShaderApi",
+    "script.MixinItemShaderApi",
+    "script.MixinBlockShaderApi",
     "persist.MixinNbtJsonNumbers",
     "lifecycle.MixinNpcCollisionMode",
     "persist.MixinSoulstonePortableData",
@@ -36,9 +39,12 @@
     "recipe.MixinRecipeCarpentryOffset",
     "recipe.MixinContainerManageRecipesSave",
     "recipe.MixinContainerWorkbenchGate",
+    "recipe.MixinCarpentryRecipeTakeGate",
     "recipe.MixinNoppesUtilServerRecipes",
     "recipe.MixinPacketHandlerServerRecipes",
     "script.MixinScriptController",
+    "script.MixinDataDisplayScriptExtensions",
+    "script.MixinLivingPotionStringApi",
     "script.MixinScriptContainerDiagnostic",
     "script.MixinEntityWrapperParticles",
     "script.MixinBlockWrapperParticles",
@@ -81,6 +87,7 @@
     "stats.MixinEntityNPCRealArmor",
     "stats.MixinDataMeleeFloat",
     "stats.MixinResistancesExtended",
+    "stats.MixinDataStatsResistanceApi",
     "stats.MixinEntityNPCInterfaceStatsSync",
     "stats.MixinDataStatsHideDelay",
     "stats.MixinDataStatsDeathFx",
@@ -152,6 +159,7 @@
     "playerdata.MixinRoleTransporterUnlockSave"
   ],
   "client": [
+    "persist.MixinClientClonePreviewCopy",
     "text.MixinQuestLogPreview",
     "advanced.IGuiButtonOptions",
     "advanced.MixinGuiNpcAdvancedQuickSelect",

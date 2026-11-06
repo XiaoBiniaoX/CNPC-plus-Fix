@@ -1,0 +1,48 @@
+{
+  "type": "POST",
+  "description": "Six-fold polar mirrored scene with rotating chromatic edges",
+  "shaderResource": "cnpcplus:shaders/post/collection_screen.json",
+  "remote": true,
+  "defaultDuration": 300,
+  "supportsLoop": true,
+  "supportsMultipleInstances": true,
+  "priority": 110,
+  "uniforms": [
+    {
+      "name": "Intensity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Opacity",
+      "type": "float",
+      "default": 1,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "default": 0
+    },
+    {
+      "name": "Mode",
+      "type": "int",
+      "default": 2,
+      "min": 0,
+      "max": 14
+    }
+  ],
+  "samplers": [
+    {
+      "name": "DiffuseSampler",
+      "default": "minecraft:main"
+    },
+    {
+      "name": "DepthSampler",
+      "default": "minecraft:depth"
+    }
+  ]
+}

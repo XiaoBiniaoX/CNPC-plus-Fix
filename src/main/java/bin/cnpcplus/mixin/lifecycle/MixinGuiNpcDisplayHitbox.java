@@ -26,6 +26,10 @@ public abstract class MixinGuiNpcDisplayHitbox extends GuiNPCInterface2 {
         addButton(new GuiNpcButton(13, guiLeft + 208, button.y, 65, 20,
                 new String[]{"gui.yes", "gui.no", "cnpcplus.hitbox.solid"}, NpcHitboxStore.mode(npc.display)));
         addLabel(new GuiNpcLabel(13, "display.interactable", guiLeft + 171, button.y + 5));
+        int y = button.y + 23;
+        addLabel(new GuiNpcLabel(430, "cnpcplus.hitbox.shadow", guiLeft + 180, y + 5));
+        for (int i = 0; i <= 4; i++) addButton(new GuiNpcButton(430 + i, guiLeft + 230 + i * 36, y, 34, 20,
+                "cnpcplus.hitbox.shadow." + i, Math.abs(NpcHitboxStore.shadow(npc.display) - i * .25f) > .001f));
         if (!npc.display.getHasHitbox()) return;
         NpcHitboxStore.Settings box = NpcHitboxStore.get(npc.display);
         float[] values = {box.length, box.width, box.height};
@@ -51,6 +55,11 @@ public abstract class MixinGuiNpcDisplayHitbox extends GuiNPCInterface2 {
     }
     @Inject(method = "func_146284_a", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$toggle(GuiButton button, CallbackInfo ci) {
+        if (button.id >= 430 && button.id <= 434) {
+            GuiNpcTextField.unfocus(); NpcHitboxStore.shadow(npc.display, (button.id - 430) * .25f);
+            for (int i = 0; i <= 4; i++) getButton(430 + i).enabled = button.id != 430 + i;
+            ci.cancel(); return;
+        }
         if (button.id == 13) {
             GuiNpcTextField.unfocus();
             NpcHitboxStore.setMode(npc, ((GuiNpcButton) button).getValue());
@@ -59,8 +68,11 @@ public abstract class MixinGuiNpcDisplayHitbox extends GuiNPCInterface2 {
     }
     @Override public void drawScreen(int mx, int my, float partial) {
         super.drawScreen(mx, my, partial);
-        if (hasSubGui() || !npc.display.getHasHitbox()) return;
+        if (hasSubGui()) return;
         GuiButton button = getButton(13);
+        if (mx >= guiLeft + 230 && mx < guiLeft + 410 && my >= button.y + 23 && my < button.y + 43)
+            GuiUtils.drawHoveringText(Collections.singletonList(I18n.format("cnpcplus.hitbox.shadow.tooltip")), mx, my, width, height, 230, getFontRenderer());
+        if (!npc.display.getHasHitbox()) return;
         if (mx >= guiLeft + 277 && mx < guiLeft + 412 && my >= button.y && my < button.y + 20) {
             String[] axes = {"length", "width", "height"};
             int axis = (mx - guiLeft - 277) / 45;
