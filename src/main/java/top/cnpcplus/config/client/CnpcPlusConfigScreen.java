@@ -3,6 +3,7 @@ package top.cnpcplus.config.client;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -10,18 +11,21 @@ import net.minecraft.util.Mth;
 import top.cnpcplus.config.CnpcPlusConfigData;
 import top.cnpcplus.config.CnpcPlusServerConfig;
 import top.cnpcplus.config.NpcAiOptimizerConfig;
+import top.cnpcplus.config.NpcInteractionConfig;
 import top.cnpcplus.config.ServerConfigAccess;
 import top.cnpcplus.config.network.ConfigPacketHandler;
 import top.cnpcplus.config.network.PacketUpdateServerConfig;
+import top.cnpcplus.config.network.PacketNpcInteractionConfig;
 import top.cnpcplus.perf.Config;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Better_Modlist / Forge ConfigScreenFactory 用的客户端配置界面。
  * 客户端配置改完即生效；SERVER 配置通过 {@link PacketUpdateServerConfig}
- * 交给服务端做权限校验后写入 cnpcplus-server.toml，并立即被服务端逻辑热读取。
+ * 交给服务端做权限校验后写入对应配置文件，并立即被服务端逻辑热读取。
  */
 public class CnpcPlusConfigScreen extends Screen {
 
@@ -34,6 +38,8 @@ public class CnpcPlusConfigScreen extends Screen {
 
     private boolean serverEditable;
     private boolean serverRealArmor;
+    private boolean allowInvisibleInteraction;
+    private boolean interactionChanged;
     private EditBox serverTeleportRangeBox;
     private EditBox serverMaxHiredBox;
 
@@ -56,6 +62,15 @@ public class CnpcPlusConfigScreen extends Screen {
         rows.clear();
         scroll = 0;
 
+        serverEditable = minecraft != null && minecraft.level != null && minecraft.getConnection() != null;
+        interactionChanged = false;
+        allowInvisibleInteraction = ServerConfigAccess.bool(NpcInteractionConfig.ALLOW_INVISIBLE_NPC_INTERACTION, false);
+        addHeader(tr("cnpcplus.config.client.header.interaction"));
+        addServerBool(tr("cnpcplus.config.interaction.allowInvisibleNpc"), allowInvisibleInteraction, value -> {
+            allowInvisibleInteraction = value;
+            interactionChanged = true;
+        }).setTooltip(Tooltip.create(Component.translatable("cnpcplus.config.interaction.allowInvisibleNpc.tooltip")));
+
         addHeader(tr("cnpcplus.config.client.header.main"));
         addBool(tr("cnpcplus.config.client.main.craftingView"), CnpcPlusConfigData.CraftingViewEnabled);
         addBool(tr("cnpcplus.config.client.main.inventoryFaction"), CnpcPlusConfigData.InventoryFactionTab);
@@ -73,12 +88,12 @@ public class CnpcPlusConfigScreen extends Screen {
         addDouble(tr("cnpcplus.config.client.main.bardVolume"), CnpcPlusConfigData.BardVolume);
         addInt(tr("cnpcplus.config.client.main.bardWatchdog"), CnpcPlusConfigData.BardWatchdogSeconds);
 
-        serverEditable = minecraft != null && minecraft.level != null && minecraft.getConnection() != null;
         addHeader(tr(serverEditable
                 ? "cnpcplus.config.client.header.server"
                 : "cnpcplus.config.client.header.serverLocked"));
-        addServerBool(tr("cnpcplus.config.client.server.realArmor"),
-                ServerConfigAccess.bool(CnpcPlusServerConfig.RealArmorEnabled, false));
+        serverRealArmor = ServerConfigAccess.bool(CnpcPlusServerConfig.RealArmorEnabled, false);
+        addServerBool(tr("cnpcplus.config.client.server.realArmor"), serverRealArmor,
+                value -> serverRealArmor = value);
         serverTeleportRangeBox = addServerInt(tr("cnpcplus.config.client.server.followerRange"),
                 ServerConfigAccess.integer(CnpcPlusServerConfig.FollowerTeleportRange, 12));
         serverMaxHiredBox = addServerInt(tr("cnpcplus.config.client.server.maxHired"),
@@ -159,15 +174,17 @@ public class CnpcPlusConfigScreen extends Screen {
         addRenderableWidget(btn);
     }
 
-    private void addServerBool(String label, boolean initial) {
-        this.serverRealArmor = initial;
+    private Button addServerBool(String label, boolean initial, Consumer<Boolean> setter) {
+        boolean[] state = { initial };
         Button btn = Button.builder(Component.literal(initial ? "true" : "false"), b -> {
-            this.serverRealArmor = !this.serverRealArmor;
-            b.setMessage(Component.literal(this.serverRealArmor ? "true" : "false"));
+            state[0] = !state[0];
+            setter.accept(state[0]);
+            b.setMessage(Component.literal(state[0] ? "true" : "false"));
         }).bounds(0, 0, 56, 18).build();
         btn.active = this.serverEditable;
         rows.add(new Row(label, null, btn));
         addRenderableWidget(btn);
+        return btn;
     }
 
     private EditBox addServerInt(String label, int initial) {
@@ -186,6 +203,9 @@ public class CnpcPlusConfigScreen extends Screen {
         Config.apply();
         // 合成分类改完要重载分类缓存
         top.cnpcplus.craftingview.Config.reload();
+        if (serverEditable && interactionChanged) {
+            ConfigPacketHandler.CHANNEL.sendToServer(new PacketNpcInteractionConfig(allowInvisibleInteraction));
+        }
         saveServerConfig();
         saveAiOptimizerConfig();
     }

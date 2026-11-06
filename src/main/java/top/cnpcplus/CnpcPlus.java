@@ -6,6 +6,7 @@ import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.common.world.ForgeChunkManager;
 import top.cnpcplus.config.CnpcPlusServerConfig;
 import top.cnpcplus.config.NpcAiOptimizerConfig;
+import top.cnpcplus.config.NpcInteractionConfig;
 import top.cnpcplus.follower.network.FollowerPacketHandler;
 import top.cnpcplus.invpage.network.NpcInvPagePacketHandler;
 import top.cnpcplus.questtrigger.ModRegistry;
@@ -26,6 +27,7 @@ public class CnpcPlus {
         // 渲染优化配置（蓝图预览/轮廓缓存/阴影上限），独立文件避免与主配置撞车。
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, CnpcPlusServerConfig.getConfig(), "cnpcplus-server.toml");
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, NpcAiOptimizerConfig.SPEC, "cnpcplus-npcfix.toml");
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, NpcInteractionConfig.SPEC, "cnpcplus-interaction.toml");
         // Better_Modlist / Forge 标准配置界面扩展点：只在物理客户端注册；
         // ConfigScreenHandler 是 net.minecraftforge.client 类，专用服务器不加载。
         ForgeChunkManager.setForcedChunkLoadingCallback(MOD_ID, (level, helper) -> {});

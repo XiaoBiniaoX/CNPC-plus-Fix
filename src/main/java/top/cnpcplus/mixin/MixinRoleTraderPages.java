@@ -21,6 +21,8 @@ public class MixinRoleTraderPages {
     private void cnpcplus$writePages(CompoundTag nbttagcompound, CallbackInfoReturnable<CompoundTag> cir) {
         CompoundTag pages = TraderPager.toNBT((RoleTrader) (Object) this);
         if (pages != null) {
+            // Role data and container slots must use the same selected page.
+            nbttagcompound.putInt("TraderPage", TraderPager.getPage((RoleTrader) (Object) this));
             nbttagcompound.put("TraderPages", pages.getList("TraderPages", 10));
             if (pages.contains("PageTitles")) {
                 nbttagcompound.put("PageTitles", pages.get("PageTitles"));
@@ -34,5 +36,6 @@ public class MixinRoleTraderPages {
     @Inject(method = "readNBT", at = @At("RETURN"))
     private void cnpcplus$readPages(CompoundTag nbttagcompound, CallbackInfo ci) {
         TraderPager.fromNBT((RoleTrader) (Object) this, nbttagcompound);
+        TraderPager.switchPage((RoleTrader) (Object) this, nbttagcompound.getInt("TraderPage"));
     }
 }

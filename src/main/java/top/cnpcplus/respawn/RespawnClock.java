@@ -13,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
@@ -127,7 +126,7 @@ public final class RespawnClock extends SavedData {
     }
     @SubscribeEvent public static void tick(TickEvent.LevelTickEvent event) {
         if (event.phase == TickEvent.Phase.END && event.level instanceof ServerLevel level)
-            get(level).advance(level.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT));
+            get(level).advance(true);
     }
     @SubscribeEvent public static void stopped(ServerStoppedEvent event) { awaitDiskPending(); }
 }

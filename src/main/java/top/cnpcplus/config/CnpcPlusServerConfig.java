@@ -75,7 +75,7 @@ public class CnpcPlusServerConfig {
         builder.pop();
 
         builder.push("复活计时");
-        builder.comment("独立游戏时钟计时NPC复活（默认开启）。每运行tick累计，doDaylightCycle=false时暂停，",
+        builder.comment("独立游戏时钟计时NPC复活（默认开启）。每运行tick累计，与doDaylightCycle无关，",
                 "不受/time set、睡觉跳时或现实离线时间影响；卸载NPC在重新加载后由原生死亡tick判断复活，不强加载区块。",
                 "关闭恢复原生现实时间计时，切换只换算剩余时间；时钟快照安全异步写盘，实体操作仅在服务器线程。");
         IndependentRespawnClock = builder.define("IndependentRespawnClock", true);

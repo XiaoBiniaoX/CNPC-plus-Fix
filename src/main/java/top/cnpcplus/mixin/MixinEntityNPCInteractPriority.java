@@ -4,10 +4,13 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import noppes.npcs.entity.EntityNPCInterface;
+import noppes.npcs.entity.data.DataDisplay;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.config.NpcInteractionConfig;
 import top.cnpcplus.interact.InteractPriority;
 
 /**
@@ -51,6 +54,15 @@ import top.cnpcplus.interact.InteractPriority;
  */
 @Mixin(value = EntityNPCInterface.class, remap = false)
 public class MixinEntityNPCInteractPriority {
+
+    // Only bypass the interaction gate; rendering and AI keep the original visibility.
+    @Redirect(method = "m_6071_", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/entity/data/DataDisplay;isVisibleTo(Lnet/minecraft/world/entity/player/Player;)Z"),
+            remap = false)
+    private boolean cnpcplus$allowInvisibleInteraction(DataDisplay display, Player player) {
+        return display.isVisibleTo(player) || display.getVisible() == 1
+                && NpcInteractionConfig.ALLOW_INVISIBLE_NPC_INTERACTION.get();
+    }
 
     @Inject(method = "m_6071_", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$letItemWin(Player player, InteractionHand hand,

@@ -29,5 +29,7 @@ public final class ConfigPacketHandler {
         CHANNEL.registerMessage(1, PacketServerConfigSync.class,
                 PacketServerConfigSync::encode, PacketServerConfigSync::decode, PacketServerConfigSync::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(2, PacketNpcInteractionConfig.class,
+                PacketNpcInteractionConfig::encode, PacketNpcInteractionConfig::decode, PacketNpcInteractionConfig::handle);
     }
 }
