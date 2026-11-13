@@ -30,7 +30,19 @@ public final class FinalFeaturesRegression {
         public void setModel(String name) { throw new AssertionError("API invoked"); }
         public int mode;
     }
+    public interface StandaloneApi {
+        int cnpc$getComboCount();
+    }
+    public static final class GlobalApi {
+        static { if (System.nanoTime() != 0) throw new AssertionError("global API initialized"); }
+        public List<ReturnedApi> listRoutes() { throw new AssertionError("global API invoked"); }
+    }
     public static void main(String[] args) throws Exception {
+        if (args.length > 0 && args[0].equals("metadata")) {
+            metadata();
+            System.out.println("API_METADATA_REGRESSION=PASS");
+            return;
+        }
         Path output = Path.of(args.length == 0 ? "Temp/CNPCplus-final-20261101/feature-regression" : args[0]);
         Files.createDirectories(output);
         Path root = Files.createTempDirectory(output, "run-");
@@ -138,6 +150,12 @@ public final class FinalFeaturesRegression {
         check(hasLine(lines, "setModel", "Visual [visual]", true), "returned API object not documented");
         check(hasLine(lines, "addonField", "?", true), "unproven merged field mislabeled");
         check(hasLine(lines, "getName", "CustomNPCs [customnpcs]", false), "native API misclassified");
+        List<?> addons = (List<?>)docs.getMethod("index", List.class, java.util.Map.class, Function.class)
+                .invoke(null, List.of(StandaloneApi.class), java.util.Map.of("NpcPathfinding", GlobalApi.class), sources);
+        check(hasLine(addons, "NpcPathfinding : GlobalApi", "Visual [visual]", true), "registered global missing");
+        check(hasLine(addons, "listRoutes", "Visual [visual]", true), "global API methods missing");
+        check(hasLine(addons, "cnpc$getComboCount", "Visual [visual]", true), "standalone API or dollar method missing");
+        check(hasLine(addons, "setModel", "Visual [visual]", true), "generic returned API missing");
     }
     private static boolean hasLine(List<?> lines, String signature, String source, boolean extension) throws Exception {
         for (Object line : lines) if (((String)line.getClass().getMethod("signature").invoke(line)).startsWith(signature)
