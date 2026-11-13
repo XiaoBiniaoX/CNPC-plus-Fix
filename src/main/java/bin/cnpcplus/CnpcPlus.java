@@ -29,6 +29,7 @@ public class CnpcPlus {
 
     @Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
+        bin.cnpcplus.script.ScriptApiDocs.discover(event.getAsmData());
         CnpcPlusConfig.init(event.getSuggestedConfigurationFile());
         CraftingViewNetwork.init();
         net.minecraftforge.fml.common.registry.GameRegistry.registerTileEntity(bin.cnpcplus.station.CampfireTile.class,

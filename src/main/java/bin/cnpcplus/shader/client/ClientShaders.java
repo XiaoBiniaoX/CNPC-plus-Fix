@@ -99,6 +99,8 @@ public final class ClientShaders {
         Set<ResourceLocation> discovered = new LinkedHashSet<>();
         for (FallbackResourceManager domain : ((ResourceManagerAccess)resources).cnpcplus$domains().values()) for (IResourcePack pack : ((FallbackManagerAccess)domain).cnpcplus$packs()) {
             if (!(pack instanceof AbstractResourcePack)) continue; File file = ((ResourcePackAccess)pack).cnpcplus$file();
+            // Virtual packs may have no disk file; built-ins still resolve through the resource manager below.
+            if (file == null) continue;
             try {
                 if (file.isDirectory()) {
                     Path assets = file.toPath().resolve("assets"); if (!Files.isDirectory(assets)) continue;
