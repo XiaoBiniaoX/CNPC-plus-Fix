@@ -3,7 +3,6 @@ package top.cnpcplus.shader.client;
 import com.google.gson.*;
 import com.mojang.blaze3d.pipeline.*;
 import com.mojang.blaze3d.shaders.Uniform;
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import java.io.*;
@@ -18,6 +17,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.joml.Matrix4f;
 import top.cnpcplus.mixin.ShaderPostChainAccess;
+import top.cnpcplus.mixin.ShaderEffectInstanceAccess;
 import top.cnpcplus.shader.*;
 import top.cnpcplus.shader.ShaderInstance;
 
@@ -27,10 +27,12 @@ public final class ClientShaders {
     public static final ShaderController CONTROLLER = ShaderController.localController();
     private static final Map<String, Gpu> LOADED = new LinkedHashMap<>();
     private static final Map<String, ShaderController> OBJECTS = new HashMap<>();
-    private static final Map<UUID, TextureTarget[]> HISTORIES = new HashMap<>();
+    private static final PostPipeline POST_PIPELINE = new PostPipeline();
+    private static final List<Gpu> RETIRED = new ArrayList<>();
+    private static boolean resetPostResources;
     private static Object world;
-    private static TextureTarget depth;
     private static ShaderInstance currentPost;
+    private static PostRenderState postState;
     private static float partial;
     private static final Matrix4f worldViewProjection = new Matrix4f(), inverseWorldViewProjection = new Matrix4f();
     private ClientShaders() {}
@@ -49,58 +51,68 @@ public final class ClientShaders {
         ShaderDefinition definition = MANAGER.get(id);
         Minecraft mc = Minecraft.getInstance();
         Gpu gpu = new Gpu();
-        try {
-            if (LOADED.size() >= 32) {
-                for (String old : new ArrayList<>(LOADED.keySet())) if (unload(old)) break;
-                if (LOADED.size() >= 32) throw new IllegalStateException("At most 32 loaded shader effects");
-            }
-            if (definition.type.equals("POST")) {
-                // Bound resource-pack target allocation before vanilla PostChain allocates GPU memory.
-                try (Reader reader = mc.getResourceManager().getResourceOrThrow(new ResourceLocation(definition.shaderResource)).openAsReader()) {
-                    JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
-                    JsonArray targets = json.has("targets") ? json.getAsJsonArray("targets") : new JsonArray();
-                    long bytes = 0;
-                    if (targets.size() > 4) throw new IllegalArgumentException("At most 4 temporary shader targets");
-                    for (JsonElement target : targets) {
-                        int w = mc.getMainRenderTarget().width, h = mc.getMainRenderTarget().height;
-                        if (target.isJsonObject()) {
-                            JsonObject value = target.getAsJsonObject();
-                            if (value.has("width")) w = value.get("width").getAsInt();
-                            if (value.has("height")) h = value.get("height").getAsInt();
-                        }
-                        if (w < 1 || h < 1 || w > 8192 || h > 8192) throw new IllegalArgumentException("Invalid shader target dimensions");
-                        bytes += (long)w * h * 8;
-                    }
-                    if (bytes > 268435456L) throw new IllegalArgumentException("Shader targets exceed 256 MiB");
+        // Explicit API preloads are synchronous, but cannot leak allocation state
+        // into whichever game pipeline happens to be active at the call site.
+        try (PostRenderState state = postState == null ? new PostRenderState(mc.getMainRenderTarget()) : null) {
+            disposeRetired();
+            try {
+                if (LOADED.size() >= 32) {
+                    for (String old : new ArrayList<>(LOADED.keySet())) if (unload(old)) break;
+                    if (LOADED.size() >= 32) throw new IllegalStateException("At most 32 loaded shader effects");
                 }
-                gpu.post = new PostChain(mc.getTextureManager(), mc.getResourceManager(), mc.getMainRenderTarget(), new ResourceLocation(definition.shaderResource));
-                gpu.width = mc.getMainRenderTarget().width; gpu.height = mc.getMainRenderTarget().height;
-                gpu.post.resize(gpu.width, gpu.height);
-                for (String name : definition.uniforms.keySet()) {
-                    if (((ShaderPostChainAccess)gpu.post).cnpcplus$passes().stream().noneMatch(p -> p.getEffect().getUniform(name) != null))
+                if (definition.type.equals("POST")) {
+                    // Bound resource-pack target allocation before vanilla PostChain allocates GPU memory.
+                    try (Reader reader = mc.getResourceManager().getResourceOrThrow(new ResourceLocation(definition.shaderResource)).openAsReader()) {
+                        JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+                        JsonArray targets = json.has("targets") ? json.getAsJsonArray("targets") : new JsonArray();
+                        long bytes = 0;
+                        if (targets.size() > 4) throw new IllegalArgumentException("At most 4 temporary shader targets");
+                        for (JsonElement target : targets) {
+                            int w = mc.getMainRenderTarget().width, h = mc.getMainRenderTarget().height;
+                            if (target.isJsonObject()) {
+                                JsonObject value = target.getAsJsonObject();
+                                if (value.has("width")) w = value.get("width").getAsInt();
+                                if (value.has("height")) h = value.get("height").getAsInt();
+                            }
+                            if (w < 1 || h < 1 || w > 8192 || h > 8192) throw new IllegalArgumentException("Invalid shader target dimensions");
+                            bytes += (long)w * h * 8;
+                        }
+                        if (bytes > 268435456L) throw new IllegalArgumentException("Shader targets exceed 256 MiB");
+                    }
+                    RenderTarget scriptTarget = POST_PIPELINE.target(mc.getMainRenderTarget().width, mc.getMainRenderTarget().height);
+                    gpu.post = new PostChain(mc.getTextureManager(), mc.getResourceManager(), scriptTarget, new ResourceLocation(definition.shaderResource));
+                    gpu.width = mc.getMainRenderTarget().width; gpu.height = mc.getMainRenderTarget().height;
+                    gpu.post.resize(gpu.width, gpu.height);
+                    for (PostPass pass : ((ShaderPostChainAccess)gpu.post).cnpcplus$passes()) {
+                        if (pass.inTarget.getColorTextureId() == pass.outTarget.getColorTextureId())
+                            throw new IllegalArgumentException("Post pass reads and writes the same color texture: " + pass.getName());
+                    }
+                    for (String name : definition.uniforms.keySet()) {
+                        if (((ShaderPostChainAccess)gpu.post).cnpcplus$passes().stream().noneMatch(p -> p.getEffect().getUniform(name) != null))
+                            throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
+                    }
+                } else {
+                    gpu.render.put(DefaultVertexFormat.NEW_ENTITY, new net.minecraft.client.renderer.ShaderInstance(mc.getResourceManager(), new ResourceLocation(definition.shaderResource), DefaultVertexFormat.NEW_ENTITY));
+                    if (definition.json.has("blockShaderResource")) gpu.render.put(DefaultVertexFormat.BLOCK,
+                            new net.minecraft.client.renderer.ShaderInstance(mc.getResourceManager(), new ResourceLocation(definition.json.get("blockShaderResource").getAsString()), DefaultVertexFormat.BLOCK));
+                    for (var shader : gpu.render.values()) for (String name : definition.uniforms.keySet()) if (shader.getUniform(name) == null)
                         throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
                 }
-            } else {
-                gpu.render.put(DefaultVertexFormat.NEW_ENTITY, new net.minecraft.client.renderer.ShaderInstance(mc.getResourceManager(), new ResourceLocation(definition.shaderResource), DefaultVertexFormat.NEW_ENTITY));
-                if (definition.json.has("blockShaderResource")) gpu.render.put(DefaultVertexFormat.BLOCK,
-                        new net.minecraft.client.renderer.ShaderInstance(mc.getResourceManager(), new ResourceLocation(definition.json.get("blockShaderResource").getAsString()), DefaultVertexFormat.BLOCK));
-                for (var shader : gpu.render.values()) for (String name : definition.uniforms.keySet()) if (shader.getUniform(name) == null)
-                    throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
+                LOADED.put(id, gpu);
+                return true;
+            } catch (IOException | RuntimeException e) {
+                gpu.close();
+                org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] load {}", id, e);
+                return false;
             }
-            LOADED.put(id, gpu);
-            return true;
-        } catch (IOException | RuntimeException e) {
-            gpu.close();
-            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] load {}", id, e);
-            return false;
         }
     }
     public static boolean unload(String id) {
         if (CONTROLLER.isActive(id) || OBJECTS.values().stream().anyMatch(c -> c.isActive(id))) return false;
-        Gpu gpu = LOADED.remove(id); if (gpu == null) return false; gpu.close(); return true;
+        Gpu gpu = LOADED.remove(id); if (gpu == null) return false; RETIRED.add(gpu); return true;
     }
     public static boolean reload(String id) {
-        Gpu gpu = LOADED.remove(id); if (gpu != null) gpu.close(); return load(id);
+        Gpu gpu = LOADED.remove(id); if (gpu != null) RETIRED.add(gpu); return load(id);
     }
     public static void reloadAll() {
         clear(); MANAGER = new ShaderManager(); MANAGER.reloadDefinitions(Minecraft.getInstance().getResourceManager());
@@ -139,9 +151,8 @@ public final class ClientShaders {
         } catch (RuntimeException e) { org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] receive", e); }
     }
     public static void clear() {
-        CONTROLLER.instances.clear(); OBJECTS.clear(); LOADED.values().forEach(Gpu::close); LOADED.clear();
-        HISTORIES.values().forEach(targets -> Arrays.stream(targets).forEach(RenderTarget::destroyBuffers)); HISTORIES.clear();
-        if (depth != null) { depth.destroyBuffers(); depth = null; } currentPost = null; world = null;
+        CONTROLLER.instances.clear(); OBJECTS.clear(); RETIRED.addAll(LOADED.values()); LOADED.clear();
+        resetPostResources = true; currentPost = null; world = null;
     }
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -153,66 +164,103 @@ public final class ClientShaders {
     }
     @SubscribeEvent public static void logout(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) { clear(); }
 
+    /** FRAME_START: dispose GPU resources independently of script stop/tick/network callbacks. */
+    public static void beginFrame() {
+        POST_PIPELINE.beginFrame();
+        boolean releasePost = POST_PIPELINE.isAllocated() && LOADED.values().stream().noneMatch(gpu -> gpu.post != null);
+        if (RETIRED.isEmpty() && !resetPostResources && !releasePost) return;
+        try (PostRenderState state = new PostRenderState(Minecraft.getInstance().getMainRenderTarget())) {
+            disposeRetired();
+            POST_PIPELINE.retainHistories(CONTROLLER.instances.keySet());
+            if (releasePost) POST_PIPELINE.close();
+        }
+    }
+
+    private static void disposeRetired() {
+        RETIRED.forEach(Gpu::close); RETIRED.clear();
+        if (resetPostResources) { POST_PIPELINE.close(); resetPostResources = false; }
+    }
+
+    /** WORLD_COMPLETE: read-only depth handoff, before vanilla post passes and GUI. */
+    public static void capturePostDepth() {
+        if (CONTROLLER.getAllInstances().length == 0) return;
+        try (PostRenderState state = new PostRenderState(Minecraft.getInstance().getMainRenderTarget())) {
+            POST_PIPELINE.captureDepth(Minecraft.getInstance().getMainRenderTarget());
+        } catch (RuntimeException e) {
+            for (ShaderInstance instance : CONTROLLER.getAllInstances()) fail(instance, "World depth capture failed: " + e);
+        }
+    }
+
     public static void renderPost(float framePartial, Matrix4f view, Matrix4f projection) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || CONTROLLER.instances.isEmpty()) {
-            if (depth != null) { depth.destroyBuffers(); depth = null; }
-            HISTORIES.values().forEach(targets -> Arrays.stream(targets).forEach(RenderTarget::destroyBuffers)); HISTORIES.clear();
-            return;
-        }
+        ShaderInstance[] instances = CONTROLLER.getAllInstances();
+        if (mc.level == null || instances.length == 0) return;
         partial = mc.isPaused() ? 0 : framePartial;
         worldViewProjection.set(projection).mul(view);
         inverseWorldViewProjection.set(worldViewProjection).invert();
         RenderTarget main = mc.getMainRenderTarget();
-        if (depth == null) depth = new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX);
-        else if (depth.width != main.width || depth.height != main.height) depth.resize(main.width, main.height, Minecraft.ON_OSX);
-        depth.copyDepthFrom(main);
-        HISTORIES.entrySet().removeIf(entry -> {
-            if (CONTROLLER.instances.containsKey(entry.getKey())) return false;
-            Arrays.stream(entry.getValue()).forEach(RenderTarget::destroyBuffers); return true;
-        });
-        RenderSystem.disableBlend(); RenderSystem.disableDepthTest(); RenderSystem.resetTextureMatrix();
-        try {
-            for (ShaderInstance instance : Arrays.stream(CONTROLLER.getAllInstances()).sorted(Comparator.comparingInt(ShaderInstance::getPriority)).toList()) {
+        if (org.lwjgl.opengl.GL33C.glGetInteger(org.lwjgl.opengl.GL33C.GL_DRAW_FRAMEBUFFER_BINDING) != main.frameBufferId) {
+            for (ShaderInstance instance : instances) fail(instance, "Script composite stage does not own the final game target");
+            return;
+        }
+        try (PostRenderState state = new PostRenderState(main)) {
+            postState = state;
+            // AFTER_GAME_POST -> SCRIPT_EFFECTS -> BEFORE_GUI. The game target is
+            // only read here and receives one color copy after all private passes.
+            POST_PIPELINE.captureScene(main);
+            POST_PIPELINE.retainHistories(CONTROLLER.instances.keySet());
+            for (ShaderInstance instance : Arrays.stream(instances).sorted(Comparator.comparingInt(ShaderInstance::getPriority)).toList()) {
                 currentPost = instance;
                 if (!load(instance.getId())) { fail(instance, "GPU resource loading failed"); continue; }
                 Gpu gpu = LOADED.get(instance.getId());
                 if (gpu.width != main.width || gpu.height != main.height) { gpu.post.resize(main.width, main.height); gpu.width = main.width; gpu.height = main.height; }
-                TextureTarget[] history = null;
-                if (instance.textures.containsKey("HistorySampler")) {
-                    history = HISTORIES.get(instance.token);
-                    if (history == null || history[0].width != main.width || history[0].height != main.height) {
-                        if (history != null) Arrays.stream(history).forEach(RenderTarget::destroyBuffers);
-                        history = new TextureTarget[3];
-                        for (int i = 0; i < history.length; i++) {
-                            history[i] = new TextureTarget(main.width, main.height, false, Minecraft.ON_OSX);
-                            copyColor(main, history[i]);
-                        }
-                        HISTORIES.put(instance.token, history);
-                    }
-                }
-                gpu.post.process(partial);
-                // Capture the completed effect, never read and write the same history texture.
-                if (history != null && !mc.isPaused() && !instance.isPaused()) {
-                    TextureTarget oldest = history[2]; history[2] = history[1]; history[1] = history[0]; history[0] = oldest;
-                    copyColor(main, oldest);
+                POST_PIPELINE.beginEffect(instance.token, instance.textures.values().stream().anyMatch(id -> id.startsWith("cnpcplus:history")));
+                try {
+                    gpu.post.process(partial);
+                    POST_PIPELINE.finishEffect(instance.token, !mc.isPaused() && !instance.isPaused());
+                } catch (RuntimeException e) {
+                    fail(instance, e.toString());
+                    POST_PIPELINE.rollbackEffect();
                 }
             }
-        } catch (RuntimeException e) { if (currentPost != null) fail(currentPost, e.toString()); }
-        finally { currentPost = null; main.copyDepthFrom(depth); main.bindWrite(true); RenderSystem.enableDepthTest(); }
-    }
-    private static void copyColor(RenderTarget source, RenderTarget target) {
-        GlStateManager._glBindFramebuffer(36008, source.frameBufferId);
-        GlStateManager._glBindFramebuffer(36009, target.frameBufferId);
-        GlStateManager._glBlitFrameBuffer(0, 0, source.width, source.height, 0, 0, target.width, target.height, 16384, 9728);
+            currentPost = null;
+            POST_PIPELINE.present(main);
+        } catch (RuntimeException e) {
+            for (ShaderInstance instance : instances) fail(instance, "Script post pipeline failed: " + e);
+        } finally {
+            currentPost = null; postState = null;
+        }
     }
     private static void fail(ShaderInstance instance, String message) {
         instance.error = message; instance.state = "ERROR";
         org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] {} {}", instance.getId(), message);
     }
-    /** Called after vanilla has set Time and auxiliary inputs, immediately before EffectInstance.apply. */
+    /** Prepare the pass while keeping bindPost(EffectInstance) available to addon mixins. */
+    public static void preparePost(PostPass pass) {
+        if (currentPost == null) return;
+        EffectInstance effect = pass.getEffect();
+        bindPost(effect);
+        ShaderEffectInstanceAccess access = (ShaderEffectInstanceAccess)effect;
+        // Resolve once before outTarget.clear; auxiliary and script samplers can also
+        // alias the output even when intarget and outtarget are different targets.
+        for (String name : access.cnpcplus$samplerNames()) {
+            var sampler = access.cnpcplus$samplers().get(name);
+            if (sampler == null) continue;
+            int texture = POST_PIPELINE.readTexture(sampler.getAsInt());
+            if (texture != -1 && (texture == pass.outTarget.getColorTextureId() || texture == pass.outTarget.getDepthTextureId()))
+                throw new IllegalArgumentException("Post sampler reads its output texture: " + pass.getName() + "/" + name);
+            effect.setSampler(name, () -> texture);
+        }
+    }
+    /** A script blit copies processed color even when the source alpha is zero. */
+    public static void preparePostDraw(PostPass pass) {
+        if (currentPost != null && pass.getName().equals("blit")) RenderSystem.disableBlend();
+    }
+    /** Called before EffectInstance.apply; addons inject here after our uniforms are set. */
     public static void bindPost(EffectInstance effect) {
         if (currentPost == null) return;
+        ShaderEffectInstanceAccess access = (ShaderEffectInstanceAccess)effect;
+        postState.beforePass(effect, access.cnpcplus$samplerNames().size());
         bindUniforms(currentPost, effect::getUniform, partial);
         effect.safeGetUniform("WorldViewProjection").set(worldViewProjection);
         effect.safeGetUniform("InverseWorldViewProjection").set(inverseWorldViewProjection);
@@ -233,11 +281,10 @@ public final class ClientShaders {
     }
     private static int texture(String id) {
         Minecraft mc = Minecraft.getInstance();
-        if (id.equals("minecraft:main")) return mc.getMainRenderTarget().getColorTextureId();
-        if (id.equals("minecraft:depth")) return depth == null ? mc.getMainRenderTarget().getDepthTextureId() : depth.getDepthTextureId();
+        if (id.equals("minecraft:main")) return currentPost == null ? mc.getMainRenderTarget().getColorTextureId() : POST_PIPELINE.sceneColor();
+        if (id.equals("minecraft:depth")) return currentPost == null ? mc.getMainRenderTarget().getDepthTextureId() : POST_PIPELINE.sceneDepth();
         if (id.equals("cnpcplus:history") || id.equals("cnpcplus:history_2") || id.equals("cnpcplus:history_3")) {
-            TextureTarget[] targets = HISTORIES.get(currentPost.token);
-            return targets[id.equals("cnpcplus:history") ? 0 : id.equals("cnpcplus:history_2") ? 1 : 2].getColorTextureId();
+            return POST_PIPELINE.history(currentPost.token, id.equals("cnpcplus:history") ? 0 : id.equals("cnpcplus:history_2") ? 1 : 2);
         }
         ResourceLocation resource = new ResourceLocation(id);
         if (mc.getResourceManager().getResource(resource).isEmpty()) throw new IllegalArgumentException("Missing sampler texture " + id);

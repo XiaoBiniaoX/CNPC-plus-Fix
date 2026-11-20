@@ -18,14 +18,15 @@ public final class CloneCleanRegression {
     private static final String CONTROLLER = "noppes/npcs/controllers/ServerCloneController";
     private static final String STORE = "top/cnpcplus/persist/NpcDataExternalStore";
     private static final String[] STORES = {"SPAWNER", "INVENTORY", "SCRIPTS", "ADVANCED", "MODEL"};
-    private static final String[] IDS = {"CNPCPlusSpawnerId", "CNPCPlusInvId", "CNPCPlusScriptsId", "CNPCPlusAdvancedId", "CNPCPlusModelId"};
+    private static final String[] IDS = {"CNPCPlusSpawnerId", "CNPCPlusInvId", "CNPCPlusScriptsId", "CNPCPlusAdvancedId", "CNPCPlusModelId", "CNPCPlusAddon:clonetest:npc_data:Id"};
 
     public static void main(String[] args) throws Exception {
         world = Files.createTempDirectory(Path.of("Temp/CNPCplus-final-20261101"), "clean-regression-").toFile();
         ClassLoader loader = new ClassLoader(CloneCleanRegression.class.getClassLoader()) {
             @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
                 String path = name.replace('.', '/');
-                if (!path.equals(CONTROLLER) && !path.equals(STORE) && !path.startsWith(STORE + "$")) return super.loadClass(name, resolve);
+                if (!path.equals(CONTROLLER) && !path.equals(STORE) && !path.startsWith(STORE + "$")
+                        && !path.equals("top/cnpcplus/api/NbtSeparationApi")) return super.loadClass(name, resolve);
                 synchronized (getClassLoadingLock(name)) {
                     Class<?> loaded = findLoadedClass(name);
                     if (loaded == null) try (var input = getParent().getResourceAsStream(path + ".class")) {
@@ -60,6 +61,12 @@ public final class CloneCleanRegression {
         var directory = storeType.getDeclaredMethod("directory"); directory.setAccessible(true);
         List<Object> stores = new ArrayList<>(); List<File> directories = new ArrayList<>();
         for (String name : STORES) { Object store = storeType.getField(name).get(null); stores.add(store); directories.add((File)directory.invoke(store)); }
+        Class<?> apiType = loader.loadClass("top.cnpcplus.api.NbtSeparationApi");
+        Object addonApi = apiType.getMethod("register", net.minecraft.resources.ResourceLocation.class, String[].class)
+                .invoke(null, new net.minecraft.resources.ResourceLocation("clonetest", "npc_data"), new String[]{"CloneAddonData"});
+        Field addonStore = apiType.getDeclaredField("store"); addonStore.setAccessible(true);
+        Object registered = addonStore.get(addonApi);
+        stores.add(registered); directories.add((File)directory.invoke(registered));
         Field field = sun.misc.Unsafe.class.getDeclaredField("theUnsafe"); field.setAccessible(true); var unsafe = (sun.misc.Unsafe)field.get(null);
         Class<?> controllerType = loader.loadClass(CONTROLLER.replace('/', '.'));
         Object controller = unsafe.allocateInstance(controllerType);
@@ -83,6 +90,7 @@ public final class CloneCleanRegression {
             for (String key : List.of("UUID", "UUIDMost", "UUIDLeast", "Pos", "Riding", "StartPos", "StartPosNew", "MovingPathNew")) check(!tag.contains(key), "native identity/path remained " + key);
             for (String id : IDS) check(!tag.contains(id), "external reference remained " + id);
             check(tag.getString("Name").equals(full.get(j).getString("Name")) && tag.getList("Weapons", 10).equals(full.get(j).getList("Weapons", 10)), "member equipment mismatch");
+            check(tag.getString("CloneAddonData").equals(full.get(j).getString("CloneAddonData")), "registered addon data lost from clone export");
             check(tag.getList("Scripts", 10).equals(full.get(j).getList("Scripts", 10)) && tag.getList("NpcLines", 10).equals(full.get(j).getList("NpcLines", 10)), "scripts/lines lost");
             check(tag.getCompound("NpcModelData").equals(full.get(j).getCompound("NpcModelData")) && tag.getCompound("TransformJob").getCompound("PuppetBody").getFloat("ScaleX") == 1.25f, "model/puppet transform lost");
             check(tag.getCompound("TransformRole").getInt("TransporterId") == -1 && tag.getCompound("TransformJob").getInt("ItemGiverId") == 0
@@ -108,7 +116,7 @@ public final class CloneCleanRegression {
         clean.invoke(controller, missing);
         check(failedMember.getString("CNPCPlusInvId").equals(absent) && failedMember.getString("InlineKeep").equals("keep"), "failed materialize discarded member NBT/reference");
         for (int i = 0; i < files.size(); i++) check(Arrays.equals(bytes.get(i), Files.readAllBytes(files.get(i))), "clone fork overwrote original store");
-        System.out.println("CLONE_CLEAN_REGRESSION=PASS (actual mapped cleanTags + test-assembled handlers; five stores/member, native transforms, UUID removal/forks/failure retention; not runtime Mixin)");
+        System.out.println("CLONE_CLEAN_REGRESSION=PASS (actual mapped cleanTags + test-assembled handlers; five builtin stores and one public-API addon/member, native transforms, UUID removal/forks/failure retention; not runtime Mixin)");
     }
     private static InsnList hook(String name) {
         InsnList hook = new InsnList(); hook.add(new VarInsnNode(Opcodes.ALOAD, 0)); hook.add(new VarInsnNode(Opcodes.ALOAD, 1)); hook.add(new InsnNode(Opcodes.ACONST_NULL));
@@ -117,6 +125,7 @@ public final class CloneCleanRegression {
     public static File getLevelSaveDirectory() { return world; }
     private static CompoundTag member(String id, String name) {
         CompoundTag tag = new CompoundTag(); tag.putString("id", id); tag.putString("Name", name); tag.putUUID("UUID", UUID.randomUUID());
+        tag.putString("CloneAddonData", name + " addon payload");
         for (String key : List.of("UUIDMost", "UUIDLeast", "StartPosNew", "StartPos", "MovingPathNew", "Pos", "Riding")) tag.putString(key, "old");
         tag.putInt("ItemGiverId", 4); tag.putInt("TransporterId", 5);
         CompoundTag item = new CompoundTag(); item.putString("Name", name); item.putInt("Ammo", 17);
