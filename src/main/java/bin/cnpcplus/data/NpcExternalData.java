@@ -6,6 +6,7 @@ import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.ResourceLocation;
 import noppes.npcs.CustomNpcs;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.entity.EntityCustomNpc;
@@ -15,10 +16,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.util.EnumMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 
@@ -31,26 +37,32 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class NpcExternalData {
     /** parent 非空表示这组字段在子复合里（商人数据挂在 Role 里）。 */
-    private enum Group {
-        SCRIPTS("scripts", "CNPCPlusScriptsRef", "", new String[]{"Scripts", "ScriptLanguage", "ScriptEnabled"}),
-        SPAWNER("spawner", "CNPCPlusSpawnerRef", "", new String[]{"CNPCPlusSpawnerEntries", "SpawnerNBT1", "SpawnerNBT2", "SpawnerNBT3", "SpawnerNBT4", "SpawnerNBT5", "SpawnerNBT6"}),
-        INVENTORY("inventory", "CNPCPlusInventoryRef", "", new String[]{"NpcInv", "DropChance", "Armor", "Weapons", "LootMode", "MinExp", "MaxExp", "TransformInv"}),
+    private static final class Group {
+        static final Group SCRIPTS = new Group("scripts", "CNPCPlusScriptsRef", "", new String[]{"Scripts", "ScriptLanguage", "ScriptEnabled"});
+        static final Group SPAWNER = new Group("spawner", "CNPCPlusSpawnerRef", "", new String[]{"CNPCPlusSpawnerEntries", "SpawnerNBT1", "SpawnerNBT2", "SpawnerNBT3", "SpawnerNBT4", "SpawnerNBT5", "SpawnerNBT6"});
+        static final Group INVENTORY = new Group("inventory", "CNPCPlusInventoryRef", "", new String[]{"NpcInv", "DropChance", "Armor", "Weapons", "LootMode", "MinExp", "MaxExp", "TransformInv"});
         // RoleTrader.writeToNBT 直接写在**顶层**实体标签上（javap 证据：
         // EntityNPCInterface.func_70014_b 里 roleInterface.writeToNBT(aload_1)，
         // 只有 role==6 的 Companion 才另开 "Companion" 子复合）。
         // 顶层的 "Role" 是个 int（DataAdvanced.role 角色编号），不是复合标签，
         // 所以以前 parent="Role" 让 host() 恒为 null —— 商人 NBT 从来没被分离过。
-        TRADER("trader", "CNPCPlusTraderRef", "", new String[]{"TraderMarket", "TraderCurrency", "TraderSold", "TraderIgnoreDamage", "TraderIgnoreNBT"}),
-        ADVANCED("advanced", "CNPCPlusAdvancedRef", "", new String[]{"NpcLines", "NpcKilledLines", "NpcInteractLines", "NpcAttackLines",
+        static final Group TRADER = new Group("trader", "CNPCPlusTraderRef", "", new String[]{"TraderMarket", "TraderCurrency", "TraderSold", "TraderIgnoreDamage", "TraderIgnoreNBT"});
+        static final Group ADVANCED = new Group("advanced", "CNPCPlusAdvancedRef", "", new String[]{"NpcLines", "NpcKilledLines", "NpcInteractLines", "NpcAttackLines",
                 "NpcKillLines", "NpcInteractNPCLines", "CNPCPlusMeleeLines", "OrderedLines", "NpcIdleSound", "NpcAngrySound",
                 "NpcHurtSound", "NpcDeathSound", "NpcStepSound", "DisablePitch", "CNPCPlusSoundArrays", "NPCDialogOptions",
-                "BossBar", "BossColor", "CNPCPlusBossbar", "TransformAdvanced", "TransformRole"}),
-        MODEL("model", "CNPCPlusModelRef", "", new String[]{"NpcModelData", "TransformDisplay", "TransformJob"}),
-        RESISTANCES("resistances", "CNPCPlusResistancesRef", "", new String[]{"Resistances"});
+                "BossBar", "BossColor", "CNPCPlusBossbar", "TransformAdvanced", "TransformRole"}, "Mercenary", "CNPCPlusFollower");
+        static final Group MODEL = new Group("model", "CNPCPlusModelRef", "", new String[]{"NpcModelData", "TransformDisplay", "TransformJob"}, "Puppet", "CNPCPlusPuppet");
+        static final Group RESISTANCES = new Group("resistances", "CNPCPlusResistancesRef", "", new String[]{"Resistances"});
+        static final List<Group> BUILTINS = Collections.unmodifiableList(Arrays.asList(SCRIPTS, SPAWNER, INVENTORY, TRADER, ADVANCED, MODEL, RESISTANCES));
+        static final List<Group> ALL = new ArrayList<>(BUILTINS);
+
         final String folder, reference, parent;
-        final String[] keys;
-        Group(String folder, String reference, String parent, String[] keys) {
-            this.folder = folder; this.reference = reference; this.parent = parent; this.keys = keys;
+        final Set<String> keys;
+        final String[] prefixes;
+        Group(String folder, String reference, String parent, String[] keys, String... prefixes) {
+            this.folder = folder; this.reference = reference; this.parent = parent;
+            this.keys = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(keys)));
+            this.prefixes = prefixes;
         }
         NBTTagCompound host(NBTTagCompound tag) {
             if (parent.isEmpty()) return tag;
@@ -58,10 +70,14 @@ public final class NpcExternalData {
             return base instanceof NBTTagCompound ? (NBTTagCompound) base : null;
         }
         boolean includes(String key) {
-            for (String value : keys) if (value.equals(key)) return true;
-            return this == MODEL && (key.startsWith("Puppet") || key.startsWith("CNPCPlusPuppet"))
-                    || this == ADVANCED && (key.startsWith("Mercenary") || key.startsWith("CNPCPlusFollower"));
+            if (keys.contains(key)) return true;
+            for (String prefix : prefixes) if (key.startsWith(prefix)) return true;
+            return false;
         }
+    }
+    public static final class Store {
+        private final Group group;
+        private Store(Group group) { this.group = group; }
     }
     private static final class State {
         NBTTagCompound data;
@@ -69,6 +85,7 @@ public final class NpcExternalData {
         CompletableFuture<Void> persisted;
     }
     private static final Map<Entity, Map<Group, State>> STATES = new WeakHashMap<>();
+    private static final Map<ResourceLocation, Group> ADDONS = new LinkedHashMap<>();
     private static final Map<Path, CompletableFuture<Void>> WRITES = new HashMap<>();
     private static final String HASH = "[0-9a-f]{64}";
     private static final Map<Path, NBTTagCompound> READS = new LinkedHashMap<Path, NBTTagCompound>(64, .75F, true) {
@@ -83,7 +100,40 @@ public final class NpcExternalData {
         return root.toPath().resolve("data/cnpcplus/" + group.folder).resolve(hash + ".dat");
     }
 
-    private static Map<Group, State> states(Entity npc) { return STATES.computeIfAbsent(npc, ignored -> new EnumMap<>(Group.class)); }
+    private static Map<Group, State> states(Entity npc) { return STATES.computeIfAbsent(npc, ignored -> new HashMap<>()); }
+
+    public static synchronized Store registerAddon(ResourceLocation id, String... keys) {
+        if (id == null) throw new IllegalArgumentException("NBT store id is required");
+        String domain = id.getNamespace();
+        String name = id.getPath();
+        if (domain.equals(".") || domain.equals("..") || domain.indexOf('/') >= 0 || domain.indexOf('\\') >= 0
+                || name.indexOf('\\') >= 0)
+            throw new IllegalArgumentException("Unsafe NBT store id: " + id);
+        for (String part : name.split("/", -1)) if (part.isEmpty() || part.equals(".") || part.equals(".."))
+            throw new IllegalArgumentException("Unsafe NBT store path: " + id);
+        if (ADDONS.containsKey(id)) throw new IllegalStateException("NBT store already registered: " + id);
+        if (keys == null || keys.length == 0) throw new IllegalArgumentException("At least one addon-owned NBT key is required");
+        Set<String> selected = new HashSet<>();
+        for (String key : keys) {
+            if (key == null || key.trim().isEmpty() || key.startsWith("CNPCPlus") || isReservedKey(key))
+                throw new IllegalArgumentException("Reserved or empty NBT key: " + key);
+            for (Group builtin : Group.BUILTINS) if (builtin.includes(key))
+                throw new IllegalArgumentException("NBT key belongs to CNPCplus: " + key);
+            if (!selected.add(key)) throw new IllegalArgumentException("Duplicate NBT key: " + key);
+            for (Group addon : ADDONS.values()) if (addon.includes(key))
+                throw new IllegalArgumentException("NBT key already registered: " + key);
+        }
+        String prefix = "CNPCPlusAddon:" + id;
+        Group group = new Group("addons/" + domain + "/" + name, prefix + ":Id", "", keys.clone());
+        ADDONS.put(id, group);
+        Group.ALL.add(group);
+        return new Store(group);
+    }
+
+    private static boolean isReservedKey(String key) {
+        return Arrays.asList("UUID", "id", "Pos", "Motion", "Rotation", "Passengers", "Riding", "ForgeData", "ForgeCaps",
+                "TraderCurrency", "TraderSold", "TraderPages", "PageTitles", "FullPages").contains(key);
+    }
 
     /**
      * 读档。两种情况：
@@ -95,7 +145,7 @@ public final class NpcExternalData {
      */
     public static synchronized void load(EntityNPCInterface npc, NBTTagCompound tag) {
         if (npc.world == null || npc.world.isRemote) return;
-        for (Group group : Group.values()) {
+        for (Group group : Group.BUILTINS) {
             if (group != Group.MODEL || !(npc instanceof EntityCustomNpc)) load(npc, tag, group);
         }
     }
@@ -105,13 +155,13 @@ public final class NpcExternalData {
         if (npc.world != null && !npc.world.isRemote) load(npc, tag, Group.MODEL);
     }
 
-    private static void load(EntityNPCInterface npc, NBTTagCompound tag, Group group) {
+    private static boolean load(EntityNPCInterface npc, NBTTagCompound tag, Group group) {
         states(npc).remove(group);
         NBTTagCompound host = group.host(tag);
-        if (host == null) return;
+        if (host == null) return false;
         String hash = host.getString(group.reference);
         boolean inline = hasInline(host, group);
-        if (inline) { migrateLegacy(npc, host, group, hash); return; }
+        if (inline) { migrateLegacy(npc, host, group, hash); return false; }
         if (!hash.matches(HASH)) {
             if (host.hasKey(group.reference)) {
                 State state = new State();
@@ -119,7 +169,7 @@ public final class NpcExternalData {
                 state.data = extract(host, group);
                 states(npc).put(group, state);
             }
-            return;
+            return false;
         }
         State state = new State();
         try {
@@ -137,6 +187,17 @@ public final class NpcExternalData {
             CnpcPlus.LOGGER.error("Cannot restore NPC {} {} data; retaining reference", npc.getUniqueID(), group.folder, error);
         }
         states(npc).put(group, state);
+        return state.failedReference == null;
+    }
+
+    public static synchronized boolean prepareLoad(Store store, EntityNPCInterface npc, NBTTagCompound tag) {
+        if (store == null || npc == null || tag == null || npc.world == null || npc.world.isRemote) return false;
+        return load(npc, tag, store.group);
+    }
+
+    public static synchronized void saveNpc(Store store, EntityNPCInterface npc, NBTTagCompound tag) {
+        if (store == null || npc == null || tag == null || npc.world == null || npc.world.isRemote) return;
+        save(npc, tag, store.group);
     }
 
     /** 旧档迁移：内联数据先落到世界目录，引用写回 NBT；内联等下一次保存再摘。 */
@@ -219,7 +280,7 @@ public final class NpcExternalData {
     public static synchronized void saveTree(Entity entity, NBTTagCompound tag) {
         if (entity.world == null || entity.world.isRemote) return;
         if (!(entity instanceof EntityNPCInterface)) return;
-        for (Group group : Group.values()) if (group != Group.MODEL || !(entity instanceof EntityCustomNpc)) save(entity, tag, group);
+        for (Group group : Group.BUILTINS) if (group != Group.MODEL || !(entity instanceof EntityCustomNpc)) save(entity, tag, group);
     }
 
     public static synchronized void saveModel(EntityNPCInterface npc, NBTTagCompound tag) {
@@ -278,8 +339,13 @@ public final class NpcExternalData {
 
     /** Detached snapshot before CNPC cleanTags removes UUID; immutable blobs never become clone identity. */
     public static synchronized boolean makePortable(NBTTagCompound tag) {
+        return makePortable(null, tag);
+    }
+
+    public static synchronized boolean makePortable(Store store, NBTTagCompound tag) {
+        if (tag == null) return false;
         boolean complete = true;
-        for (Group group : Group.values()) {
+        for (Group group : store == null ? Group.ALL : Collections.singletonList(store.group)) {
             NBTTagCompound host = group.host(tag);
             if (host == null || !host.hasKey(group.reference)) continue;
             String reference = host.getString(group.reference);
@@ -297,17 +363,9 @@ public final class NpcExternalData {
                 CnpcPlus.LOGGER.error("Cannot export NPC {} snapshot; retaining inline NBT/reference {}", group.folder, reference, error);
             }
         }
-        // Spawner entries and transformation data also contain NPC snapshots, not only Passengers.
-        for (String key : new java.util.ArrayList<>(tag.getKeySet())) {
-            NBTBase value = tag.getTag(key);
-            if (value instanceof NBTTagCompound) complete &= makePortable((NBTTagCompound)value);
-            else if (value instanceof NBTTagList) {
-                NBTTagList list = (NBTTagList)value;
-                for (int i = 0; i < list.tagCount(); i++) {
-                    NBTBase child = list.get(i);
-                    if (child instanceof NBTTagCompound) complete &= makePortable((NBTTagCompound)child);
-                }
-            }
+        if (store == null) {
+            NBTTagList passengers = tag.getTagList("Passengers", 10);
+            for (int i = 0; i < passengers.tagCount(); i++) complete &= makePortable(passengers.getCompoundTagAt(i));
         }
         return complete;
     }

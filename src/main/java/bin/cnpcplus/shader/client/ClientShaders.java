@@ -44,10 +44,10 @@ public final class ClientShaders {
     private static final Matrix4f VIEW_PROJECTION = new Matrix4f(), INVERSE = new Matrix4f();
     private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
     private static Object world, player;
-    private static boolean catalogPending;
+    private static boolean catalogPending, postAfterWorld;
     private static ShaderInstance currentPost;
     private static Vec3d camera = Vec3d.ZERO;
-    private static int depth = -1, width, height, previousProgram = -1;
+    private static int depth = -1, depthWidth, depthHeight, previousProgram = -1;
     public static boolean compilingList;
     private static int previousTextureUnit;
     private static float partial;
@@ -141,7 +141,7 @@ public final class ClientShaders {
     public static void clear() {
         renderThread(); CONTROLLER.instances.clear(); OBJECTS.clear(); LOADED.values().forEach(Gpu::close); LOADED.clear(); TARGETS.clear();
         HISTORIES.values().forEach(targets -> Arrays.stream(targets).forEach(Framebuffer::deleteFramebuffer)); HISTORIES.clear();
-        if (depth >= 0) GlStateManager.deleteTexture(depth); depth = -1; currentPost = null; world = null; player = null;
+        if (depth >= 0) GlStateManager.deleteTexture(depth); depth = -1; currentPost = null; postAfterWorld = false; world = null; player = null;
     }
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return; Minecraft mc = Minecraft.getMinecraft(); if (world != mc.world || player != mc.player) { clear(); world = mc.world; player = mc.player; catalogPending = mc.world != null; }
@@ -153,9 +153,10 @@ public final class ClientShaders {
     @SubscribeEvent public static void logout(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) { Minecraft.getMinecraft().addScheduledTask(() -> { catalogPending = false; clear(); }); }
     // Forge and OptiFine both dispatch this event before the hand depth clear.
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void renderPost(RenderWorldLastEvent event) {
-        Minecraft mc = Minecraft.getMinecraft(); if (mc.world == null || CONTROLLER.instances.isEmpty()) return;
-        partial = mc.isGamePaused() ? 0 : event.getPartialTicks(); Framebuffer main = mc.getFramebuffer();
+    public static void capturePost(RenderWorldLastEvent event) {
+        postAfterWorld = false;
+        Minecraft mc = Minecraft.getMinecraft(); if (mc.world == null || CONTROLLER.instances.isEmpty() || !OpenGlHelper.isFramebufferEnabled()) return;
+        partial = mc.isGamePaused() ? 0 : event.getPartialTicks();
         MATRIX.clear(); GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX,MATRIX); Matrix4f view = new Matrix4f(); view.load(MATRIX);
         Matrix4f cameraView = Matrix4f.invert(view,null); Entity viewer = mc.getRenderViewEntity();
         camera = new Vec3d(viewer.lastTickPosX+(viewer.posX-viewer.lastTickPosX)*partial+cameraView.m30,viewer.lastTickPosY+(viewer.posY-viewer.lastTickPosY)*partial+cameraView.m31,viewer.lastTickPosZ+(viewer.posZ-viewer.lastTickPosZ)*partial+cameraView.m32);
@@ -163,6 +164,54 @@ public final class ClientShaders {
         Matrix4f projection = new Matrix4f(); projection.load(MATRIX); Matrix4f.mul(projection,view,VIEW_PROJECTION); Matrix4f.invert(VIEW_PROJECTION,INVERSE);
         // Native ShaderUniform uploads with transpose=true; adapt only our column-major matrices, not vanilla ProjMat.
         Matrix4f.transpose(VIEW_PROJECTION,VIEW_PROJECTION); Matrix4f.transpose(INVERSE,INVERSE);
+        Framebuffer main = mc.getFramebuffer();
+        int worldDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        if (worldDraw == main.framebufferObject) {
+            captureDepth(worldDraw, 0, 0, main.framebufferWidth, main.framebufferHeight);
+            renderPost(mc, main);
+        } else {
+            // OptiFine is still rendering into its world framebuffer. Take depth now and use its final color later.
+            java.nio.IntBuffer viewport = BufferUtils.createIntBuffer(16);
+            GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
+            captureDepth(worldDraw, viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
+            postAfterWorld = true;
+        }
+    }
+
+    public static void renderPostAfterWorld() {
+        if (!postAfterWorld) return;
+        postAfterWorld = false;
+        Minecraft mc = Minecraft.getMinecraft();
+        renderPost(mc, mc.getFramebuffer());
+    }
+
+    private static boolean splitFramebuffers() {
+        ContextCapabilities caps = GLContext.getCapabilities();
+        return caps.OpenGL30 || caps.GL_ARB_framebuffer_object || caps.GL_EXT_framebuffer_blit;
+    }
+
+    private static void captureDepth(int draw, int x, int y, int width, int height) {
+        int read = splitFramebuffers() ? GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING) : draw;
+        int texture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        if (depth < 0 || width != depthWidth || height != depthHeight) {
+            if (depth >= 0) GlStateManager.deleteTexture(depth);
+            depthWidth = width; depthHeight = height; depth = GlStateManager.generateTexture(); GlStateManager.bindTexture(depth);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D,0,GL14.GL_DEPTH_COMPONENT24,width,height,0,GL11.GL_DEPTH_COMPONENT,GL11.GL_FLOAT,(java.nio.ByteBuffer)null);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_MIN_FILTER,GL11.GL_NEAREST); GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_MAG_FILTER,GL11.GL_NEAREST);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_WRAP_S,GL12.GL_CLAMP_TO_EDGE); GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_WRAP_T,GL12.GL_CLAMP_TO_EDGE);
+        }
+        if (read != draw) OpenGlHelper.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER,draw);
+        GlStateManager.bindTexture(depth);
+        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D,0,0,0,x,y,width,height);
+        GlStateManager.bindTexture(texture);
+        if (read != draw) OpenGlHelper.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER,read);
+    }
+
+    private static void renderPost(Minecraft mc, Framebuffer main) {
+        int width = main.framebufferWidth, height = main.framebufferHeight;
+        boolean split = splitFramebuffers();
+        int draw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        int read = split ? GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING) : draw;
         int oldUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE), oldProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         net.minecraft.client.shader.ShaderManager oldManager = ShaderProgramAccess.cnpcplus$manager();
         int[] bindings = new int[8]; boolean[] textures = new boolean[8];
@@ -175,13 +224,6 @@ public final class ClientShaders {
         FloatBuffer clearColor = BufferUtils.createFloatBuffer(16); GL11.glGetFloat(GL11.GL_COLOR_CLEAR_VALUE, clearColor);
         double clearDepth = GL11.glGetDouble(GL11.GL_DEPTH_CLEAR_VALUE); int matrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
         FloatBuffer color = BufferUtils.createFloatBuffer(16); GL11.glGetFloat(GL11.GL_CURRENT_COLOR,color);
-        if (depth < 0 || width != main.framebufferWidth || height != main.framebufferHeight) {
-            if (depth >= 0) GlStateManager.deleteTexture(depth); width = main.framebufferWidth; height = main.framebufferHeight; depth = GlStateManager.generateTexture(); GlStateManager.bindTexture(depth);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D,0,GL14.GL_DEPTH_COMPONENT24,width,height,0,GL11.GL_DEPTH_COMPONENT,GL11.GL_FLOAT,(java.nio.ByteBuffer)null);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_MIN_FILTER,GL11.GL_NEAREST); GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_MAG_FILTER,GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_WRAP_S,GL12.GL_CLAMP_TO_EDGE); GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_WRAP_T,GL12.GL_CLAMP_TO_EDGE);
-        }
-        main.bindFramebuffer(false); GlStateManager.bindTexture(depth); GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D,0,0,0,0,0,width,height); GlStateManager.bindTexture(bindings[0]);
         HISTORIES.entrySet().removeIf(entry -> { if (CONTROLLER.instances.containsKey(entry.getKey())) return false; Arrays.stream(entry.getValue()).forEach(Framebuffer::deleteFramebuffer); return true; });
         GlStateManager.matrixMode(GL11.GL_PROJECTION); GlStateManager.pushMatrix(); GlStateManager.matrixMode(GL11.GL_MODELVIEW); GlStateManager.pushMatrix();
         try {
@@ -203,7 +245,13 @@ public final class ClientShaders {
             }
         } catch (RuntimeException error) { if (currentPost != null) fail(currentPost,error.toString()); }
         finally {
-            currentPost = null; main.bindFramebuffer(true); GlStateManager.matrixMode(GL11.GL_MODELVIEW); GlStateManager.popMatrix(); GlStateManager.matrixMode(GL11.GL_PROJECTION); GlStateManager.popMatrix(); GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+            currentPost = null;
+            if (read == draw) OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER,draw);
+            else {
+                OpenGlHelper.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER,read);
+                OpenGlHelper.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER,draw);
+            }
+            GlStateManager.matrixMode(GL11.GL_MODELVIEW); GlStateManager.popMatrix(); GlStateManager.matrixMode(GL11.GL_PROJECTION); GlStateManager.popMatrix(); GlStateManager.matrixMode(GL11.GL_MODELVIEW);
             if (blend) GlStateManager.enableBlend(); else GlStateManager.disableBlend(); GlStateManager.tryBlendFuncSeparate(src,dst,srcAlpha,dstAlpha); GlStateManager.glBlendEquation(equation);
             if (depthTest) GlStateManager.enableDepth(); else GlStateManager.disableDepth(); GlStateManager.depthMask(depthMask);
             if (alpha) GlStateManager.enableAlpha(); else GlStateManager.disableAlpha(); if (fog) GlStateManager.enableFog(); else GlStateManager.disableFog();

@@ -5,6 +5,6 @@
   "package": "bin.cnpcplus.mixin.shader",
   "refmap": "refmap.cnpcplus.json",
   "mixins": [],
-  "client": ["ShaderGroupAccess", "ResourceManagerAccess", "FallbackManagerAccess", "ResourcePackAccess", "ShaderUniformAccess", "ShaderProgramAccess", "ShaderBlendAccess", "MixinShaderPost", "MixinFramebufferDepth", "MixinShaderDraw", "MixinRenderEntityTarget", "MixinRenderItemTarget", "MixinRenderTileTarget", "MixinRenderPlayerArms"],
+  "client": ["ShaderGroupAccess", "ResourceManagerAccess", "FallbackManagerAccess", "ResourcePackAccess", "ShaderUniformAccess", "ShaderProgramAccess", "ShaderBlendAccess", "MixinShaderPost", "MixinFramebufferDepth", "MixinEntityRendererPost", "MixinShaderDraw", "MixinRenderEntityTarget", "MixinRenderItemTarget", "MixinRenderTileTarget", "MixinRenderPlayerArms"],
   "injectors": {"defaultRequire": 1}
 }
