@@ -7,7 +7,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.function.Predicate;
@@ -15,6 +18,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import noppes.npcs.CustomNpcs;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.slf4j.Logger;
@@ -67,6 +71,8 @@ public final class NpcDataExternalStore {
     private static final int VERIFIED = 2;
     private static final int CLEANED = 5;
     private static final Logger LOGGER = LoggerFactory.getLogger("cnpcplus");
+    private static final List<NpcDataExternalStore> BUILTINS = List.of(SPAWNER, INVENTORY, SCRIPTS, ADVANCED, MODEL, RESISTANCES);
+    private static final Map<ResourceLocation, NpcDataExternalStore> ADDONS = new LinkedHashMap<>();
 
     private final String logTag;
     private final String idKey;
@@ -81,6 +87,38 @@ public final class NpcDataExternalStore {
         this.stateKey = stateKey;
         this.dataKeys = dataKeys;
         this.probe = probe;
+    }
+
+    /** Internal registration bridge for {@link top.cnpcplus.api.NbtSeparationApi}. */
+    public static synchronized NpcDataExternalStore registerAddon(ResourceLocation id, Set<String> keys) {
+        if (keys.isEmpty()) throw new IllegalArgumentException("At least one addon-owned NBT key is required");
+        String directory = id.getNamespace() + "/" + id.getPath();
+        for (String part : directory.split("/", -1)) {
+            if (part.isEmpty() || part.endsWith(".")) throw new IllegalArgumentException("Unsafe NBT store ID: " + id);
+        }
+        if (ADDONS.containsKey(id)) throw new IllegalStateException("NBT store already registered: " + id);
+        Set<String> reserved = Set.of("UUID", "id", "Pos", "Motion", "Rotation", "Passengers", "Riding",
+                "ForgeData", "ForgeCaps", "NeoForgeData", "neoforge:attachments",
+                "TraderCurrency", "TraderSold", "TraderPages", "PageTitles", "FullPages");
+        for (String key : keys) {
+            if (key.isBlank() || key.startsWith("CNPCPlus") || reserved.contains(key))
+                throw new IllegalArgumentException("Reserved or empty NBT key: " + key);
+            for (NpcDataExternalStore builtin : BUILTINS) {
+                if (builtin.isDataKey(key)) throw new IllegalArgumentException("NBT key belongs to CNPCplus: " + key);
+            }
+            for (NpcDataExternalStore addon : ADDONS.values()) {
+                if (addon.isDataKey(key)) throw new IllegalArgumentException("NBT key already registered: " + key);
+            }
+        }
+        String prefix = "CNPCPlusAddon:" + id;
+        NpcDataExternalStore store = new NpcDataExternalStore("addons/" + directory,
+                prefix + ":Id", prefix + ":State", keys::contains, tag -> !tag.isEmpty());
+        ADDONS.put(id, store);
+        return store;
+    }
+
+    private static synchronized List<NpcDataExternalStore> addonStores() {
+        return List.copyOf(ADDONS.values());
     }
 
     private static final class State {
@@ -347,7 +385,10 @@ public final class NpcDataExternalStore {
 
     public static boolean makeAllPortable(CompoundTag tag) {
         boolean complete = true;
-        for (NpcDataExternalStore store : new NpcDataExternalStore[]{SPAWNER, INVENTORY, SCRIPTS, ADVANCED, MODEL, RESISTANCES}) {
+        for (NpcDataExternalStore store : BUILTINS) {
+            complete &= store.makePortable(tag);
+        }
+        for (NpcDataExternalStore store : addonStores()) {
             complete &= store.makePortable(tag);
         }
         return complete;
