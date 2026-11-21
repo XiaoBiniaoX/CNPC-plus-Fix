@@ -13,9 +13,11 @@ import net.minecraft.client.renderer.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.joml.Matrix4f;
+import top.cnpcplus.client.render.CameraRelative;
 import top.cnpcplus.mixin.ShaderPostChainAccess;
 import top.cnpcplus.mixin.ShaderEffectInstanceAccess;
 import top.cnpcplus.shader.*;
@@ -34,6 +36,7 @@ public final class ClientShaders {
     private static ShaderInstance currentPost;
     private static PostRenderState postState;
     private static float partial;
+    private static CameraRelative postCamera;
     private static final Matrix4f worldViewProjection = new Matrix4f(), inverseWorldViewProjection = new Matrix4f();
     private ClientShaders() {}
 
@@ -88,7 +91,9 @@ public final class ClientShaders {
                             throw new IllegalArgumentException("Post pass reads and writes the same color texture: " + pass.getName());
                     }
                     for (String name : definition.uniforms.keySet()) {
-                        if (((ShaderPostChainAccess)gpu.post).cnpcplus$passes().stream().noneMatch(p -> p.getEffect().getUniform(name) != null))
+                        if (((ShaderPostChainAccess)gpu.post).cnpcplus$passes().stream().noneMatch(p -> p.getEffect().getUniform(name) != null
+                                || name.equals("WorldPosition") && definition.uniforms.get(name).type().equals("vec3")
+                                && p.getEffect().getUniform("CameraRelativeWorldPosition") != null))
                             throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
                     }
                 } else {
@@ -192,12 +197,14 @@ public final class ClientShaders {
     }
 
     public static void renderPost(float framePartial, Matrix4f view, Matrix4f projection) {
+        renderPost(framePartial, view, projection, Minecraft.getInstance().gameRenderer.getMainCamera().getPosition());
+    }
+    public static void renderPost(float framePartial, Matrix4f view, Matrix4f projection, Vec3 camera) {
         Minecraft mc = Minecraft.getInstance();
         ShaderInstance[] instances = CONTROLLER.getAllInstances();
         if (mc.level == null || instances.length == 0) return;
         partial = mc.isPaused() ? 0 : framePartial;
-        worldViewProjection.set(projection).mul(view);
-        inverseWorldViewProjection.set(worldViewProjection).invert();
+        CameraRelative.viewProjection(view, projection, worldViewProjection, inverseWorldViewProjection);
         RenderTarget main = mc.getMainRenderTarget();
         if (org.lwjgl.opengl.GL33C.glGetInteger(org.lwjgl.opengl.GL33C.GL_DRAW_FRAMEBUFFER_BINDING) != main.frameBufferId) {
             for (ShaderInstance instance : instances) fail(instance, "Script composite stage does not own the final game target");
@@ -205,6 +212,7 @@ public final class ClientShaders {
         }
         try (PostRenderState state = new PostRenderState(main)) {
             postState = state;
+            postCamera = new CameraRelative(camera);
             // AFTER_GAME_POST -> SCRIPT_EFFECTS -> BEFORE_GUI. The game target is
             // only read here and receives one color copy after all private passes.
             POST_PIPELINE.captureScene(main);
@@ -228,7 +236,7 @@ public final class ClientShaders {
         } catch (RuntimeException e) {
             for (ShaderInstance instance : instances) fail(instance, "Script post pipeline failed: " + e);
         } finally {
-            currentPost = null; postState = null;
+            currentPost = null; postState = null; postCamera = null;
         }
     }
     private static void fail(ShaderInstance instance, String message) {
@@ -264,18 +272,28 @@ public final class ClientShaders {
         bindUniforms(currentPost, effect::getUniform, partial);
         effect.safeGetUniform("WorldViewProjection").set(worldViewProjection);
         effect.safeGetUniform("InverseWorldViewProjection").set(inverseWorldViewProjection);
-        var camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        Vec3 camera = postCamera.origin();
         effect.safeGetUniform("CameraPosition").set((float)camera.x, (float)camera.y, (float)camera.z);
-        var player = Minecraft.getInstance().player;
-        if (currentPost.followEntity != null) {
-            for (var entity : Minecraft.getInstance().level.entitiesForRendering()) if (entity.getUUID().equals(currentPost.followEntity)) {
-                var position = entity.getPosition(partial);
-                effect.safeGetUniform("WorldPosition").set((float)position.x, (float)position.y + entity.getBbHeight()/2, (float)position.z);
-                break;
+        Uniform relative = effect.getUniform("CameraRelativeWorldPosition");
+        Uniform absolute = effect.getUniform("WorldPosition");
+        if (relative != null || absolute != null) {
+            Minecraft mc = Minecraft.getInstance();
+            Vec3 followed = null;
+            if (currentPost.followEntity != null) {
+                for (var entity : mc.level.entitiesForRendering()) if (entity.getUUID().equals(currentPost.followEntity)) {
+                    followed = entity.getPosition(partial).add(0, entity.getBbHeight() / 2.0, 0);
+                    break;
+                }
+            } else if (mc.player != null && currentPost.definition.json.has("followPlayer")
+                    && currentPost.definition.json.get("followPlayer").getAsBoolean()) {
+                followed = mc.player.getPosition(partial).add(0, 0.9, 0);
             }
-        } else if (currentPost.definition.json.has("followPlayer") && currentPost.definition.json.get("followPlayer").getAsBoolean() && player != null) {
-            var position = player.getPosition(partial);
-            effect.safeGetUniform("WorldPosition").set((float)position.x, (float)position.y + 0.9f, (float)position.z);
+            if (absolute != null && followed != null) absolute.set((float)followed.x, (float)followed.y, (float)followed.z);
+            if (relative != null) {
+                Vec3 anchor = followed != null ? followed : currentPost.worldPosition(partial);
+                Vec3 position = postCamera.position(anchor != null ? anchor : Vec3.ZERO);
+                relative.set((float)position.x, (float)position.y, (float)position.z);
+            }
         }
         currentPost.textures.forEach((name, id) -> { if (!name.equals("DiffuseSampler")) effect.setSampler(name, () -> texture(id)); });
     }

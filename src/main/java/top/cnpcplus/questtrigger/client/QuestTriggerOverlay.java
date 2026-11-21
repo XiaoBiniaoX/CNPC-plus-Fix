@@ -10,6 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import top.cnpcplus.client.render.CameraRelative;
 
 public class QuestTriggerOverlay {
 
@@ -55,26 +56,22 @@ public class QuestTriggerOverlay {
 
         try {
             PoseStack pose = event.getPoseStack();
-            Vec3 cam = event.getCamera().getPosition();
+            var camera = new CameraRelative(event.getCamera().getPosition());
             MultiBufferSource.BufferSource src = mc.renderBuffers().bufferSource();
-
-            pose.pushPose();
-            pose.translate(-cam.x, -cam.y, -cam.z);
 
             VertexConsumer vc = src.getBuffer(RenderType.lines());
             if (areaMode == 0) {
                 AABB box = new AABB(pos).inflate(Math.max(0, sizeX), Math.max(0, sizeY), Math.max(0, sizeZ));
-                LevelRenderer.renderLineBox(pose, vc, box, R, G, B, A);
+                LevelRenderer.renderLineBox(pose, vc, camera.bounds(box), R, G, B, A);
             } else {
                 double r = Math.max(0, radius) + 0.5;
-                double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
-                circle(pose, vc, cx, cy, cz, r, 1, 0, 0);
-                circle(pose, vc, cx, cy, cz, r, 0, 1, 0);
-                circle(pose, vc, cx, cy, cz, r, 0, 0, 1);
+                Vec3 center = camera.position(Vec3.atCenterOf(pos));
+                circle(pose, vc, center.x, center.y, center.z, r, 1, 0, 0);
+                circle(pose, vc, center.x, center.y, center.z, r, 0, 1, 0);
+                circle(pose, vc, center.x, center.y, center.z, r, 0, 0, 1);
             }
             src.endBatch(RenderType.lines());
 
-            pose.popPose();
         } catch (Throwable t) {
             org.slf4j.LoggerFactory.getLogger("cnpcplus").error("任务触发器区域绘制失败", t);
         }

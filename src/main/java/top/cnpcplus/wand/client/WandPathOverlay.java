@@ -8,6 +8,7 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import noppes.npcs.entity.EntityNPCInterface;
+import top.cnpcplus.client.render.CameraRelative;
 import top.cnpcplus.wand.WandTools;
 
 /** Client-only, terrain-following white route and arrowheads. Never loads server chunks. */
@@ -20,10 +21,8 @@ public final class WandPathOverlay {
         if (mc.level == null || mc.player == null || !(WandTools.showsPaths(mc.player.getMainHandItem())
                 || WandTools.showsPaths(mc.player.getOffhandItem()))) return;
         var pose = event.getPoseStack();
-        var camera = event.getCamera().getPosition();
+        var camera = new CameraRelative(event.getCamera().getPosition());
         var buffers = mc.renderBuffers().bufferSource();
-        pose.pushPose();
-        pose.translate(-camera.x, -camera.y, -camera.z);
         var lines = buffers.getBuffer(RenderType.lines());
         for (var npc : mc.level.getEntitiesOfClass(EntityNPCInterface.class, mc.player.getBoundingBox().inflate(30),
                 entity -> WandTools.inRange(entity.distanceToSqr(mc.player)))) {
@@ -42,13 +41,14 @@ public final class WandPathOverlay {
                     Vec3 point = start.lerp(end, (double)n / steps);
                     Vec3 next = ground(point, npc);
                     if (point.distanceToSqr(mc.player.position()) <= WandTools.RANGE_SQUARED) {
-                        line(pose, lines, previous, next);
+                        line(pose, lines, camera.position(previous), camera.position(next));
                         if (n % 6 == 0 || n == steps) {
                             Vec3 direction = new Vec3(end.x - start.x, 0, end.z - start.z).normalize();
                             Vec3 rear = point.subtract(direction.scale(.38));
                             Vec3 side = new Vec3(-direction.z, 0, direction.x).scale(.2);
-                            line(pose, lines, next, ground(rear.add(side), npc));
-                            line(pose, lines, next, ground(rear.subtract(side), npc));
+                            Vec3 tip = camera.position(next);
+                            line(pose, lines, tip, camera.position(ground(rear.add(side), npc)));
+                            line(pose, lines, tip, camera.position(ground(rear.subtract(side), npc)));
                         }
                     }
                     previous = next;
@@ -56,7 +56,6 @@ public final class WandPathOverlay {
             }
         }
         buffers.endBatch(RenderType.lines());
-        pose.popPose();
     }
 
     private static Vec3 ground(Vec3 point, EntityNPCInterface npc) {

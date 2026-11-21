@@ -2,6 +2,7 @@ package top.cnpcplus.shader;
 
 import java.util.*;
 import net.minecraft.nbt.*;
+import net.minecraft.world.phys.Vec3;
 
 public final class ShaderInstance {
     public final UUID token;
@@ -17,10 +18,13 @@ public final class ShaderInstance {
     public final Map<String, float[]> uniforms = new LinkedHashMap<>();
     public final Map<String, String> textures = new LinkedHashMap<>();
     public final Map<String, Animation> animations = new LinkedHashMap<>();
+    private Vec3 worldPosition;
+    private PositionAnimation positionAnimation;
     public ShaderInstance(UUID token, ShaderDefinition definition, String target) {
         this.token = token; this.definition = definition; this.target = target;
         duration = definition.duration; priority = definition.priority;
         definition.uniforms.forEach((name, parameter) -> uniforms.put(name, parameter.defaults().clone()));
+        worldPosition = definition.defaultWorldPosition;
         textures.putAll(definition.samplers);
     }
     private void changed() { if (controller != null) controller.changed(this); }
@@ -30,7 +34,7 @@ public final class ShaderInstance {
     public String getError() { return error; }
     public boolean isActive() { return !state.equals("STOPPED") && !state.equals("ERROR"); }
     public boolean isPaused() { return state.equals("PAUSED"); }
-    public boolean stop() { if (!isActive()) return false; stopping = 0; animations.clear(); state = fadeOut == 0 ? "STOPPED" : "STOPPING"; changed(); return true; }
+    public boolean stop() { if (!isActive()) return false; stopping = 0; animations.clear(); positionAnimation = null; state = fadeOut == 0 ? "STOPPED" : "STOPPING"; changed(); return true; }
     public boolean pause() { if (!isActive() || isPaused()) return false; state = "PAUSED"; changed(); return true; }
     public boolean resume() { if (!isPaused()) return false; state = stopping >= 0 ? "STOPPING" : "PLAYING"; changed(); return true; }
     public void setDuration(int ticks) { if (ticks != -1 && (ticks < 1 || ticks > 1000000)) throw new IllegalArgumentException("Duration must be -1 or 1..1000000 ticks"); duration = ticks; changed(); }
@@ -53,10 +57,14 @@ public final class ShaderInstance {
     public Object getDefaultUniform(String name) { var parameter = definition.uniforms.get(name); return parameter == null ? null : parameter.defaults().clone(); }
     public boolean setUniform(String name, Object value) {
         try {
-            float[] numbers = numbers(value);
+            double[] precise = numericValues(value);
+            float[] numbers = floats(precise);
             String type = getUniformType(name);
             if (type.equals("bool") != (value instanceof Boolean) && numbers.length == 1) throw new IllegalArgumentException("Boolean uniform type mismatch");
             definition.validate(name, numbers);
+            if (definition.defaultWorldPosition != null && name.equals("WorldPosition")) {
+                worldPosition = new Vec3(precise[0], precise[1], precise[2]); positionAnimation = null;
+            }
             uniforms.put(name, numbers); animations.remove(name); changed(); return true;
         } catch (IllegalArgumentException e) { error = e.getMessage(); org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] {} {}", getId(), error); return false; }
     }
@@ -73,8 +81,8 @@ public final class ShaderInstance {
     public boolean setVector(String name, Object values) { return setUniform(name, values); }
     public boolean setMatrix4(String name, Object values) { return typed(name, "matrix4", values); }
     public boolean setUniforms(Map<?,?> values) { boolean result = true; for (var entry : values.entrySet()) result &= setUniform(entry.getKey().toString(), entry.getValue()); return result; }
-    public boolean resetUniform(String name) { var parameter = definition.uniforms.get(name); if (parameter == null) return false; uniforms.put(name, parameter.defaults().clone()); animations.remove(name); changed(); return true; }
-    public void resetUniforms() { animations.clear(); definition.uniforms.forEach((name, parameter) -> uniforms.put(name, parameter.defaults().clone())); changed(); }
+    public boolean resetUniform(String name) { var parameter = definition.uniforms.get(name); if (parameter == null) return false; uniforms.put(name, parameter.defaults().clone()); animations.remove(name); if (name.equals("WorldPosition")) { worldPosition = definition.defaultWorldPosition; positionAnimation = null; } changed(); return true; }
+    public void resetUniforms() { animations.clear(); positionAnimation = null; worldPosition = definition.defaultWorldPosition; definition.uniforms.forEach((name, parameter) -> uniforms.put(name, parameter.defaults().clone())); changed(); }
     public boolean hasTexture(String name) { return textures.containsKey(name); }
     public String getTexture(String name) { return textures.get(name); }
     public String[] getTextureNames() { return definition.getSamplerNames(); }
@@ -84,22 +92,36 @@ public final class ShaderInstance {
     }
     public boolean resetTexture(String name) { if (!hasTexture(name)) return false; textures.put(name, definition.samplers.get(name)); changed(); return true; }
     public Animation animateUniform(String name, Object from, Object to, int ticks, String easing) {
-        float[] start = numbers(from), end = numbers(to);
+        double[] preciseFrom = numericValues(from), preciseTo = numericValues(to);
+        float[] start = floats(preciseFrom), end = floats(preciseTo);
         definition.validate(name, start); definition.validate(name, end);
         if (getUniformType(name).equals("int") || getUniformType(name).equals("bool")) throw new IllegalArgumentException("Animate float/vector/matrix uniforms only");
         if (ticks < 1 || ticks > 1000000 || !Set.of("linear","easeIn","easeOut","easeInOut","smoothstep").contains(easing)) throw new IllegalArgumentException("Invalid animation duration/easing");
         Animation animation = new Animation(start, end, ticks, easing, time);
+        if (definition.defaultWorldPosition != null && name.equals("WorldPosition")) {
+            worldPosition = new Vec3(preciseFrom[0], preciseFrom[1], preciseFrom[2]);
+            positionAnimation = new PositionAnimation(worldPosition, new Vec3(preciseTo[0], preciseTo[1], preciseTo[2]));
+        }
         animations.put(name, animation); uniforms.put(name, start.clone()); changed(); return animation;
     }
-    public boolean cancelAnimation(String name) { boolean removed = animations.remove(name) != null; if (removed) changed(); return removed; }
+    public boolean cancelAnimation(String name) { boolean removed = animations.remove(name) != null; if (removed) { if (name.equals("WorldPosition")) positionAnimation = null; changed(); } return removed; }
     public boolean isAnimating(String name) { return animations.containsKey(name); }
     public Animation getAnimation(String name) { return animations.get(name); }
     public record Animation(float[] from, float[] to, int duration, String easing, float start) {
-        public float[] value(float now) {
+        private float progress(float now) {
             float p = Math.max(0, Math.min(1, (now - start) / duration));
-            p = switch (easing) { case "easeIn" -> p*p; case "easeOut" -> 1-(1-p)*(1-p); case "easeInOut" -> p < .5f ? 2*p*p : 1-2*(1-p)*(1-p); case "smoothstep" -> p*p*(3-2*p); default -> p; };
+            return switch (easing) { case "easeIn" -> p*p; case "easeOut" -> 1-(1-p)*(1-p); case "easeInOut" -> p < .5f ? 2*p*p : 1-2*(1-p)*(1-p); case "smoothstep" -> p*p*(3-2*p); default -> p; };
+        }
+        public float[] value(float now) {
+            float p = progress(now);
             float[] value = new float[from.length]; for (int i = 0; i < value.length; i++) value[i] = from[i] + (to[i]-from[i])*p; return value;
         }
+    }
+    private record PositionAnimation(Vec3 from, Vec3 to) {}
+    public Vec3 worldPosition(float framePartial) {
+        if (positionAnimation == null) return worldPosition;
+        float now = time + (isPaused() ? 0 : framePartial * speed);
+        return positionAnimation.from.lerp(positionAnimation.to, animations.get("WorldPosition").progress(now));
     }
     public float opacity(float partial) {
         float now = time + (isPaused() ? 0 : partial * speed), value = fadeIn == 0 ? 1 : Math.min(1, now / fadeIn);
@@ -111,16 +133,28 @@ public final class ShaderInstance {
         if (!isActive() || isPaused()) return;
         if (state.equals("LOADING") || state.equals("READY")) state = "PLAYING";
         time += speed;
+        worldPosition = worldPosition(0);
         for (var iterator = animations.entrySet().iterator(); iterator.hasNext();) {
             var entry = iterator.next(); uniforms.put(entry.getKey(), entry.getValue().value(time));
-            if (time >= entry.getValue().start + entry.getValue().duration) iterator.remove();
+            if (time >= entry.getValue().start + entry.getValue().duration) {
+                if (entry.getKey().equals("WorldPosition")) positionAnimation = null;
+                iterator.remove();
+            }
         }
         if (stopping >= 0 && ++stopping >= fadeOut) state = "STOPPED";
         if (duration > 0 && time >= duration) { if (loop) time %= duration; else state = "STOPPED"; }
     }
     public static float[] numbers(Object value) {
-        if (value instanceof Boolean bool) return new float[]{bool ? 1 : 0};
-        if (value instanceof Number number) return new float[]{number.floatValue()};
+        return floats(numericValues(value));
+    }
+    private static float[] floats(double[] values) {
+        float[] result = new float[values.length];
+        for (int i = 0; i < values.length; i++) result[i] = (float)values[i];
+        return result;
+    }
+    private static double[] numericValues(Object value) {
+        if (value instanceof Boolean bool) return new double[]{bool ? 1 : 0};
+        if (value instanceof Number number) return new double[]{number.doubleValue()};
         Object[] array;
         if (value instanceof Map<?,?> map) array = map.values().toArray();
         else if (value instanceof Collection<?> list) array = list.toArray();
@@ -129,21 +163,35 @@ public final class ShaderInstance {
             for (int i = 0; i < size; i++) array[i] = java.lang.reflect.Array.get(value, i);
         } else throw new IllegalArgumentException("Numeric scalar or array required");
         if (array.length < 1 || array.length > 16) throw new IllegalArgumentException("Uniform array length must be 1..16");
-        float[] result = new float[array.length];
-        for (int i = 0; i < array.length; i++) { if (!(array[i] instanceof Number number)) throw new IllegalArgumentException("Numeric array required"); result[i] = number.floatValue(); }
+        double[] result = new double[array.length];
+        for (int i = 0; i < array.length; i++) { if (!(array[i] instanceof Number number)) throw new IllegalArgumentException("Numeric array required"); result[i] = number.doubleValue(); }
         return result;
     }
     private static ListTag list(float[] values) { ListTag list = new ListTag(); for (float value : values) list.add(FloatTag.valueOf(value)); return list; }
     private static float[] array(ListTag list) { float[] result = new float[list.size()]; for (int i = 0; i < result.length; i++) result[i] = list.getFloat(i); return result; }
+    private static ListTag positionTag(Vec3 position) {
+        ListTag list = new ListTag();
+        list.add(DoubleTag.valueOf(position.x)); list.add(DoubleTag.valueOf(position.y)); list.add(DoubleTag.valueOf(position.z));
+        return list;
+    }
+    private static double[] positionArray(ListTag list) {
+        if (list.size() != 3) throw new IllegalArgumentException("Expected three world position coordinates");
+        return new double[]{list.getDouble(0), list.getDouble(1), list.getDouble(2)};
+    }
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag(); tag.putUUID("Token", token); tag.putString("Id", getId()); tag.putString("Target", target);
         tag.putString("State", state); tag.putInt("Duration", duration); tag.putInt("FadeIn", fadeIn); tag.putInt("FadeOut", fadeOut);
         tag.putInt("Priority", priority); tag.putFloat("Speed", speed); tag.putFloat("Time", time); tag.putBoolean("Loop", loop); tag.putInt("Stopping", stopping);
         if (followEntity != null) tag.putUUID("FollowEntity", followEntity);
         CompoundTag params = new CompoundTag(); uniforms.forEach((name, value) -> params.put(name, list(value))); tag.put("Uniforms", params);
+        if (worldPosition != null) tag.put("PreciseWorldPosition", positionTag(worldPosition));
         CompoundTag samplers = new CompoundTag(); textures.forEach(samplers::putString); tag.put("Textures", samplers);
         CompoundTag anims = new CompoundTag(); animations.forEach((name, value) -> {
-            CompoundTag a = new CompoundTag(); a.put("From", list(value.from)); a.put("To", list(value.to)); a.putInt("Duration", value.duration); a.putString("Easing", value.easing); a.putFloat("Start", value.start); anims.put(name, a);
+            CompoundTag a = new CompoundTag(); a.put("From", list(value.from)); a.put("To", list(value.to)); a.putInt("Duration", value.duration); a.putString("Easing", value.easing); a.putFloat("Start", value.start);
+            if (positionAnimation != null && name.equals("WorldPosition")) {
+                a.put("PreciseFrom", positionTag(positionAnimation.from)); a.put("PreciseTo", positionTag(positionAnimation.to));
+            }
+            anims.put(name, a);
         }); tag.put("Animations", anims); return tag;
     }
     public static ShaderInstance read(CompoundTag tag, ShaderManager manager) {
@@ -157,14 +205,28 @@ public final class ShaderInstance {
         if (instance.stopping < -1 || instance.stopping > 1000000) throw new IllegalArgumentException("Invalid stopping time");
         CompoundTag params = tag.getCompound("Uniforms");
         for (String name : params.getAllKeys()) { float[] value = array(params.getList(name, Tag.TAG_FLOAT)); instance.definition.validate(name, value); instance.uniforms.put(name, value); }
+        if (instance.worldPosition != null) {
+            if (tag.contains("PreciseWorldPosition", Tag.TAG_LIST)) {
+                double[] precise = positionArray(tag.getList("PreciseWorldPosition", Tag.TAG_DOUBLE));
+                instance.definition.validate("WorldPosition", floats(precise));
+                instance.worldPosition = new Vec3(precise[0], precise[1], precise[2]);
+            } else if (params.contains("WorldPosition")) {
+                float[] xyz = instance.uniforms.get("WorldPosition");
+                instance.worldPosition = new Vec3(xyz[0], xyz[1], xyz[2]);
+            }
+        }
         CompoundTag textures = tag.getCompound("Textures"); for (String name : textures.getAllKeys()) {
             if (!instance.hasTexture(name)) throw new IllegalArgumentException("Unknown sampler " + name);
             instance.textures.put(name, ShaderDefinition.resource(textures.getString(name)));
         }
         CompoundTag anims = tag.getCompound("Animations"); for (String name : anims.getAllKeys()) {
-            CompoundTag a = anims.getCompound(name); instance.animateUniform(name, array(a.getList("From", Tag.TAG_FLOAT)), array(a.getList("To", Tag.TAG_FLOAT)), a.getInt("Duration"), a.getString("Easing"));
+            CompoundTag a = anims.getCompound(name);
+            boolean precise = name.equals("WorldPosition") && a.contains("PreciseFrom", Tag.TAG_LIST);
+            instance.animateUniform(name, precise ? positionArray(a.getList("PreciseFrom", Tag.TAG_DOUBLE)) : array(a.getList("From", Tag.TAG_FLOAT)),
+                    precise ? positionArray(a.getList("PreciseTo", Tag.TAG_DOUBLE)) : array(a.getList("To", Tag.TAG_FLOAT)), a.getInt("Duration"), a.getString("Easing"));
             Animation value = instance.animations.get(name); instance.animations.put(name, new Animation(value.from, value.to, value.duration, value.easing, a.getFloat("Start")));
         }
+        instance.worldPosition = instance.worldPosition(0);
         return instance;
     }
 }

@@ -5,7 +5,9 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.fml.ModList;
 import noppes.npcs.entity.EntityNPCInterface;
+import top.cnpcplus.client.render.CameraRelative;
 import top.cnpcplus.config.CnpcPlusConfigData;
 import top.cnpcplus.wand.WandTools;
 
@@ -24,11 +26,13 @@ public final class WandHitboxOverlay {
                 npc -> WandTools.inRange(npc.distanceToSqr(mc.player)));
         if (npcs.isEmpty()) return;
         var pose = event.getPoseStack();
-        var camera = event.getCamera().getPosition();
+        var camera = new CameraRelative(event.getCamera().getPosition());
+        // floatxzyfix 1.0.0 requires both legacy call sites and subtracts the camera itself.
+        boolean legacyAddon = ModList.get().isLoaded("floatxzyfix");
         var buffers = mc.renderBuffers().bufferSource();
         pose.pushPose();
         try {
-            pose.translate(-camera.x, -camera.y, -camera.z);
+            if (legacyAddon) pose.translate(-camera.origin().x, -camera.origin().y, -camera.origin().z);
             var lines = buffers.getBuffer(RenderType.lines());
             float partial = event.getPartialTick();
             for (var npc : npcs) {
@@ -36,7 +40,7 @@ public final class WandHitboxOverlay {
                         Mth.lerp(partial, npc.xOld, npc.getX()) - npc.getX(),
                         Mth.lerp(partial, npc.yOld, npc.getY()) - npc.getY(),
                         Mth.lerp(partial, npc.zOld, npc.getZ()) - npc.getZ());
-                LevelRenderer.renderLineBox(pose, lines, box, 0.25F, 0.85F, 1.0F, 1.0F);
+                LevelRenderer.renderLineBox(pose, lines, legacyAddon ? box : camera.bounds(box), 0.25F, 0.85F, 1.0F, 1.0F);
             }
             buffers.endBatch(RenderType.lines());
         } finally { pose.popPose(); }

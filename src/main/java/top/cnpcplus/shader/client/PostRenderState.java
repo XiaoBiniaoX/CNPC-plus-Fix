@@ -23,6 +23,7 @@ final class PostRenderState implements AutoCloseable {
     private final float[] clearColor = new float[4];
     private final double clearDepth = glGetDouble(GL_DEPTH_CLEAR_VALUE);
     private final boolean scissor = glIsEnabled(GL_SCISSOR_TEST), blend = glIsEnabled(GL_BLEND), depthTest = glIsEnabled(GL_DEPTH_TEST);
+    private final boolean depthClamp = glIsEnabled(GL_DEPTH_CLAMP);
     private final boolean depthMask = glGetBoolean(GL_DEPTH_WRITEMASK);
     private final int depthFunc = glGetInteger(GL_DEPTH_FUNC);
     private final int srcRgb = glGetInteger(GL_BLEND_SRC_RGB), dstRgb = glGetInteger(GL_BLEND_DST_RGB);
@@ -50,6 +51,7 @@ final class PostRenderState implements AutoCloseable {
         RenderSystem.colorMask(true, true, true, true);
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
+        glEnable(GL_DEPTH_CLAMP);
         RenderSystem.resetTextureMatrix();
         ShaderBlendModeAccess.cnpcplus$lastApplied(null);
     }
@@ -97,6 +99,7 @@ final class PostRenderState implements AutoCloseable {
         RenderSystem.depthFunc(depthFunc);
         RenderSystem.depthMask(depthMask);
         if (depthTest) RenderSystem.enableDepthTest(); else RenderSystem.disableDepthTest();
+        if (depthClamp) glEnable(GL_DEPTH_CLAMP); else glDisable(GL_DEPTH_CLAMP);
         RenderSystem.colorMask(colorMask[0] != 0, colorMask[1] != 0, colorMask[2] != 0, colorMask[3] != 0);
         if (scissor) RenderSystem.enableScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]); else RenderSystem.disableScissor();
         RenderSystem.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);

@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.stats.HideDelayStore;
 
 /**
  * S6（Medium）：writeSpawnData 是初始 spawn 精简快照被复用成「全量更新」通道。
@@ -53,6 +54,7 @@ public abstract class MixinEntityNPCSpawnDataExpand {
         c.putBoolean("TransformIsActive", this.transform.isActive);
         c.put("Resistances", this.stats.resistances.save());
         c.put("MeleeData", this.stats.melee.save(new CompoundTag()));
+        c.putInt("CNPCPlusHideDelay", HideDelayStore.get(this.stats));
     }
 
     @Inject(method = "readSpawnData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At("TAIL"), remap = false)
@@ -72,5 +74,6 @@ public abstract class MixinEntityNPCSpawnDataExpand {
         if (c.contains("TransformIsActive")) this.transform.isActive = c.getBoolean("TransformIsActive");
         if (c.contains("Resistances")) this.stats.resistances.readToNBT(c.getCompound("Resistances"));
         if (c.contains("MeleeData")) this.stats.melee.load(c.getCompound("MeleeData"));
+        HideDelayStore.read(this.stats, c);
     }
 }

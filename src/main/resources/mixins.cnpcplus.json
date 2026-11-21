@@ -134,6 +134,8 @@
     "MixinEntityNPCRespawnClock",
     "MixinEntityAIReturnSmoothArrival",
     "MixinNpcGroundPathNavigatorReturnTolerance",
+    "MixinReturnHomeMoveControl",
+    "MixinReturnHomeNpcLook",
     "MixinServerPlayerMountJump",
     "MixinServerEventsHandlerTeamKill",
     "MixinDataMeleeBuffNBT",

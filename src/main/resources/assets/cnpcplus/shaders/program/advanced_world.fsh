@@ -5,8 +5,7 @@ uniform sampler2D DepthSampler;
 uniform vec2 OutSize;
 uniform mat4 InverseWorldViewProjection;
 uniform mat4 WorldViewProjection;
-uniform vec3 CameraPosition;
-uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec3 PlaneNormal;
 uniform vec3 Color;
 uniform vec4 Hit0;
@@ -26,6 +25,7 @@ uniform float Intensity;
 uniform float Opacity;
 uniform float Time;
 uniform int Mode;
+uniform float ShieldStyle;
 in vec2 texCoord;
 out vec4 fragColor;
 
@@ -148,7 +148,7 @@ void main() {
     fragColor=original;
     vec3 ray=normalize(unproject(texCoord,1.0));
     float sceneDistance=length(unproject(texCoord,texture(DepthSampler,texCoord).r));
-    vec3 center=WorldPosition-CameraPosition;
+    vec3 center=CameraRelativeWorldPosition;
     vec3 ro=-center;
     vec3 result=original.rgb;
 

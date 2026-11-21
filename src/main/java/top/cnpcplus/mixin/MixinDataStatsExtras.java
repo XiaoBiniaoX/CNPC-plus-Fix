@@ -1,7 +1,6 @@
 package top.cnpcplus.mixin;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import noppes.npcs.entity.data.DataStats;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -32,11 +31,7 @@ public class MixinDataStatsExtras {
     @Inject(method = "readToNBT", at = @At("RETURN"), remap = false)
     private void cnpcplus$readExtras(CompoundTag compound, CallbackInfo ci) {
         DataStats stats = (DataStats) (Object) this;
-        if (compound.contains("CNPCPlusHideDelay", Tag.TAG_ANY_NUMERIC)) {
-            HideDelayStore.put(stats, compound.getInt("CNPCPlusHideDelay"));
-        } else {
-            HideDelayStore.clear(stats);
-        }
+        HideDelayStore.read(stats, compound);
         DeathFxStore.read(stats, compound);
     }
 }

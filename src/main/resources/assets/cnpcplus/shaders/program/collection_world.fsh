@@ -4,8 +4,7 @@ uniform sampler2D DepthSampler;
 uniform vec2 OutSize;
 uniform mat4 InverseWorldViewProjection;
 uniform mat4 WorldViewProjection;
-uniform vec3 CameraPosition;
-uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec3 Color;
 uniform float Radius;
 uniform float Intensity;
@@ -106,7 +105,7 @@ float shape(vec3 p) {
 }
 void main() {
     vec4 original=texture(DiffuseSampler,texCoord);fragColor=original;
-    vec3 rd=normalize(unproject(1.0)), center=WorldPosition-CameraPosition;
+    vec3 rd=normalize(unproject(1.0)), center=CameraRelativeWorldPosition;
     float depth=texture(DepthSampler,texCoord).r;
     vec3 surface=unproject(depth);
     float sceneDistance=length(surface);
@@ -165,16 +164,16 @@ void main() {
         // Depth reconstructed mask clips tearing/blocks to NPC and surrounding visible block surfaces.
         if(depth>=0.999999||length(surface-center)>Radius)return;
         float frame=floor(Time*11.0),gate=step(0.45,hash(vec3(frame,8,2)));
-        vec3 worldSurface=surface+CameraPosition;
-        float band=floor(worldSurface.y*8.0);
+        vec3 localSurface=surface-center;
+        float band=floor(localSurface.y*8.0);
         float rupture=step(0.67,hash(vec3(band,frame,11)));
         float shift=(hash(vec3(band,frame,3))-0.5)*0.19*gate*rupture;
-        float subBand=floor(worldSurface.y*32.0);
+        float subBand=floor(localSurface.y*32.0);
         shift+=(hash(vec3(subBand,frame,29))-0.5)*0.025*gate*rupture;
         result=scene(texCoord+vec2(shift,0));
         result.r=scene(texCoord+vec2(shift*1.15,0)).r;
         result.b=scene(texCoord+vec2(shift*0.85,0)).b;
-        vec3 tile=floor(worldSurface*vec3(4,9,4));
+        vec3 tile=floor(localSurface*vec3(4,9,4));
         float flash=step(0.87,hash(tile+frame))*gate;
         float tint=hash(tile+vec3(frame,19,7));
         vec3 glitch=tint<0.33?vec3(1):tint<0.66?vec3(1,0,1):vec3(0,1,0);
