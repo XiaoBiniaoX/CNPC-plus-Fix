@@ -11,6 +11,7 @@ import noppes.npcs.controllers.TransportController;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.RoleTransporter;
 import top.cnpcplus.transport.TransportKeys;
+import top.cnpcplus.transport.TransportFare;
 import top.cnpcplus.transport.TransportPanelMeta;
 import top.cnpcplus.transport.TransportVisualMeta;
 
@@ -72,6 +73,7 @@ public class PacketTransportMetaRequest {
                 entries.put(en.getKey(), metaOf(en.getValue()));
             }
             out.put("Entries", entries);
+            out.putInt("NpcId", npc.getId());
             out.putString("Current", own.name);
             out.put("CurrentMeta", metaOf(own));
             CompoundTag panel = new CompoundTag();
@@ -91,6 +93,7 @@ public class PacketTransportMetaRequest {
         CompoundTag t = new CompoundTag();
         TransportVisualMeta m = (TransportVisualMeta) (Object) loc;
         t.putInt("Id", loc.id);
+        t.put(TransportFare.KEY, m.cnpcplus$getFare().copy());
         t.putString(TransportKeys.NAME, loc.name);
         t.putString("Icon", m.cnpcplus$getIcon());
         t.putString("IconSel", m.cnpcplus$getIconSel());

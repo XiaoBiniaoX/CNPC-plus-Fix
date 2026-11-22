@@ -71,6 +71,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     /** 230 仅名字检查（铁砧同款）：保存时随配方落盘。 */
     private boolean nameOnly = false;
+    private boolean shapeless;
 
     /** 敲打一次消耗经验（-32767..32767，负数=给锻造者；新配方默认1），来自经验输入框/选中配方。 */
     private int expCost = 1;
@@ -111,6 +112,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         this.scroll.guiLeft = this.guiLeft + 172;
         this.scroll.guiTop = this.guiTop + 8;
         this.addScroll(this.scroll);
+        this.refreshScroll();
 
         // 配方名称输入框（上部，锤子右侧让位后 x42 宽126，始终显示）
         this.addTextField(new GuiTextFieldNop(30, this,
@@ -128,6 +130,9 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
         // 经验输入框 + 仅名字检查开关：与槽位同生命周期（选中配方或草稿态都显示）
         if (this.draft || this.selectedId >= 0) {
+            this.addButton(new GuiButtonNop(this, 91, bx, by + bs * 4, 84, 20,
+                    new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, this.shapeless ? 1 : 0));
+            this.getButton(91).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("cnpcplus.shapeless.tooltip")));
             // 经验输入框（敲打一次消耗多少经验）：整数 -32767..32767，负数=给锻造者经验
             // （可取走由 MixinAnvilMenu 放宽 mayPickup 的 cost>0 实现；默认值=1）
             this.addTextField(new GuiTextFieldNop(FIELD_EXP, this,
@@ -143,8 +148,6 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
                     new ItemStack(Items.NAME_TAG), this.nameOnly,
                     Component.translatable("cnpcplus.nameonly")));
         }
-
-        this.refreshScroll();
     }
 
     /** 保存失败等提示语（画在按钮列下方，null 表示不显示）。 */
@@ -161,7 +164,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         if (this.notice != null) {
             graphics.drawString(this.font, this.notice,
                     this.guiLeft + AnvilLayout.btnX(),
-                    this.guiTop + AnvilLayout.btnY() + AnvilLayout.btnSpacing() * 3 + 6,
+                    this.guiTop + AnvilLayout.btnY() + AnvilLayout.btnSpacing() * 5 + 6,
                     0xFFFF5555, false);
         }
         // 经验输入框没有文字标签，悬停时说明它是哪个（父类渲染完再画，保证浮在最上层）
@@ -204,21 +207,14 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
     private void refreshScroll() {
         this.recipes.clear();
         this.recipes.addAll(AnvilClientData.get());
-        List<String> names = new ArrayList<>();
-        for (AnvilRecipeData d : this.recipes) names.add(d.name);
-        this.scroll.setList(names);
-        if (this.selectedName != null) {
-            this.scroll.setSelected(this.selectedName);
-        } else if (!names.isEmpty()) {
-            this.scroll.setSelected(names.get(0));
-            this.selectedName = names.get(0);
+        this.recipes.sort(java.util.Comparator.comparingInt(d -> d.id));
+        this.scroll.setUnsortedList(this.recipes.stream().map(d -> d.id + " " + d.name).toList());
+        if (!this.draft && this.selectedId < 0 && !this.recipes.isEmpty()) {
             this.loadRecipe(0);
-            // 首开自动选中第一条：同时让服务端把该配方填进三槽（新容器此时必为空槽，
-            // 填入即「列表选中项=槽内展示」状态一致；服务端会先归还槽内原有物品，不会销毁）。
-            if (this.selectedId >= 0) {
-                AnvilPacketHandler.CHANNEL.sendToServer(new PacketAnvilSelect(this.selectedId));
-            }
+            AnvilPacketHandler.CHANNEL.sendToServer(new PacketAnvilSelect(this.selectedId));
         }
+        var selected = AnvilClientData.byId(this.selectedId);
+        this.scroll.setSelected(selected == null ? null : selected.id + " " + selected.name);
     }
 
     private void loadRecipe(int index) {
@@ -226,6 +222,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
             this.selectedId = -1;
             this.draft = false;
             this.nameOnly = false;
+            this.shapeless = false;
             this.expCost = 1;
             if (this.getTextField(30) != null) this.getTextField(30).setValue("");
             if (this.getTextField(FIELD_EXP) != null) this.getTextField(FIELD_EXP).setValue("1");
@@ -236,6 +233,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         this.selectedId = d.id;
         this.selectedName = d.name;
         this.nameOnly = d.nameOnly;
+        this.shapeless = d.shapeless;
         this.expCost = d.expCost;
         // 选中列表里的正式配方 = 草稿结束（否则保存后 refreshFromServer 仍按草稿名匹配）
         this.draft = false;
@@ -246,6 +244,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability)); return; }
+        if (button.id == 91) { this.shapeless = button.getValue() == 1; return; }
         if (button.id == BTN_NEW) {
             // 「添加配方」= 清空表单 + 清空三个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketAnvilSelect(-1) 查不到配方时把三槽设为 EMPTY 并归还物品），
@@ -255,6 +254,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
             this.draft = true;
             this.availability = new noppes.npcs.controllers.data.Availability();
             this.nameOnly = false;
+            this.shapeless = false;
             this.expCost = 1;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
@@ -266,6 +266,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
                 this.selectedId = -1;
                 this.draft = false;
                 this.nameOnly = false;
+                this.shapeless = false;
                 this.expCost = 1;
                 this.selectedName = null;
                 // 服务端删除后会主动推 Sync（列表都由它收口），无需再手动 RequestList。
@@ -293,6 +294,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         d.availability = this.availability;
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
+        d.shapeless = this.shapeless;
         // 经验读输入框：未显示（无选中）兜底 1；越界由保存末尾统一夹（范围 -32767..32767）。
         int exp = 1;
         GuiTextFieldNop expField = this.getTextField(FIELD_EXP);
@@ -320,17 +322,10 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     @Override
     public void scrollClicked(double i, double j, int k, GuiCustomScrollNop guiCustomScroll) {
-        if (this.scroll.getSelected() == null) return;
-        this.selectedName = this.scroll.getSelected();
-        for (int n = 0; n < this.recipes.size(); n++) {
-            if (this.recipes.get(n).name.equals(this.selectedName)) {
-                this.loadRecipe(n);
-                break;
-            }
-        }
-        if (this.selectedId >= 0) {
-            AnvilPacketHandler.CHANNEL.sendToServer(new PacketAnvilSelect(this.selectedId));
-        }
+        int index = this.scroll.getSelectedIndex();
+        if (index < 0 || this.recipes.get(index).id == this.selectedId) return;
+        this.loadRecipe(index);
+        AnvilPacketHandler.CHANNEL.sendToServer(new PacketAnvilSelect(this.selectedId));
         this.m_7856_();
     }
 
@@ -339,16 +334,15 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
      * 保存成功会触发同步下发，此时草稿已经变成正式配方，按名字把它选中，草稿状态收尾。
      */
     public void refreshFromServer() {
+        this.recipes.clear();
+        this.recipes.addAll(AnvilClientData.get());
         if (this.draft && this.selectedName != null) {
-            for (int i = 0; i < AnvilClientData.get().size(); i++) {
-                AnvilRecipeData d = AnvilClientData.get().get(i);
-                if (this.selectedName.equals(d.name)) {
-                    // 231b bug4 修复：按服务端落盘后的真值整体回填（loadRecipe=选中id/经验/开关/
-                    // 两个文本框一次到位），只回填 selectedId 会让经验输入框停在保存前的旧值。
-                    this.loadRecipe(i);
-                    break;
-                }
+            int saved = -1;
+            for (int i = 0; i < this.recipes.size(); i++) {
+                var recipe = this.recipes.get(i);
+                if (this.selectedName.equals(recipe.name) && (saved < 0 || recipe.id > this.recipes.get(saved).id)) saved = i;
             }
+            if (saved >= 0) this.loadRecipe(saved);
         }
         this.m_7856_();
     }

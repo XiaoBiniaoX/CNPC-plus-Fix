@@ -79,10 +79,10 @@ public final class WandNetworkRegression {
         Method encode = WandNpcPacket.class.getDeclaredMethod("encode", FriendlyByteBuf.class);
         Method decode = WandNpcPacket.class.getDeclaredMethod("decode", FriendlyByteBuf.class);
         encode.setAccessible(true); decode.setAccessible(true);
-        for (boolean copying : new boolean[]{false, true}) {
+        for (boolean copying : new boolean[]{false, true}) for (boolean toggleFreeze : new boolean[]{false, true}) {
             FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
             try {
-                WandNpcPacket original = new WandNpcPacket(41, Long.MAX_VALUE - 3, copying);
+                WandNpcPacket original = new WandNpcPacket(41, Long.MAX_VALUE - 3, copying, toggleFreeze);
                 encode.invoke(original, buf);
                 check(original.equals(decode.invoke(null, buf)) && !buf.isReadable(), "wand request codec mismatch");
             } finally { buf.release(); }

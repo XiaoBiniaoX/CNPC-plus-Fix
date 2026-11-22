@@ -15,8 +15,7 @@ import top.cnpcplus.transport.client.GuiTransporterVisualEditor;
 
 /**
  * 任务241：传送师（GuiNpcTransporter）职业页加「可视化编辑」入口按钮（id 50）。
- * 打开子页 GuiTransporterVisualEditor，直接改 public location（与原生同一实例），
- * 关子页后父页 save() 把 writeNBT（含 5 扩展键）经 SPacketTransportSave 落盘。
+ * 可视化编辑器直接修改原生 location，退出时返回职业页。
  */
 @Mixin(value = GuiNpcTransporter.class, remap = false)
 public abstract class MixinGuiNpcTransporterEditorButton {
@@ -55,7 +54,8 @@ public abstract class MixinGuiNpcTransporterEditorButton {
         if (this.location == null || this.location.id < 0) return;
         GuiTextFieldNop name = self.getTextField(0);
         if (name != null && !name.getValue().trim().isEmpty()) this.location.name = name.getValue().trim();
-        self.setSubGui(new GuiTransporterVisualEditor(this.location, self.npc.getId()));
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        minecraft.setScreen(new GuiTransporterVisualEditor(minecraft.screen, this.location, self.npc.getId()));
     }
 
     @Inject(method = "setGuiData", at = @At("TAIL"), remap = false)

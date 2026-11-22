@@ -16,6 +16,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.ai.ReturnHomeState;
+import top.cnpcplus.ai.NpcControlAccess;
+import top.cnpcplus.ai.PursuitLimit;
 import top.cnpcplus.config.CnpcPlusServerConfig;
 import top.cnpcplus.config.ServerConfigAccess;
 
@@ -28,12 +30,28 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     @Shadow private int totalTicks;
     @Shadow private int stuckTicks;
     @Shadow private int stuckCount;
+    @Shadow private boolean wasAttacked;
     @Unique private boolean cnpcplus$retryNearHome;
 
     @Inject(method = "navigate", at = @At("RETURN"), require = 1)
     private void cnpcplus$trackReturnDestination(boolean towards, CallbackInfo ci) {
-        if (ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) {
+        if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()
+                || ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)) {
             ReturnHomeState.start(npc, new Vec3(endPosX, endPosY, endPosZ));
+        }
+    }
+
+    @Inject(method = "navigate", at = @At("HEAD"), require = 1)
+    private void cnpcplus$returnToSpawn(boolean towards, CallbackInfo ci) {
+        if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()) wasAttacked = false;
+    }
+
+    @Inject(method = "m_8036_", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$startForcedReturn(CallbackInfoReturnable<Boolean> cir) {
+        if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()) {
+            var home = PursuitLimit.home(npc);
+            cir.setReturnValue(npc.getTarget() == null && !npc.isKilled() && !npc.isPassenger()
+                    && !npc.isInteracting() && !ReturnHomeState.arrived(npc, home));
         }
     }
 
@@ -41,6 +59,12 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     private void cnpcplus$continueToActualDestination(CallbackInfoReturnable<Boolean> cir) {
         Vec3 target = ReturnHomeState.target(npc);
         if (target == null) return;
+        if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()) {
+            cir.setReturnValue(npc.getTarget() == null && !npc.isKilled() && !npc.isPassenger()
+                    && !npc.isInteracting() && !ReturnHomeState.arrived(npc, target)
+                    && totalTicks <= cnpcplus$configurableTimeout(600));
+            return;
+        }
         // After combat CNPC can choose a pre-attack position instead of home.
         cir.setReturnValue(!npc.isFollower() && !npc.isKilled() && !npc.isAttacking()
                 && !npc.isInteracting() && !npc.isPassenger() && npc.ais.shouldReturnHome()

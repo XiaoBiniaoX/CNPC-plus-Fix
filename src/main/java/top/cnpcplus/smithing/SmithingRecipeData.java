@@ -11,6 +11,7 @@ import net.minecraft.world.item.ItemStack;
 public class SmithingRecipeData {
     public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
+    public boolean shapeless;
     public String name = "";
     public ItemStack template = ItemStack.EMPTY;  // 模板（如模具/纹饰）
     public ItemStack base = ItemStack.EMPTY;      // 基座（被升级物）
@@ -33,6 +34,7 @@ public class SmithingRecipeData {
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.putBoolean("Shapeless", this.shapeless);
         t.put("Availability", this.availability.save(new CompoundTag()));
         if (withItems) {
             t.put("Template", this.template.save(new CompoundTag()));
@@ -47,6 +49,7 @@ public class SmithingRecipeData {
         SmithingRecipeData d = new SmithingRecipeData();
         d.availability.load(t.getCompound("Availability"));
         d.id = t.getInt("Id");
+        d.shapeless = t.getBoolean("Shapeless");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly"); // 旧配方无此键 → 默认 false，兼容
         d.template = ItemStack.of(t.getCompound("Template"));

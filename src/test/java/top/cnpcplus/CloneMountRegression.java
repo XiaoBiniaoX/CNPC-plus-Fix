@@ -39,8 +39,12 @@ public final class CloneMountRegression {
             System.out.println("HEADLESS_ONLY: no ModLauncher event transforms");
         }
         Field field = sun.misc.Unsafe.class.getDeclaredField("theUnsafe"); field.setAccessible(true); unsafe = (sun.misc.Unsafe)field.get(null);
-        Path root = Files.createTempDirectory(Path.of("Temp/CNPCplus-final-20261101"), "mount-regression-");
         captures();
+        if (List.of(args).contains("--capture-only")) {
+            System.out.println("CLONE_MOUNT_CAPTURE=PASS");
+            return;
+        }
+        Path root = Files.createTempDirectory(Path.of("Temp"), "mount-regression-");
         saves(root);
         spawns();
         System.out.println("CLONE_MOUNT_REGRESSION=PASS (native save; production capture/save/rollback; factory/world fixtures, not game/Mixin smoke)");
@@ -77,6 +81,29 @@ public final class CloneMountRegression {
         Fixture deep = entity(EntityType.HORSE), cursor = deep;
         for (int i = 0; i < 32; i++) { Fixture next = entity(EntityType.PIG); ride(next, cursor); cursor = next; }
         expectFailure(() -> CloneMounts.capture(deep));
+
+        Fixture mount = entity(EntityType.HORSE), ordinary = entity(EntityType.SHEEP);
+        ScriptedRider scripted = (ScriptedRider) unsafe.allocateInstance(ScriptedRider.class);
+        set(Entity.class, scripted, "type", EntityType.PIG);
+        set(Entity.class, scripted, "passengers", ImmutableList.of());
+        set(noppes.npcs.entity.EntityNPCInterface.class, scripted, "script", new noppes.npcs.entity.data.DataScript(scripted));
+        scripted.script.setEnabled(true);
+        ride(scripted, mount);
+        ride(ordinary, mount);
+        List<CompoundTag> mountOnly = CloneMounts.members(CloneMounts.capture(mount));
+        List<CompoundTag> riderAndMount = CloneMounts.members(CloneMounts.capture(scripted));
+        check(mountOnly.size() == 2 && mountOnly.get(1).getString("id").equals("minecraft:sheep"), "unselected scripted rider copied");
+        check(riderAndMount.size() == 3 && riderAndMount.get(1).getBoolean("ScriptedRiderFixture"), "selected scripted rider lost its mount");
+        check(mount.getPassengers().equals(List.of(scripted, ordinary)), "scripted rider detached from original mount");
+        set(Entity.class, scripted, "level", unsafe.allocateInstance(World.class));
+        set(Entity.class, scripted, "position", net.minecraft.world.phys.Vec3.ZERO);
+        scripted.setLevelCallback(net.minecraft.world.level.entity.EntityInLevelCallback.NULL);
+        scripted.setRemoved(Entity.RemovalReason.DISCARDED);
+        check(scripted.isRemoved() && scripted.getVehicle() == null && mount.getPassengers().size() == 1,
+                "discard did not detach the scripted rider");
+        CompoundTag afterDelete = new CompoundTag();
+        check(mount.save(afterDelete) && CloneMounts.members(afterDelete).size() == 2,
+                "native mount save kept the discarded rider");
     }
     private static void saves(Path root) throws Exception {
         // Actual CNPC codec bytes; only SRG names and the missing ListNBT accessor are adapted to headless Mojmap.
@@ -258,6 +285,7 @@ public final class CloneMountRegression {
         @Override protected void defineSynchedData() {}
         @Override protected void readAdditionalSaveData(CompoundTag tag) {}
         @Override protected void addAdditionalSaveData(CompoundTag tag) {}
+        @Override public void gameEvent(net.minecraft.world.level.gameevent.GameEvent event, Entity source) {}
         @Override public boolean saveAsPassenger(CompoundTag tag) { return !rejectSave && super.saveAsPassenger(tag); }
         @Override public CompoundTag saveWithoutId(CompoundTag tag) {
             for (String key : payload.getAllKeys()) tag.put(key, payload.get(key).copy()); tag.putUUID("UUID", getUUID());
@@ -267,6 +295,15 @@ public final class CloneMountRegression {
         @Override public void moveTo(double x, double y, double z, float yaw, float pitch) {}
         @Override public boolean startRiding(Entity parent, boolean force) { if (failMount) return false; try { ride(this, parent); return true; } catch (ReflectiveOperationException e) { throw new AssertionError(e); } }
         @Override public void remove(RemovalReason reason) { try { set(Entity.class, this, "removalReason", reason); } catch (ReflectiveOperationException e) { throw new AssertionError(e); } }
+    }
+    public static final class ScriptedRider extends noppes.npcs.entity.EntityCustomNpc {
+        private ScriptedRider() { super(null, null); }
+        @Override public void dismountTo(double x, double y, double z) {} // No physical world in this fixture.
+        @Override public CompoundTag saveWithoutId(CompoundTag tag) {
+            // An externalized script has no inline ScriptEnabled key.
+            tag.putBoolean("ScriptedRiderFixture", true);
+            return tag;
+        }
     }
     public static final class World extends ServerLevel {
         List<Entity> added; int rejectAt;

@@ -19,6 +19,7 @@ import top.cnpcplus.station.*;
 public class MixinCampfireRecipeUse {
     @Inject(method = "use", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> cir) {
+        if (!state.getValue(CampfireBlock.LIT)) return;
         ItemStack stack = player.getItemInHand(hand);
         if (!(level.getBlockEntity(pos) instanceof CampfireBlockEntity block)
                 || !StationRecipes.list(2, level.isClientSide).stream().anyMatch(r -> r.matchesInputs(new ItemStack[]{stack}))) return;

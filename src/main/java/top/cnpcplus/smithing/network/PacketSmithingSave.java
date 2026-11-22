@@ -48,6 +48,7 @@ public class PacketSmithingSave {
                 LOGGER.debug("[smithing] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
                 return;
             }
+            if (d.id != c.selectedId) return;
             d.template = c.getTemplate().copy();
             d.base = c.getBase().copy();
             d.addition = c.getAddition().copy();
@@ -64,10 +65,8 @@ public class PacketSmithingSave {
                 LOGGER.debug("[smithing] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
-            SmithingRecipeManager.injectAll(sender.server.getRecipeManager());
-            SmithingRecipeManager.syncToPlayers(sender.server);
-            // 228 用户要求：一人修改，全部玩家立即可合成（原版配方表全员群发）
-            SmithingRecipeManager.resendVanillaRecipes(sender.server);
+            c.selectedId = d.id;
+            SmithingRecipeManager.publishChange(sender.server, d.id, d);
         });
         ctx.get().setPacketHandled(true);
     }

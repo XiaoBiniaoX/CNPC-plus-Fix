@@ -18,6 +18,6 @@ public class SmithingClientRegistry {
         // 不清的话换存档/换服务器会拿上个世界的列表当真（显示旧配方、选中发出去被服务端按 id 拒绝）。
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
                 (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) ->
-                        SmithingClientData.set(java.util.List.of()));
+                        SmithingClientData.clear());
     }
 }

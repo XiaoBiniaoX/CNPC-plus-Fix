@@ -6,13 +6,12 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import top.cnpcplus.CnpcPlus;
 
 /**
- * 锻造功能的网络通道（227 数据包补齐，id 0-5 手工分配，改动顺序会破坏与旧版本的协议兼容；
- * PROTOCOL_VERSION 已锁 "1"）。
+ * 锻造功能的网络通道（id 0-5 手工分配，协议 2 支持单条同步）。
  * 每个包都显式声明 NetworkDirection：不声明则双向都接受，单人/局域网开房时主机自身也是客户端，
  * 会接受伪造的 PLAY_TO_CLIENT 包（例如用 PacketSmithingSync 覆盖主机的配方缓存）。
  */
 public class SmithingPacketHandler {
-    private static final String PROTOCOL_VERSION = "1";
+    private static final String PROTOCOL_VERSION = "2";
 
     @SuppressWarnings({"deprecation", "removal"})
     public static final SimpleChannel CHANNEL = NetworkRegistry.ChannelBuilder

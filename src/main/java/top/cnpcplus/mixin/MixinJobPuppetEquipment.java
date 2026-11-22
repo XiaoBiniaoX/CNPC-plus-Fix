@@ -1,6 +1,7 @@
 package top.cnpcplus.mixin;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Mth;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.JobPuppet;
 import org.spongepowered.asm.mixin.Mixin;
@@ -8,12 +9,33 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.puppet.JobPuppetAccessor;
 
 @Mixin(value = JobPuppet.class, remap = false)
 public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
+    @Shadow public int animationSpeed;
+    @Shadow public boolean animate;
+    @Shadow private int startTick;
+    @Unique private static final int[] CNPCPLUS_LEGACY_SPEEDS = {1, 2, 3, 4, 6, 10, 13, 20};
+    @Unique private static final String CNPCPLUS_SPEED_FORMAT = "CNPCPlusPuppetSpeed20";
+
+    @ModifyConstant(method = "setAnimationSpeed", constant = @Constant(intValue = 7))
+    private int cnpcplus$maxAnimationSpeed(int oldMax) { return 20; }
+
+    @Inject(method = "calcRotation", at = @At("HEAD"), cancellable = true)
+    private void cnpcplus$interpolate(float start, float end, float partialTick, CallbackInfoReturnable<Float> cir) {
+        if (!animate || animationSpeed == 0) {
+            cir.setReturnValue(start);
+            return;
+        }
+        int ticks = ((JobPuppet) (Object) this).npc.tickCount - startTick;
+        float phase = ((ticks % 160) + partialTick) * animationSpeed * Mth.PI / 80;
+        cir.setReturnValue(Mth.lerp((1 - Mth.cos(phase)) / 2, start, end));
+    }
     @Unique public JobPuppet.PartConfig cnpcplus$mainhand;
     @Unique public JobPuppet.PartConfig cnpcplus$offhand;
     @Unique public JobPuppet.PartConfig cnpcplus$helmet;
@@ -29,6 +51,7 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void cnpcplus$initEquipmentParts(EntityNPCInterface npc, CallbackInfo ci) {
+        animationSpeed = CNPCPLUS_LEGACY_SPEEDS[animationSpeed];
         JobPuppet self = (JobPuppet) (Object) this;
         this.cnpcplus$mainhand = self.new PartConfig();
         this.cnpcplus$offhand = self.new PartConfig();
@@ -47,6 +70,7 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
     @Inject(method = "save", at = @At("RETURN"))
     private void cnpcplus$saveEquipmentParts(CompoundTag compound, CallbackInfoReturnable<CompoundTag> cir) {
         CompoundTag tag = cir.getReturnValue();
+        tag.putBoolean(CNPCPLUS_SPEED_FORMAT, true);
         tag.put("PuppetMainHand", this.cnpcplus$mainhand.writeNBT());
         tag.put("PuppetOffHand", this.cnpcplus$offhand.writeNBT());
         tag.put("PuppetHelmet", this.cnpcplus$helmet.writeNBT());
@@ -63,6 +87,9 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
 
     @Inject(method = "load", at = @At("RETURN"))
     private void cnpcplus$loadEquipmentParts(CompoundTag compound, CallbackInfo ci) {
+        if (!compound.getBoolean(CNPCPLUS_SPEED_FORMAT)) {
+            animationSpeed = CNPCPLUS_LEGACY_SPEEDS[Mth.clamp(animationSpeed, 0, 7)];
+        }
         this.cnpcplus$mainhand.readNBT(compound.getCompound("PuppetMainHand"));
         this.cnpcplus$offhand.readNBT(compound.getCompound("PuppetOffHand"));
         this.cnpcplus$helmet.readNBT(compound.getCompound("PuppetHelmet"));

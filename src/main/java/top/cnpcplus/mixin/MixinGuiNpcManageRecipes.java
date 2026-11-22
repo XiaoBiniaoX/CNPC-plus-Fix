@@ -1,15 +1,17 @@
 package top.cnpcplus.mixin;
 
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import noppes.npcs.client.gui.global.GuiNpcManageRecipes;
 import noppes.npcs.containers.ContainerManageRecipes;
-import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 import noppes.npcs.packets.Packets;
+import noppes.npcs.packets.server.SPacketRecipeGet;
 import noppes.npcs.packets.server.SPacketRecipeSave;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
@@ -25,6 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.accessor.RecipeCarpentryOffsetAccessor;
 
 import java.util.Map;
+import java.util.Vector;
 
 @Mixin(GuiNpcManageRecipes.class)
 public class MixinGuiNpcManageRecipes {
@@ -41,27 +44,20 @@ public class MixinGuiNpcManageRecipes {
     @Shadow(remap = false)
     private GuiCustomScrollNop scroll;
 
-
+    @Unique private ResourceLocation cnpcplus$pendingRecipe;
 
     @Inject(method = "save", at = @At("HEAD"), remap = false, cancellable = true)
     private void cnpcplus$safeSaveOnSwitch(CallbackInfo ci) {
         // scroll 切换也会走 save：必须按当前 tab 固定 isGlobal，避免 3x3 掉进 4x4 列表
         GuiTextFieldNop.unfocus();
-        if (this.selected == null || this.data == null || !this.data.containsKey(this.selected)) {
+        if (!cnpcplus$editingRecipe()) {
             ci.cancel();
             return;
         }
         boolean global = this.container.width == 3;
         this.container.saveRecipe();
         this.container.recipe.isGlobal = global;
-        ResourceLocation id = this.container.recipe.getId();
         Packets.sendServer(new SPacketRecipeSave(this.container.recipe.writeNBT()));
-        if (RecipeController.instance != null && id != null) {
-            RecipeController.instance.globalRecipes.remove(id);
-            RecipeController.instance.anvilRecipes.remove(id);
-            if (global) RecipeController.instance.globalRecipes.put(id, this.container.recipe);
-            else RecipeController.instance.anvilRecipes.put(id, this.container.recipe);
-        }
         ci.cancel();
     }
 
@@ -80,17 +76,33 @@ public class MixinGuiNpcManageRecipes {
             RecipeCarpentry recipe = new RecipeCarpentry(id, name);
             recipe.isGlobal = this.container.width == 3;
             this.data.put(name, id);
+            cnpcplus$pendingRecipe = id;
+            cnpcplus$refreshRecipeButtons(self);
             Packets.sendServer(new SPacketRecipeSave(recipe.writeNBT()));
             ci.cancel();
             return;
         }
+        if (button.id == 4 && this.data.containsKey(this.scroll.getSelected())) {
+            this.selected = null;
+            cnpcplus$pendingRecipe = null;
+            cnpcplus$refreshRecipeButtons((GuiNpcManageRecipes)(Object)this);
+        }
         if (button.id == 108) {
-            GuiTextFieldNop.unfocus();
-            ((GuiNpcManageRecipes)(Object)this).setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.container.recipe.availability));
+            if (cnpcplus$editingRecipe()) {
+                GuiTextFieldNop.unfocus();
+                ((GuiNpcManageRecipes)(Object)this).setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.container.recipe.availability));
+            }
+            ci.cancel();
+            return;
+        }
+        if (button.id == 109) {
+            if (cnpcplus$editingRecipe()) ((RecipeCarpentryOffsetAccessor)this.container.recipe).cnpcplus$setShapeless(button.getValue() == 1);
             ci.cancel();
             return;
         }
         if (button.id == 2) {
+            ci.cancel();
+            if (!cnpcplus$editingRecipe()) return;
             SimpleContainer matrix = ((ContainerManageRecipesAccess)container).cnpcplus$getCraftingMatrix();
             int gridSize = this.container.size;
             ItemStack[] snapshot = new ItemStack[gridSize];
@@ -107,18 +119,54 @@ public class MixinGuiNpcManageRecipes {
             ResourceLocation savedId = this.container.recipe.getId();
             Packets.sendServer(new SPacketRecipeSave(this.container.recipe.writeNBT()));
 
-            if (RecipeController.instance != null && savedId != null) {
-                RecipeController.instance.globalRecipes.remove(savedId);
-                RecipeController.instance.anvilRecipes.remove(savedId);
-                if (global) RecipeController.instance.globalRecipes.put(savedId, this.container.recipe);
-                else RecipeController.instance.anvilRecipes.put(savedId, this.container.recipe);
-            }
-
             top.cnpcplus.craftingview.RecipeGridSnapshot.save(savedId, snapshot);
             cnpcplus$restoreGrid(matrix, snapshot);
 
-            ci.cancel();
         }
+    }
+
+    @Inject(method = "scrollClicked", at = @At("HEAD"), remap = false, cancellable = true)
+    private void cnpcplus$selectRecipe(double x, double y, int button, GuiCustomScrollNop scroll, CallbackInfo ci) {
+        ci.cancel();
+        String next = scroll.getSelected();
+        ResourceLocation id = this.data.get(next);
+        if (id == null || id.equals(cnpcplus$pendingRecipe) || (cnpcplus$editingRecipe() && next.equals(this.selected))) return;
+        GuiNpcManageRecipes self = (GuiNpcManageRecipes)(Object)this;
+        self.save();
+        cnpcplus$pendingRecipe = id;
+        cnpcplus$refreshRecipeButtons(self);
+        Packets.sendServer(new SPacketRecipeGet(id));
+    }
+
+    @Inject(method = "setGuiData", at = @At("HEAD"), remap = false, cancellable = true)
+    private void cnpcplus$ignorePreviousRecipe(CompoundTag tag, CallbackInfo ci) {
+        if (cnpcplus$pendingRecipe != null && !cnpcplus$pendingRecipe.toString().equals(tag.getString("Id"))) ci.cancel();
+    }
+
+    @Inject(method = "setGuiData", at = @At("RETURN"), remap = false)
+    private void cnpcplus$restoreRecipeButtons(CompoundTag tag, CallbackInfo ci) {
+        cnpcplus$pendingRecipe = null;
+        cnpcplus$refreshRecipeButtons((GuiNpcManageRecipes)(Object)this);
+    }
+
+    @Inject(method = "setData", at = @At("RETURN"), remap = false)
+    private void cnpcplus$refreshAfterList(Vector<String> list, Map<String, Integer> recipes, CallbackInfo ci) {
+        cnpcplus$refreshRecipeButtons((GuiNpcManageRecipes)(Object)this);
+    }
+
+    @Unique private boolean cnpcplus$editingRecipe() {
+        return cnpcplus$pendingRecipe == null && this.selected != null && this.data.containsKey(this.selected);
+    }
+
+    @Unique private void cnpcplus$refreshRecipeButtons(GuiNpcManageRecipes self) {
+        boolean editing = cnpcplus$editingRecipe();
+        self.getTextField(0).enabled = editing;
+        self.getButton(2).setEnabled(editing);
+        self.getButton(5).setEnabled(editing);
+        self.getButton(6).setEnabled(editing);
+        self.getButton(108).setEnabled(editing);
+        self.getButton(109).setEnabled(editing);
+        self.getButton(109).setDisplay(editing && ((RecipeCarpentryOffsetAccessor)this.container.recipe).cnpcplus$isShapeless() ? 1 : 0);
     }
 
     @Inject(method = "m_7856_", at = @At("RETURN"), remap = false)
@@ -126,6 +174,10 @@ public class MixinGuiNpcManageRecipes {
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
         GuiLabel fuzzyLabel = self.getLabel(0);
         self.addButton(new GuiButtonNop(self, 108, self.guiLeft + 306, self.guiTop + 128, 84, 20, "availability.options"));
+        self.addButton(new GuiButtonNop(self, 109, self.guiLeft + 306, self.guiTop + 150, 84, 20,
+                new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, 0));
+        self.getButton(109).setTooltip(Tooltip.create(Component.translatable("cnpcplus.shapeless.tooltip")));
+        cnpcplus$refreshRecipeButtons(self);
         if (fuzzyLabel != null) {
             fuzzyLabel.setMessage(Component.translatable("gui.ignoreDamage"));
         }
@@ -178,6 +230,7 @@ public class MixinGuiNpcManageRecipes {
 
     @Inject(method = "unFocused", at = @At("HEAD"), remap = false, cancellable = true)
     private void cnpcplus$allowUnicodeRecipeName(GuiTextFieldNop field, CallbackInfo ci) {
+        if (!cnpcplus$editingRecipe()) { ci.cancel(); return; }
         String name = field.getValue();
         if (name == null) name = "";
         name = name.trim();

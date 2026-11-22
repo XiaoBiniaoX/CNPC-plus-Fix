@@ -37,13 +37,15 @@ public abstract class MixinGrindstoneRecipes extends AbstractContainerMenu {
                 return !custom || recipe != null && (player.getAbilities().instabuild || player.experienceLevel >= recipe.experience);
             }
             @Override public void onTake(Player player, ItemStack stack) {
-                StationRecipe recipe = StationRecipes.find(0, new ItemStack[]{repairSlots.getItem(0), repairSlots.getItem(1)}, player);
+                ItemStack[] inputs = {repairSlots.getItem(0), repairSlots.getItem(1)};
+                StationRecipe recipe = StationRecipes.find(0, inputs, player);
                 if (recipe == null) { old.onTake(player, stack); return; }
                 if (!player.level().isClientSide) {
                     if (!player.getAbilities().instabuild) player.giveExperienceLevels(-recipe.experience);
                     // Both remainders are computed before either setChanged can recompute the result.
-                    ItemStack top = repairSlots.getItem(0).copy(), bottom = repairSlots.getItem(1).copy();
-                    top.shrink(recipe.inputs[0].getCount()); bottom.shrink(recipe.inputs[1].getCount());
+                    int[] slots = recipe.matchSlots(inputs);
+                    ItemStack top = inputs[0].copy(), bottom = inputs[1].copy();
+                    top.shrink(recipe.inputs[slots[0]].getCount()); bottom.shrink(recipe.inputs[slots[1]].getCount());
                     repairSlots.setItem(0, top); repairSlots.setItem(1, bottom);
                     access.execute((level, pos) -> level.levelEvent(1042, pos, 0));
                 }

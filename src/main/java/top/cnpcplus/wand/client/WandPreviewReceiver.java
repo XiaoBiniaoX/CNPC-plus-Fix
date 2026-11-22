@@ -11,4 +11,7 @@ public final class WandPreviewReceiver {
             else screen.acceptPreview(id, request, snapshot);
         }
     }
+    public static void freezeState(boolean global, boolean allowed, int[] ids) {
+        if (Minecraft.getInstance().screen instanceof GuiWandNpcList screen) screen.acceptFreezeState(global, allowed, ids);
+    }
 }

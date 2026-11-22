@@ -2,13 +2,18 @@ package top.cnpcplus.mixin;
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.*;
 import top.cnpcplus.anvil.*;
+import top.cnpcplus.craftingview.RecipeAvailability;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -29,19 +34,44 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(AnvilMenu.class)
 public abstract class MixinAnvilMenu extends ItemCombinerMenu {
+    @Unique private boolean cnpcplus$shapelessTake;
     protected MixinAnvilMenu(MenuType<?> type, int id, Inventory inventory, ContainerLevelAccess access) { super(type, id, inventory, access); }
+
+    @Inject(method = "createResult", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$clearLockedResult(CallbackInfo ci) {
+        var recipe = AnvilCraftHandler.find(player, inputSlots.getItem(0), inputSlots.getItem(1));
+        if (recipe != null && !RecipeAvailability.allows(recipe.availability, player)) {
+            resultSlots.setItem(0, ItemStack.EMPTY);
+            ((AnvilMenu)(Object)this).setMaximumCost(0);
+            ci.cancel();
+        }
+    }
 
     @Inject(method = "mayPickup", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$allowZeroNegativeCost(Player player, boolean canTake,
                                                 CallbackInfoReturnable<Boolean> cir) {
         AnvilMenu self = (AnvilMenu) (Object) this;
-        var recipes = player.level().isClientSide ? top.cnpcplus.anvil.client.AnvilClientData.get() : AnvilRecipeRegistry.list();
-        for (AnvilRecipeData recipe : recipes) {
-            if (AnvilCraftHandler.matchesSlot(recipe.inputA, inputSlots.getItem(0), recipe.nameOnly)
-                    && AnvilCraftHandler.matchesSlot(recipe.inputB, inputSlots.getItem(1), recipe.nameOnly)
-                    && !top.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player)) { cir.setReturnValue(false); return; }
+        var recipe = AnvilCraftHandler.find(player, inputSlots.getItem(0), inputSlots.getItem(1));
+        if (recipe != null) cir.setReturnValue(canTake
+                && RecipeAvailability.allows(recipe.availability, player)
+                && (player.getAbilities().instabuild || player.experienceLevel >= self.getCost()));
+    }
+
+    @Redirect(method = "onTake", at = @At(value = "INVOKE", ordinal = 0,
+            target = "Lnet/minecraft/world/Container;setItem(ILnet/minecraft/world/item/ItemStack;)V"), require = 1)
+    private void cnpcplus$consumeLeft(Container inputs, int slot, ItemStack empty) {
+        var recipe = AnvilCraftHandler.find(player, inputs.getItem(0), inputs.getItem(1));
+        cnpcplus$shapelessTake = recipe != null && recipe.shapeless;
+        // Do not recompute the result until vanilla has read the right-slot material cost.
+        if (cnpcplus$shapelessTake) inputs.getItem(slot).shrink(1);
+        else inputs.setItem(slot, empty);
+    }
+
+    @Inject(method = "onTake", at = @At("RETURN"), require = 1)
+    private void cnpcplus$refreshAfterShapeless(Player player, ItemStack result, CallbackInfo ci) {
+        if (cnpcplus$shapelessTake) {
+            cnpcplus$shapelessTake = false;
+            createResult();
         }
-        cir.setReturnValue(player.getAbilities().instabuild
-                || player.experienceLevel >= self.getCost());
     }
 }

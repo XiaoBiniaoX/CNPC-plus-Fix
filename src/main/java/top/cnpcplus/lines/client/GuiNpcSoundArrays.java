@@ -30,8 +30,10 @@ public final class GuiNpcSoundArrays extends GuiNPCInterface2 {
     @Override public void buttonEvent(GuiButtonNop button) {
         if (button.id < 0 || button.id >= 5) return;
         int slot = button.id;
-        setSubGui(new SubGuiSoundArray(NpcSoundArrays.get(npc.advanced).slots[slot], true,
-                value -> NpcSoundArrays.get(npc.advanced).slots[slot] = value));
+        setSubGui(new SubGuiSoundArray(NpcSoundArrays.get(npc.advanced).slots[slot], true, value -> {
+            NpcSoundArrays.get(npc.advanced).slots[slot] = value;
+            save();
+        }));
     }
 
     @Override public void save() {

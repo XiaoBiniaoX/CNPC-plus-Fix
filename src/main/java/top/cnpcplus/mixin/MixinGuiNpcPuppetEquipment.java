@@ -5,6 +5,7 @@ import net.minecraft.client.gui.screens.Screen;
 import noppes.npcs.client.gui.roles.GuiNpcPuppet;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.roles.JobPuppet;
+import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
@@ -29,6 +30,30 @@ public abstract class MixinGuiNpcPuppetEquipment extends GuiNPCInterface impleme
 
     @Unique
     private static final String[] CNPCPLUS_EQUIP_PARTS = {"主手物品", "副手物品", "头盔", "甲胄", "护腿", "靴子"};
+
+    @Redirect(method = "m_7856_", at = @At(value = "FIELD", target = "Lnoppes/npcs/roles/JobPuppet;animationSpeed:I"), remap = false)
+    private int cnpcplus$unusedSpeedButtonIndex(JobPuppet puppet) {
+        return 0;
+    }
+
+    @Redirect(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/client/gui/roles/GuiNpcPuppet;addButton(Lnoppes/npcs/shared/client/gui/components/GuiButtonNop;)V", ordinal = 4), remap = false)
+    private void cnpcplus$addSpeedField(GuiNpcPuppet screen, GuiButtonNop oldButton) {
+        GuiTextFieldNop field = new GuiTextFieldNop(34, screen, this.guiLeft + 110, oldButton.getY() + 22, 60, 18, "");
+        field.setMaxLength(2);
+        field.setMinMaxDefault(0, 20, job.animationSpeed);
+        field.setFilter(value -> value.matches("[0-9]{0,2}"));
+        field.setValue(Integer.toString(job.animationSpeed));
+        field.setResponder(value -> {
+            if (!value.isEmpty()) job.setAnimationSpeed(Integer.parseInt(value));
+        });
+        addWidget(field);
+        addTextField(field);
+    }
+
+    @Redirect(method = "m_7856_", at = @At(value = "INVOKE", target = "Lnoppes/npcs/client/gui/roles/GuiNpcPuppet;addLabel(Lnoppes/npcs/shared/client/gui/components/GuiLabel;)V", ordinal = 4), remap = false)
+    private void cnpcplus$moveSpeedLabel(GuiNpcPuppet screen, GuiLabel label) {
+        screen.addLabel(new GuiLabel(34, "stats.speed", this.guiLeft + 10, this.guiTop + 106, 0xFFFFFF));
+    }
 
     @Inject(method = "m_7856_", at = @At(value = "FIELD", target = "Lnoppes/npcs/client/gui/roles/GuiNpcPuppet;data:Ljava/util/HashMap;", shift = At.Shift.AFTER), remap = false)
     private void cnpcplus$addEquipmentParts(CallbackInfo ci) {
@@ -82,6 +107,10 @@ public abstract class MixinGuiNpcPuppetEquipment extends GuiNPCInterface impleme
 
     @Override
     public void unFocused(GuiTextFieldNop field) {
+        if (field.id == 34) {
+            field.setValue(Integer.toString(job.animationSpeed));
+            return;
+        }
         if (this.selectedName == null) return;
         JobPuppet.PartConfig config = this.data.get(this.selectedName);
         if (!(config instanceof PartConfigAccessor acc)) return;

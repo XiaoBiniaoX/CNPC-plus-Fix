@@ -64,6 +64,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     /** 230 仅名字检查：保存时随配方落盘（只校验物品id+物品名字，开关外观照抄熔炼）。 */
     private boolean nameOnly = false;
+    private boolean shapeless;
     private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public GuiNpcSmithingRecipes(ContainerSmithingRecipes container, Inventory inv, Component titleIn) {
@@ -75,10 +76,8 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.imageHeight = 250;
         this.title = "";
         this.menuYOffset = 0;
-        // 进入铁律（用户「每次进去不许顿一下」）：缓存非空 = 直接本地渲染，一个包都不发；
-        // 只在首次（缓存为空）向服务端要一次全量列表，收到后 Sync 会回调 refreshFromServer。
-        boolean cacheEmpty = SmithingClientData.get().isEmpty();
-        if (cacheEmpty) {
+        // 本次连接只在首次打开时请求全量列表，空列表也视为已加载。
+        if (!SmithingClientData.isLoaded()) {
             SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingRequestList());
         }
     }
@@ -101,6 +100,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.scroll.guiLeft = this.guiLeft + 172;
         this.scroll.guiTop = this.guiTop + 8;
         this.addScroll(this.scroll);
+        this.refreshScroll();
 
         // 配方名称输入框（左上，始终显示）
         this.addTextField(new GuiTextFieldNop(30, this,
@@ -121,14 +121,15 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         // 文案键用 cnpcplus 独占的 cnpcplus.nameonly——原 gui.ignoreNBT 被 CNPC 本体同键
         // 「忽略NBT值」按 namespace 字母序覆盖（cnpcplus < customnpcs 后写者赢），游戏内显示错文案。
         if (this.draft || this.selectedId >= 0) {
+            this.addButton(new GuiButtonNop(this, 91, bx, by + bs * 4, 84, 20,
+                    new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, this.shapeless ? 1 : 0));
+            this.getButton(91).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("cnpcplus.shapeless.tooltip")));
             this.addButton(new GuiIconToggleButton(this, BTN_NAMEONLY,
                     this.guiLeft + SmithingLayout.nameOnlyX(), this.guiTop + SmithingLayout.nameOnlyY(),
                     SmithingLayout.nameOnlyWidth(), SmithingLayout.nameOnlyHeight(),
                     new ItemStack(Items.NAME_TAG), this.nameOnly,
                     Component.translatable("cnpcplus.nameonly")));
         }
-
-        this.refreshScroll();
     }
 
     /** 保存失败等提示语（画在按钮列下方，null 表示不显示）。 */
@@ -141,7 +142,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         if (this.notice != null) {
             graphics.drawString(this.font, this.notice,
                     this.guiLeft + SmithingLayout.btnX(),
-                    this.guiTop + SmithingLayout.btnY() + SmithingLayout.btnSpacing() * 3 + 6,
+                    this.guiTop + SmithingLayout.btnY() + SmithingLayout.btnSpacing() * 5 + 6,
                     0xFFFF5555, false);
         }
     }
@@ -175,21 +176,14 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
     private void refreshScroll() {
         this.recipes.clear();
         this.recipes.addAll(SmithingClientData.get());
-        List<String> names = new ArrayList<>();
-        for (SmithingRecipeData d : this.recipes) names.add(d.name);
-        this.scroll.setList(names);
-        if (this.selectedName != null) {
-            this.scroll.setSelected(this.selectedName);
-        } else if (!names.isEmpty()) {
-            this.scroll.setSelected(names.get(0));
-            this.selectedName = names.get(0);
+        this.recipes.sort(java.util.Comparator.comparingInt(d -> d.id));
+        this.scroll.setUnsortedList(this.recipes.stream().map(d -> d.id + " " + d.name).toList());
+        if (!this.draft && this.selectedId < 0 && !this.recipes.isEmpty()) {
             this.loadRecipe(0);
-            // 首开自动选中第一条：同时让服务端把该配方填进四槽（新容器此时必为空槽，
-            // 填入即「列表选中项=槽内展示」状态一致；服务端会先归还槽内原有物品，不会销毁）。
-            if (this.selectedId >= 0) {
-                SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(this.selectedId));
-            }
+            SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(this.selectedId));
         }
+        var selected = SmithingClientData.byId(this.selectedId);
+        this.scroll.setSelected(selected == null ? null : selected.id + " " + selected.name);
     }
 
     private void loadRecipe(int index) {
@@ -197,6 +191,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             this.selectedId = -1;
             this.draft = false;
             this.nameOnly = false;
+            this.shapeless = false;
             if (this.getTextField(30) != null) this.getTextField(30).setValue("");
             return;
         }
@@ -205,6 +200,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.selectedId = d.id;
         this.selectedName = d.name;
         this.nameOnly = d.nameOnly;
+        this.shapeless = d.shapeless;
         // 选中列表里的正式配方 = 草稿结束（否则保存后 refreshFromServer 仍按草稿名匹配，
         // 且 nameText 的草稿分支会一直生效）
         this.draft = false;
@@ -214,6 +210,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
     @Override
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(this.availability)); return; }
+        if (button.id == 91) { this.shapeless = button.getValue() == 1; return; }
         if (button.id == BTN_NEW) {
             // 「添加配方」= 清空表单 + 清空四个槽 + 进入草稿 + 自动生成随机名字。
             // 清槽由服务端权威执行（PacketSmithingSelect(-1) 查不到配方时把四槽设为 EMPTY 并归还物品），
@@ -223,6 +220,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
             this.draft = true;
             this.availability = new noppes.npcs.controllers.data.Availability();
             this.nameOnly = false;
+            this.shapeless = false;
             this.selectedName = "new" + System.currentTimeMillis() % 100000;
             if (this.getTextField(30) != null) this.getTextField(30).setValue(this.selectedName);
             this.m_7856_();
@@ -232,6 +230,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
                 this.selectedId = -1;
                 this.draft = false;
                 this.nameOnly = false;
+                this.shapeless = false;
                 this.selectedName = null;
                 // 服务端删除后会主动推 Sync（列表+热移除都由它收口），无需再手动 RequestList。
             }
@@ -260,6 +259,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         d.availability = this.availability;
         d.id = this.selectedId;
         d.nameOnly = this.nameOnly;
+        d.shapeless = this.shapeless;
         String name = this.getTextField(30) != null ? this.getTextField(30).getValue() : "";
         d.name = (name == null || name.trim().isEmpty()) ? "new" : name.trim();
         if (d.name.equals("new") && d.id < 0) {
@@ -277,17 +277,10 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     @Override
     public void scrollClicked(double i, double j, int k, GuiCustomScrollNop guiCustomScroll) {
-        if (this.scroll.getSelected() == null) return;
-        this.selectedName = this.scroll.getSelected();
-        for (int n = 0; n < this.recipes.size(); n++) {
-            if (this.recipes.get(n).name.equals(this.selectedName)) {
-                this.loadRecipe(n);
-                break;
-            }
-        }
-        if (this.selectedId >= 0) {
-            SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(this.selectedId));
-        }
+        int index = this.scroll.getSelectedIndex();
+        if (index < 0 || this.recipes.get(index).id == this.selectedId) return;
+        this.loadRecipe(index);
+        SmithingPacketHandler.CHANNEL.sendToServer(new PacketSmithingSelect(this.selectedId));
         this.m_7856_();
     }
 
@@ -296,14 +289,15 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
      * 保存成功会触发同步下发，此时草稿已经变成正式配方，按名字把它选中，草稿状态收尾。
      */
     public void refreshFromServer() {
+        this.recipes.clear();
+        this.recipes.addAll(SmithingClientData.get());
         if (this.draft && this.selectedName != null) {
-            for (SmithingRecipeData d : SmithingClientData.get()) {
-                if (this.selectedName.equals(d.name)) {
-                    this.selectedId = d.id;
-                    this.draft = false;
-                    break;
-                }
+            int saved = -1;
+            for (int i = 0; i < this.recipes.size(); i++) {
+                var recipe = this.recipes.get(i);
+                if (this.selectedName.equals(recipe.name) && (saved < 0 || recipe.id > this.recipes.get(saved).id)) saved = i;
             }
+            if (saved >= 0) this.loadRecipe(saved);
         }
         this.m_7856_();
     }

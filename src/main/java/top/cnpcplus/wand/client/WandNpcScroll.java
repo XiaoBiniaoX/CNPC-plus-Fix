@@ -91,6 +91,18 @@ final class WandNpcScroll extends GuiCustomScrollNop {
         owner.selectionChanged();
     }
 
+    @Override protected void drawItems(GuiGraphics graphics) {
+        super.drawItems(graphics);
+        int borderWidth = getWidth() - (access().cnpcplus$maxScrollY() > 0 ? 15 : 5);
+        int firstRow = (offset() + 13) / 14;
+        for (int row = firstRow; row < list.size(); row++) {
+            int textY = row * 14 + 4 - offset();
+            if (textY + 12 >= getHeight()) break;
+            if (owner.isIndividuallyFrozen(list.get(row)))
+                graphics.renderOutline(2, textY - 3, borderWidth, 14, 0xFF338DFF);
+        }
+    }
+
     @Override public void m_88315_(GuiGraphics graphics, int x, int y, float partial) {
         if (dragging && rectangle && System.nanoTime() - lastScroll >= 70_000_000L) {
             int direction = mouseY < guiTop + 12 ? -1 : mouseY > guiTop + getHeight() - 12 ? 1 : 0;

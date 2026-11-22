@@ -159,6 +159,7 @@ public final class ScriptApiCompletion {
         }
         roots.put("PosZero", load(API + "IPos"));
         roots.put("CNPCPlusLog", org.slf4j.Logger.class);
+        roots.putAll(top.cnpcplus.script.tools.ScriptApiRegistry.roots());
         for (String name : new String[]{"AnimationType", "EntitiesType", "RoleType", "JobType",
                 "SideType", "PotionEffectType", "ParticleType"}) {
             roots.put(name, load(API + "constants." + name));
@@ -177,7 +178,14 @@ public final class ScriptApiCompletion {
         if (base == null) return null;
         String name = function.toLowerCase(Locale.ROOT);
         switch (name) {
+            case "tickfix" -> {
+                if (base.getSimpleName().equals("ItemEvent")) return ExtraScriptHook.ItemTickEvent.class;
+                name = "update";
+            }
             case "tick" -> name = "update";
+            case "timer" -> {
+                if (base.getSimpleName().equals("ItemEvent")) return ExtraScriptHook.ItemTimerEvent.class;
+            }
             case "kill" -> name = "killedentity";
             case "collide" -> name = base.getSimpleName().equals("BlockEvent") ? "collided" : "collide";
             case "broken" -> name = "break";

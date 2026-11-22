@@ -1,6 +1,11 @@
 package top.cnpcplus.mixin;
 
+import java.io.File;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.crafting.RecipeType;
+import noppes.npcs.CustomNpcs;
 import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 import noppes.npcs.packets.Packets;
@@ -10,10 +15,13 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.craftingview.RecipeDiskWrites;
 import top.cnpcplus.craftingview.RecipeIds;
+import top.cnpcplus.craftingview.RecipeIndexUpdates;
 
-import java.lang.reflect.Method;
 import java.util.HashMap;
 
 /**
@@ -25,6 +33,8 @@ public class MixinRecipeControllerSaveId {
 
     @Shadow public HashMap<ResourceLocation, RecipeCarpentry> globalRecipes;
     @Shadow public HashMap<ResourceLocation, RecipeCarpentry> anvilRecipes;
+    @Shadow public int nextId;
+    @Shadow private void saveCategories() { throw new AssertionError(); }
 
     @Inject(method = "saveRecipe", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$safeSave(RecipeCarpentry recipe, CallbackInfoReturnable<RecipeCarpentry> cir) {
@@ -54,18 +64,42 @@ public class MixinRecipeControllerSaveId {
         }
 
         // Critical: strip from BOTH maps so 3x3 never lingers in 4x4 list and vice versa.
-        this.globalRecipes.remove(id);
+        RecipeCarpentry previousGlobal = this.globalRecipes.remove(id);
         this.anvilRecipes.remove(id);
         if (recipe.isGlobal) {
             this.globalRecipes.put(id, recipe);
-            Packets.sendAll(new PacketSyncRecipeUpdate(id, 6, recipe.writeNBT()));
         } else {
             this.anvilRecipes.put(id, recipe);
-            Packets.sendAll(new PacketSyncRecipeUpdate(id, 7, recipe.writeNBT()));
         }
-        cnpcplus$saveCategories(self);
-        self.reloadGlobalRecipes();
+        if (recipe.isGlobal || previousGlobal != null) {
+            RecipeIndexUpdates.replace(CustomNpcs.Server.getRecipeManager(), RecipeType.CRAFTING, id,
+                    recipe.isGlobal && recipe.isValid() ? recipe : null);
+        }
+        Packets.sendAll(new PacketSyncRecipeUpdate(id, recipe.isGlobal ? 6 : 7, recipe.writeNBT()));
+        this.saveCategories();
         cir.setReturnValue(recipe);
+    }
+
+    @Redirect(method = "delete", at = @At(value = "INVOKE", target = "Lnoppes/npcs/controllers/RecipeController;reloadGlobalRecipes()V"))
+    private void cnpcplus$removeGlobalIndex(RecipeController controller, ResourceLocation id) {
+        RecipeIndexUpdates.replace(CustomNpcs.Server.getRecipeManager(), RecipeType.CRAFTING, id, null);
+    }
+
+    @Inject(method = "saveCategories", at = @At("HEAD"), cancellable = true)
+    private void cnpcplus$saveCategoriesAsync(CallbackInfo ci) {
+        ListTag recipes = new ListTag();
+        for (RecipeCarpentry recipe : this.globalRecipes.values()) {
+            if (recipe.savesRecipe) recipes.add(recipe.writeNBT());
+        }
+        for (RecipeCarpentry recipe : this.anvilRecipes.values()) {
+            if (recipe.savesRecipe) recipes.add(recipe.writeNBT());
+        }
+        CompoundTag root = new CompoundTag();
+        root.put("Data", recipes);
+        root.putInt("LastId", this.nextId);
+        root.putInt("Version", RecipeController.version);
+        RecipeDiskWrites.save(new File(CustomNpcs.getLevelSaveDirectory(), "recipes.dat").toPath(), root, true);
+        ci.cancel();
     }
 
     @Unique
@@ -94,14 +128,4 @@ public class MixinRecipeControllerSaveId {
         return rekeyed;
     }
 
-    @Unique
-    private static void cnpcplus$saveCategories(RecipeController self) {
-        try {
-            Method m = RecipeController.class.getDeclaredMethod("saveCategories");
-            m.setAccessible(true);
-            m.invoke(self);
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("保存配方分类失败", e);
-        }
-    }
 }

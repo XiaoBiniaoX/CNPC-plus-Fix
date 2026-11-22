@@ -12,6 +12,7 @@ import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 import top.cnpcplus.accessor.RecipeCarpentryOffsetAccessor;
 import top.cnpcplus.craftingview.CraftUtils;
+import top.cnpcplus.craftingview.RecipeAvailability;
 
 import java.util.function.Supplier;
 
@@ -51,7 +52,7 @@ public class PacketFillCraftingGrid {
     private void fillCarpentryBench(ServerPlayer player, ContainerCarpentryBench container) {
         RecipeCarpentry recipe = RecipeController.instance.anvilRecipes != null
                 ? RecipeController.instance.anvilRecipes.get(recipeId) : null;
-        if (recipe == null) return;
+        if (recipe == null || !RecipeAvailability.allows(recipe.availability, player)) return;
 
         int gridSize = 16;
         for (int s = 0; s < gridSize; s++) {
@@ -87,7 +88,7 @@ public class PacketFillCraftingGrid {
     private void fillCraftingTable(ServerPlayer player, CraftingMenu container) {
         RecipeCarpentry recipe = RecipeController.instance.globalRecipes != null
                 ? RecipeController.instance.globalRecipes.get(recipeId) : null;
-        if (recipe == null) return;
+        if (recipe == null || !RecipeAvailability.allows(recipe.availability, player)) return;
 
         var slots = container.craftSlots;
         int gridSize = 9;

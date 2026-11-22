@@ -51,6 +51,7 @@ public class PacketAnvilSave {
                 LOGGER.debug("[anvil] Save拒绝: 未打开编辑容器 player={}", sender.getGameProfile().getName());
                 return;
             }
+            if (d.id != c.selectedId) return;
             d.inputA = c.getInputA().copy();
             d.inputB = c.getInputB().copy();
             d.result = c.getOutput().copy();
@@ -65,6 +66,7 @@ public class PacketAnvilSave {
                 LOGGER.debug("[anvil] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
+            c.selectedId = d.id;
             // 233d-UI9 日志清理：info→debug（默认不输出，只留 error 级）
             LOGGER.debug("[anvil] 配方保存 id={} name={} exp={} nameOnly={}", d.id, d.name, d.expCost, d.nameOnly);
             // 一人创建全服可用：全员同步编辑列表（配方生效在服务端事件直查 Registry，无需 RecipeManager 注入）

@@ -112,9 +112,19 @@ public final class ScriptApiDocs {
 
     public static List<Line> index(List<Class<?>> classes, Map<String, ?> globals, Function<String, String> sourceOf) {
         Map<String, Line> result = new TreeMap<>();
+        var registry = top.cnpcplus.script.tools.ScriptApiRegistry.entries();
+        var roots = top.cnpcplus.script.tools.ScriptApiRegistry.roots();
+        for (var entry : registry) {
+            String parameters = entry.parameters().stream().map(parameter -> parameter.name() + ": " + parameter.type())
+                    .collect(java.util.stream.Collectors.joining(", "));
+            String signature = entry.publicName() + "(" + parameters + ") : " + entry.returnType() + " ["
+                    + entry.threadPolicy() + ", " + entry.lifecycle() + "] " + entry.behaviorNotes();
+            put(result, new Line("+ / CNPCplus / " + entry.module(), entry.module(), signature, "CNPCplus", true));
+        }
         Map<Class<?>, Set<String>> originals = new HashMap<>();
         Set<Class<?>> extraTypes = new LinkedHashSet<>();
         for (var global : globals.entrySet()) {
+            if (roots.containsKey(global.getKey())) continue;
             Object value = global.getValue();
             if (value == null) continue;
             Class<?> owner = value instanceof Class<?> type ? type : value.getClass();

@@ -9,6 +9,7 @@ import noppes.npcs.controllers.data.TransportLocation;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.RoleTransporter;
 import top.cnpcplus.transport.TransportKeys;
+import top.cnpcplus.transport.TransportFare;
 import top.cnpcplus.transport.TransportPanelMeta;
 import top.cnpcplus.transport.TransportPanelStyle;
 import top.cnpcplus.transport.TransportVisualMeta;
@@ -37,6 +38,14 @@ public class PacketTransportMetaSave {
         this.panel = panel == null ? new CompoundTag() : panel;
         this.entries = entries == null ? new CompoundTag() : entries;
         this.disk = disk;
+    }
+
+    public static PacketTransportMetaSave fare(int npcId, String entry, CompoundTag fare) {
+        var change = new CompoundTag();
+        change.put(TransportFare.KEY, fare.copy());
+        var entries = new CompoundTag();
+        entries.put(entry, change);
+        return new PacketTransportMetaSave(npcId, new CompoundTag(), entries, true);
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -109,6 +118,14 @@ public class PacketTransportMetaSave {
                     continue;
                 }
                 TransportVisualMeta m = (TransportVisualMeta) (Object) target;
+                if (this.disk && t.size() == 1 && t.contains(TransportFare.KEY, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                    var fare = t.getCompound(TransportFare.KEY);
+                    var items = TransportFare.items(fare);
+                    items.stream().filter(stack -> !stack.isEmpty())
+                            .forEach(stack -> stack.setCount(Math.min(stack.getCount(), stack.getMaxStackSize())));
+                    m.cnpcplus$setFare(TransportFare.save(fare.getBoolean("Enabled"), items));
+                    continue;
+                }
                 m.cnpcplus$setIcon(iconKey(t.getString(TransportKeys.ICON)));
                 m.cnpcplus$setIconSel(iconKey(t.getString(TransportKeys.ICON_SEL)));
                 m.cnpcplus$setImage(iconKey(t.getString(TransportKeys.IMAGE)));
@@ -134,14 +151,11 @@ public class PacketTransportMetaSave {
                 }
             }
 
-            if (this.disk) {
-                TransportController.getInstance().saveCategories();
-            }
-            if (this.disk) {
-                noppes.npcs.shared.common.util.LogWriter.warn(
-                        "[cnpcplus] transport meta save npc=" + this.npcId
-                                + " entries=" + this.entries.getAllKeys().size() + " disk=true");
-            }
+            if (!this.disk) return;
+            TransportController.getInstance().saveCategories();
+            noppes.npcs.shared.common.util.LogWriter.warn(
+                    "[cnpcplus] transport meta save npc=" + this.npcId
+                            + " entries=" + this.entries.getAllKeys().size() + " disk=true");
 
             // 241o：回执 —— 服务端把当前状态回传，客户端据此显示"已保存"并刷新（能看见有没有真的存进去）
             try {

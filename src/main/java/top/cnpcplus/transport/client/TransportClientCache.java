@@ -78,6 +78,7 @@ public final class TransportClientCache {
             return;
         }
         root = data;
+        if (!editor) playerRoot = data;
         currentName = data.getString("Current");
         CompoundTag p = data.getCompound("Panel");
         panel = p == null ? new CompoundTag() : p;
@@ -155,6 +156,8 @@ public final class TransportClientCache {
     }
 
     public static CompoundTag root() { return root; }
+    private static CompoundTag playerRoot = new CompoundTag();
+    public static CompoundTag playerRoot() { return playerRoot; }
     public static String currentName() { return currentName; }
     public static CompoundTag panel() { return panel; }
     public static CompoundTag meta(String name) { return name == null ? null : META.get(name); }

@@ -2,6 +2,7 @@ package top.cnpcplus.smithing.client;
 
 import net.minecraft.client.Minecraft;
 import top.cnpcplus.smithing.SmithingRecipeData;
+import top.cnpcplus.smithing.SmithingRecipeManager;
 
 import java.util.List;
 
@@ -14,9 +15,27 @@ public final class SmithingClientSync {
 
     private SmithingClientSync() {}
 
-    public static void accept(List<SmithingRecipeData> data) {
-        SmithingClientData.set(data);
-        net.minecraft.client.Minecraft mc = Minecraft.getInstance();
+    public static void accept(List<SmithingRecipeData> data, int changedId) {
+        Minecraft mc = Minecraft.getInstance();
+        if (changedId < 0) {
+            SmithingClientData.set(data);
+        } else {
+            SmithingRecipeData recipe = data.isEmpty() ? null : data.get(0);
+            if (SmithingClientData.isLoaded()) {
+                var recipes = SmithingClientData.get();
+                if (recipe == null) {
+                    recipes.removeIf(entry -> entry.id == changedId);
+                } else {
+                    var previous = SmithingClientData.byId(changedId);
+                    if (previous == null) recipes.add(recipe);
+                    else recipes.set(recipes.indexOf(previous), recipe);
+                }
+            }
+            var connection = mc.getConnection();
+            if (connection != null) {
+                SmithingRecipeManager.applyChange(connection.getRecipeManager(), changedId, recipe);
+            }
+        }
         if (mc.screen instanceof GuiNpcSmithingRecipes gui) {
             gui.refreshFromServer();
         }

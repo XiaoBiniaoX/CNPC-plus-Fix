@@ -9,6 +9,8 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SmithingTransformRecipe;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.common.util.RecipeMatcher;
+import java.util.List;
 
 /**
  * 自定义锻造配方（227 继承原版 SmithingTransformRecipe，229 严格槽位模式，230 加仅名字检查）：
@@ -36,6 +38,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
     /** 父类的 result 字段是 net.minecraft 包私有（跨包读不到），网络序列化用本份引用。 */
     private final ItemStack exactResult;
     private final boolean nameOnly;
+    boolean shapeless;
 
     public CustomSmithingRecipe(ResourceLocation id, ItemStack template, ItemStack base,
                                 ItemStack addition, ItemStack result, boolean nameOnly) {
@@ -57,6 +60,11 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
      */
     @Override
     public boolean matches(Container container, Level level) {
+        if (this.shapeless) {
+            return RecipeMatcher.findMatches(List.of(container.getItem(0), container.getItem(1), container.getItem(2)),
+                    List.of(stack -> matchesStack(stack, exactTemplate), stack -> matchesStack(stack, exactBase),
+                            stack -> matchesStack(stack, exactAddition))) != null;
+        }
         if (this.nameOnly) {
             return nameMatch(container.getItem(0), this.exactTemplate)
                     && nameMatch(container.getItem(1), this.exactBase)
@@ -65,6 +73,22 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
         return ItemStack.isSameItemSameTags(container.getItem(0), this.exactTemplate)
                 && ItemStack.isSameItemSameTags(container.getItem(1), this.exactBase)
                 && ItemStack.isSameItemSameTags(container.getItem(2), this.exactAddition);
+    }
+
+    private boolean matchesStack(ItemStack stack, ItemStack required) {
+        return this.nameOnly ? nameMatch(stack, required) : ItemStack.isSameItemSameTags(stack, required);
+    }
+
+    @Override public boolean isTemplateIngredient(ItemStack stack) {
+        return super.isTemplateIngredient(stack) || shapeless && (super.isBaseIngredient(stack) || super.isAdditionIngredient(stack));
+    }
+
+    @Override public boolean isBaseIngredient(ItemStack stack) {
+        return super.isBaseIngredient(stack) || shapeless && (super.isTemplateIngredient(stack) || super.isAdditionIngredient(stack));
+    }
+
+    @Override public boolean isAdditionIngredient(ItemStack stack) {
+        return super.isAdditionIngredient(stack) || shapeless && (super.isTemplateIngredient(stack) || super.isBaseIngredient(stack));
     }
 
     /**
@@ -125,7 +149,9 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             ItemStack result = buf.readItem();
             boolean nameOnly = buf.readBoolean();
             CustomSmithingRecipe recipe = new CustomSmithingRecipe(id, template, base, addition, result, nameOnly);
-            recipe.availability.load(buf.readNbt());
+            var options = buf.readNbt();
+            recipe.availability.load(options);
+            recipe.shapeless = options.getBoolean("CNPCPlusShapeless");
             return recipe;
         }
 
@@ -136,7 +162,9 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             buf.writeItem(recipe.exactAddition);
             buf.writeItem(recipe.exactResult);
             buf.writeBoolean(recipe.nameOnly);
-            buf.writeNbt(recipe.availability.save(new net.minecraft.nbt.CompoundTag()));
+            var options = recipe.availability.save(new net.minecraft.nbt.CompoundTag());
+            options.putBoolean("CNPCPlusShapeless", recipe.shapeless);
+            buf.writeNbt(options);
         }
     }
 }

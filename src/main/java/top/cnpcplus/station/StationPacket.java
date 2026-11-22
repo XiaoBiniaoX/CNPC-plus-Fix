@@ -1,5 +1,6 @@
 package top.cnpcplus.station;
 
+import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.function.Supplier;
 import net.minecraft.nbt.*;
@@ -14,7 +15,7 @@ import net.minecraftforge.network.*;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public record StationPacket(int operation, int kind, CompoundTag data) {
-    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation("cnpcplus:stations"), () -> "1", "1"::equals, "1"::equals);
+    public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(new ResourceLocation("cnpcplus:stations"), () -> "2", "2"::equals, "2"::equals);
     public static void init() {
         CHANNEL.registerMessage(0, StationPacket.class, StationPacket::encode, StationPacket::decode, StationPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(1, Sync.class, Sync::encode, Sync::decode, Sync::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
@@ -26,20 +27,27 @@ public record StationPacket(int operation, int kind, CompoundTag data) {
         context.enqueueWork(() -> {
             var player = context.getSender();
             if (player == null || !player.hasPermissions(2) || kind < 0 || kind >= 3 || data == null || data.sizeInBytes() > 30000) return;
-            String notice = "";
-            int result = 0;
             if (operation == 0) {
                 NetworkHooks.openScreen(player, new SimpleMenuProvider((id, inv, p) -> new StationMenu(id, inv, kind),
                         Component.translatable("cnpcplus.station." + StationRecipes.KINDS[kind])), buf -> buf.writeVarInt(kind));
             } else if (player.containerMenu instanceof StationMenu menu && menu.kind == kind) {
-                if (operation == 2) menu.select(data.getInt("Id"), player);
-                else if (operation == 3 || operation == 4) {
+                if (operation == 2) { menu.select(data.getInt("Id"), player); return; }
+                if (operation == 3 || operation == 4) {
+                    int edited = data.getInt("Id");
+                    if (StationRecipes.saving[kind]) {
+                        sync(player, kind, edited, menu.selected, "cnpcplus.station.saving", -1);
+                        return;
+                    }
                     var catalogue = StationRecipes.catalogue(kind);
-                    var before = new java.util.LinkedHashMap<>(catalogue);
-                    int previousId = menu.selected;
-                    if (operation == 4) catalogue.remove(data.getInt("Id"));
-                    else {
+                    var updated = new LinkedHashMap<>(catalogue);
+                    int selected;
+                    if (operation == 4) {
+                        updated.remove(edited);
+                        selected = -1;
+                    } else {
                         StationRecipe recipe = StationRecipe.read(data);
+                        if (recipe.id != menu.selected) return;
+                        if (kind == 2) recipe.shapeless = false;
                         recipe.name = recipe.name.trim();
                         if (recipe.name.isEmpty()) recipe.name = "new";
                         for (int i = 0; i < 4; i++) recipe.inputs[i] = menu.recipe.getItem(i).copy();
@@ -54,41 +62,57 @@ public record StationPacket(int operation, int kind, CompoundTag data) {
                             for (int i = 0; i < 3; i++) invalid |= recipe.inputs[i].getCount() > 1;
                         }
                         if (invalid) {
-                            sync(player, kind, menu.selected, "cnpcplus.station.invalid." + StationRecipes.KINDS[kind], -1);
+                            sync(player, kind, recipe.id, menu.selected, "cnpcplus.station.invalid." + StationRecipes.KINDS[kind], -1);
                             return;
                         }
                         if (recipe.id < 0) recipe.id = catalogue.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
-                        catalogue.put(recipe.id, recipe);
-                        menu.selected = recipe.id;
+                        updated.put(recipe.id, recipe);
+                        selected = recipe.id;
                     }
-                    try { StationRecipes.persist(kind); }
-                    catch (java.io.IOException e) {
-                        catalogue.clear(); catalogue.putAll(before); menu.selected = previousId;
-                        org.slf4j.LoggerFactory.getLogger("cnpcplus").error("Cannot save station recipes", e);
-                        sync(player, kind, menu.selected, "cnpcplus.station.save_failed", -1);
-                        return;
-                    }
-                    if (operation == 4) menu.select(-1, player);
-                    result = operation == 3 ? 1 : 2;
-                    notice = operation == 3 ? "cnpcplus.station.saved" : "cnpcplus.station.deleted";
+                    int result = operation == 3 ? 1 : 2;
+                    String notice = operation == 3 ? "cnpcplus.station.saved" : "cnpcplus.station.deleted";
+                    var snapshot = StationRecipes.snapshot(updated.values());
+                    StationRecipes.saving[kind] = true;
+                    StationRecipes.persist(kind, snapshot).whenComplete((done, error) -> player.server.execute(() -> {
+                        StationRecipes.saving[kind] = false;
+                        boolean sameMenu = player.containerMenu == menu;
+                        if (error != null) {
+                            if (sameMenu) sync(player, kind, edited, menu.selected, "cnpcplus.station.save_failed", -1);
+                            else player.sendSystemMessage(Component.translatable("cnpcplus.station.save_failed"));
+                            return;
+                        }
+                        catalogue.clear();
+                        catalogue.putAll(updated);
+                        if (sameMenu && menu.selected == edited) {
+                            if (operation == 4) menu.select(-1, player);
+                            else menu.selected = selected;
+                        }
+                        for (ServerPlayer recipient : player.server.getPlayerList().getPlayers()) {
+                            var response = snapshot;
+                            if (recipient == player && sameMenu) {
+                                response = new CompoundTag();
+                                response.put("Recipes", snapshot.get("Recipes"));
+                                response.putInt("EditedId", edited);
+                                response.putInt("SelectedId", selected);
+                                response.putString("Notice", notice);
+                                response.putInt("Result", result);
+                            }
+                            CHANNEL.send(PacketDistributor.PLAYER.with(() -> recipient), new Sync(kind, response));
+                        }
+                    }));
+                    return;
                 }
             } else return;
-            if (operation == 3 || operation == 4) {
-                for (ServerPlayer recipient : player.server.getPlayerList().getPlayers()) if (recipient != player) sync(recipient, kind);
-                sync(player, kind, ((StationMenu)player.containerMenu).selected, notice, result);
-            } else if (operation == 2) sync(player, kind, ((StationMenu)player.containerMenu).selected, "", 0);
-            else sync(player, kind);
+            sync(player, kind);
         });
         context.setPacketHandled(true);
     }
     private static void sync(ServerPlayer player, int kind) {
-        sync(player, kind, Integer.MIN_VALUE, "", 0);
+        sync(player, kind, -1, -1, "", 0);
     }
-    private static void sync(ServerPlayer player, int kind, int selected, String notice, int result) {
-        ListTag list = new ListTag();
-        for (StationRecipe recipe : StationRecipes.catalogue(kind).values()) list.add(recipe.save(true));
-        CompoundTag tag = new CompoundTag(); tag.put("Recipes", list);
-        if (selected != Integer.MIN_VALUE) { tag.putInt("SelectedId", selected); tag.putString("Notice", notice); tag.putInt("Result", result); }
+    private static void sync(ServerPlayer player, int kind, int edited, int selected, String notice, int result) {
+        CompoundTag tag = StationRecipes.snapshot(StationRecipes.catalogue(kind).values());
+        if (result != 0) { tag.putInt("EditedId", edited); tag.putInt("SelectedId", selected); tag.putString("Notice", notice); tag.putInt("Result", result); }
         CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new Sync(kind, tag));
     }
     @net.minecraftforge.eventbus.api.SubscribeEvent

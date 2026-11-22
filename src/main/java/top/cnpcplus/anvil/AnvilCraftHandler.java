@@ -52,22 +52,24 @@ public final class AnvilCraftHandler {
 
         // 客户端逻辑不引服务端类的反向问题：AnvilRecipeRegistry 客户端 list() 恒空（hasServer），
         // 这里按 isClientSide 显式分源，语义清晰且客户端事件（本地预览计算）不碰 Registry 锁。
-        List<AnvilRecipeData> list = player.level().isClientSide()
-                ? AnvilClientData.get()
-                : AnvilRecipeRegistry.list();
-        if (list.isEmpty()) return;
-
-        for (AnvilRecipeData d : list) {
-            if (d.result.isEmpty() || d.inputA.isEmpty() || d.inputB.isEmpty()) continue;
-            if (matchesSlot(d.inputA, left, d.nameOnly) && matchesSlot(d.inputB, right, d.nameOnly)) {
-                if (!top.cnpcplus.craftingview.RecipeAvailability.allows(d.availability, player)) { event.setCanceled(true); return; }
-                event.setOutput(d.result.copy());
-                event.setCost(Math.max(EXP_MIN, Math.min(EXP_MAX, d.expCost)));
-                event.setMaterialCost(1); // B 槽消耗 1 个（A 槽由 onTake 原生无条件清空）
-                return;
-            }
-        }
+        AnvilRecipeData recipe = find(player, left, right);
+        if (recipe == null) return;
+        if (!top.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player)) { event.setCanceled(true); return; }
+        event.setOutput(recipe.result.copy());
+        event.setCost(Math.max(EXP_MIN, Math.min(EXP_MAX, recipe.expCost)));
+        event.setMaterialCost(1);
         // 未命中：不 setOutput → ForgeHooks 返回 true → 原版改名/修复/合并继续（共存不回归）
+    }
+
+    public static AnvilRecipeData find(Player player, ItemStack left, ItemStack right) {
+        if (left.isEmpty() || right.isEmpty()) return null;
+        List<AnvilRecipeData> list = player.level().isClientSide() ? AnvilClientData.get() : AnvilRecipeRegistry.list();
+        for (AnvilRecipeData recipe : list) {
+            if (recipe.result.isEmpty() || recipe.inputA.isEmpty() || recipe.inputB.isEmpty()) continue;
+            if (matchesSlot(recipe.inputA, left, recipe.nameOnly) && matchesSlot(recipe.inputB, right, recipe.nameOnly)
+                    || recipe.shapeless && matchesSlot(recipe.inputA, right, recipe.nameOnly) && matchesSlot(recipe.inputB, left, recipe.nameOnly)) return recipe;
+        }
+        return null;
     }
 
     /**

@@ -2,12 +2,14 @@ package top.cnpcplus;
 
 import com.mojang.authlib.GameProfile;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.level.ServerLevel;
@@ -35,6 +37,7 @@ import top.cnpcplus.anvil.AnvilRecipeData;
 import top.cnpcplus.anvil.client.AnvilClientData;
 import top.cnpcplus.drop.CraftPlan;
 import top.cnpcplus.drop.DropRecipeData;
+import top.cnpcplus.craftingview.RecipeDiskWrites;
 import top.cnpcplus.smithing.CustomSmithingRecipe;
 import top.cnpcplus.smithing.SmithingRecipeData;
 
@@ -57,6 +60,8 @@ public final class RecipeNbtRegression {
     private RecipeNbtRegression() {}
 
     public static void main(String[] args) throws Exception {
+        asyncRecipeWritesKeepOrderAndBackup();
+        if (args.length == 1 && args[0].equals("--disk-only")) return;
         SharedConstants.tryDetectVersion();
         bootstrapForEntities();
 
@@ -64,6 +69,30 @@ public final class RecipeNbtRegression {
         anvilPreservesConfiguredResult();
         dropCraftPreservesConfiguredResult();
         System.out.println("RECIPE_NBT_REGRESSION=PASS");
+    }
+
+    private static void asyncRecipeWritesKeepOrderAndBackup() throws Exception {
+        var dir = Files.createTempDirectory("cnpcplus-recipe-writes-");
+        var target = dir.resolve("recipes.dat");
+        var tag = new CompoundTag();
+        tag.putBoolean("Shapeless", false);
+        var first = RecipeDiskWrites.save(target, tag, true);
+        tag.putBoolean("Shapeless", true);
+        var second = RecipeDiskWrites.save(target, tag, true);
+        RecipeDiskWrites.awaitPending();
+        first.join();
+        second.join();
+        check(NbtIo.readCompressed(target.toFile()).getBoolean("Shapeless"), "last recipe save was lost");
+        var backup = dir.resolve("recipes.dat_old");
+        check(!NbtIo.readCompressed(backup.toFile()).getBoolean("Shapeless"), "backup did not retain the previous snapshot");
+        Files.delete(backup);
+        Files.createDirectory(backup);
+        Files.createFile(backup.resolve("keep"));
+        tag.putBoolean("Shapeless", false);
+        var failed = RecipeDiskWrites.save(target, tag, true).handle((done, error) -> error != null);
+        check(failed.join() && NbtIo.readCompressed(target.toFile()).getBoolean("Shapeless"),
+                "failed replacement lost the last saved recipe file");
+        System.out.println("PASS: ordered background recipe writes, NBT snapshot, backup and failure preservation");
     }
 
     private static void smithingPreservesConfiguredResult() {

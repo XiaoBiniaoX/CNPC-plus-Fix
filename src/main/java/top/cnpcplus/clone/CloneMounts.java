@@ -3,6 +3,7 @@ package top.cnpcplus.clone;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -22,12 +23,12 @@ public final class CloneMounts {
 
     public static CompoundTag capture(Entity selected) throws IOException {
         Entity root = selected;
-        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Entity, Boolean>());
+        var selectedChain = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Entity, Boolean>());
         while (root.getVehicle() != null) {
-            if (!seen.add(root)) throw new IOException("骑乘关系循环，未复制");
+            if (!selectedChain.add(root)) throw new IOException("骑乘关系循环，未复制");
             root = root.getVehicle();
         }
-        seen.clear();
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Entity, Boolean>());
         List<Entity> originals = new ArrayList<>();
         List<Integer> depths = new ArrayList<>();
         originals.add(root);
@@ -45,14 +46,29 @@ public final class CloneMounts {
         if (!root.save(tag)) throw new IOException("骑乘根实体无法保存，未复制");
         List<CompoundTag> members = members(tag);
         if (members.size() != originals.size()) throw new IOException("有骑乘成员无法保存，未复制不完整组合");
-        for (int i = 0; i < members.size(); i++) {
-            // EntityCustomNpc.save only fixes the root id; native saveAsPassenger does not call it.
-            members.get(i).putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(originals.get(i).getType()).toString());
-            if (!NpcDataExternalStore.makeAllPortable(members.get(i)))
-                throw new IOException("骑乘成员外置数据无法读取，保留原克隆");
-        }
+        finishCapture(root, tag, selectedChain);
         checkSize(tag); // External files have just crossed into this snapshot, not the earlier inline data.
         return tag;
+    }
+
+    private static void finishCapture(Entity entity, CompoundTag tag, Set<Entity> selectedChain) throws IOException {
+        // EntityCustomNpc.save only fixes the root id. Native saveAsPassenger bypasses it.
+        tag.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString());
+        if (!NpcDataExternalStore.makeAllPortable(tag)) throw new IOException("骑乘成员外置数据无法读取，保留原克隆");
+
+        var passengers = entity.getPassengers();
+        ListTag children = tag.getList("Passengers", Tag.TAG_COMPOUND);
+        for (int i = children.size() - 1; i >= 0; i--) {
+            Entity passenger = passengers.get(i);
+            CompoundTag child = children.getCompound(i);
+            // The script flag may be stored outside the native snapshot.
+            if (passenger instanceof EntityNPCInterface npc && npc.script.getEnabled() && !selectedChain.contains(passenger)) {
+                children.remove(i);
+            } else {
+                finishCapture(passenger, child, selectedChain);
+            }
+        }
+        if (children.isEmpty()) tag.remove("Passengers");
     }
 
     /** Validate once at the saved/network NBT boundary, before copying or native recursive loading. */

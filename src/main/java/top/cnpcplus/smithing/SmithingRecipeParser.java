@@ -14,6 +14,10 @@ public final class SmithingRecipeParser {
 
     private SmithingRecipeParser() {}
 
+    static ResourceLocation recipeId(int id) {
+        return new ResourceLocation("cnpcplus", "smithing/" + id);
+    }
+
     /** 结果非空且至少一个输入非空才成配方；返回 null 表示该源数据不可注册（由调用方跳过）。 */
     public static CustomSmithingRecipe parse(SmithingRecipeData data) {
         if (data == null) return null;
@@ -23,13 +27,14 @@ public final class SmithingRecipeParser {
                 || (data.addition != null && !data.addition.isEmpty());
         if (!anyInput) return null;
         CustomSmithingRecipe recipe = new CustomSmithingRecipe(
-                new ResourceLocation("cnpcplus", "smithing/" + data.id),
+                recipeId(data.id),
                 data.template == null ? net.minecraft.world.item.ItemStack.EMPTY : data.template.copy(),
                 data.base == null ? net.minecraft.world.item.ItemStack.EMPTY : data.base.copy(),
                 data.addition == null ? net.minecraft.world.item.ItemStack.EMPTY : data.addition.copy(),
                 data.result.copy(),
                 data.nameOnly);
         recipe.availability = data.availability;
+        recipe.shapeless = data.shapeless;
         return recipe;
     }
 }

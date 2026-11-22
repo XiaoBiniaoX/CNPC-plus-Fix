@@ -9,6 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.ai.NpcAiOptimizerAccess;
+import top.cnpcplus.ai.NpcControlAccess;
+import top.cnpcplus.ai.PursuitLimit;
 
 /** 241h：廉价范围拒绝。 */
 @Mixin(value = NPCAttackSelector.class, remap = false)
@@ -18,6 +20,10 @@ public abstract class MixinNpcFixAttackSelector {
 
     @Inject(method = "isEntityApplicable", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$cheapReject(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
+        if (entity != null && (((NpcControlAccess)npc).cnpcplus$isDisengaging() || PursuitLimit.outside(npc, entity))) {
+            cir.setReturnValue(false);
+            return;
+        }
         if (!NpcAiOptimizerAccess.enabled() || this.npc == null || entity == null
                 || entity == this.npc || !entity.isAlive()) return;
         int maxRange = NpcAiOptimizerAccess.maxAggroRange();

@@ -17,17 +17,18 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Optional;
 
 @Mixin(CraftingMenu.class)
 public class MixinCraftingMenuAvailability {
-    @Inject(method = "m_7648_", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
-    private void cnpcplus$take(Player player, int slot, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ItemStack> cir) {
+    @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$take(Player player, int slot, CallbackInfoReturnable<ItemStack> cir) {
         if (slot == 0 && !((CraftingMenu)(Object)this).getSlot(0).mayPickup(player)) cir.setReturnValue(ItemStack.EMPTY);
     }
 
-    @Inject(method = {"m_150546_", "setResultSlot"}, at = @At("RETURN"), remap = false)
+    @Inject(method = "slotChangedCraftingGrid", at = @At("RETURN"), require = 1)
     private static void cnpcplus$enforceCraftingAvailability(AbstractContainerMenu menu, Level level, Player player, CraftingContainer craftSlots, ResultContainer resultSlots, CallbackInfo ci) {
         if (level.isClientSide) return;
         ItemStack result = resultSlots.getItem(0);

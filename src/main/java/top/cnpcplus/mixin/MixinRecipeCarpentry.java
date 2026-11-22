@@ -15,6 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.accessor.RecipeCarpentryOffsetAccessor;
 import top.cnpcplus.craftingview.CraftUtils;
+import net.minecraftforge.common.util.RecipeMatcher;
+import java.util.ArrayList;
+import java.util.function.Predicate;
 
 @Mixin(RecipeCarpentry.class)
 public abstract class MixinRecipeCarpentry implements RecipeCarpentryOffsetAccessor {
@@ -27,6 +30,10 @@ public abstract class MixinRecipeCarpentry implements RecipeCarpentryOffsetAcces
 
     @Unique
     private boolean cnpcplus$hasSavedOffset;
+
+    @Unique private boolean cnpcplus$shapeless;
+    @Override public boolean cnpcplus$isShapeless() { return cnpcplus$shapeless; }
+    @Override public void cnpcplus$setShapeless(boolean shapeless) { cnpcplus$shapeless = shapeless; }
 
     @Shadow(remap = false)
     public boolean ignoreDamage;
@@ -61,6 +68,7 @@ public abstract class MixinRecipeCarpentry implements RecipeCarpentryOffsetAcces
 
     @Inject(method = "load", at = @At("RETURN"), remap = false)
     private static void cnpcplus$readOffset(CompoundTag compound, CallbackInfoReturnable<RecipeCarpentry> cir) {
+        ((RecipeCarpentryOffsetAccessor) cir.getReturnValue()).cnpcplus$setShapeless(compound.getBoolean("cnpcplus_shapeless"));
         if (!compound.contains("cnpcplus_offsetX", 3) && !compound.contains("cnpcplus_offsetY", 3)) return;
         ((RecipeCarpentryOffsetAccessor) cir.getReturnValue()).cnpcplus$setOffset(
                 compound.getInt("cnpcplus_offsetX"),
@@ -71,6 +79,7 @@ public abstract class MixinRecipeCarpentry implements RecipeCarpentryOffsetAcces
 
     @Inject(method = "writeNBT", at = @At("RETURN"), remap = false)
     private void cnpcplus$writeOffset(CallbackInfoReturnable<CompoundTag> cir) {
+        cir.getReturnValue().putBoolean("cnpcplus_shapeless", this.cnpcplus$shapeless);
         if (!this.cnpcplus$hasSavedOffset) return;
         CompoundTag compound = cir.getReturnValue();
         compound.putInt("cnpcplus_offsetX", this.cnpcplus$offsetX);
@@ -80,11 +89,27 @@ public abstract class MixinRecipeCarpentry implements RecipeCarpentryOffsetAcces
     @Inject(method = "copy", at = @At("RETURN"), remap = false)
     private void cnpcplus$copyOffset(RecipeCarpentry recipe, CallbackInfo ci) {
         RecipeCarpentryOffsetAccessor from = (RecipeCarpentryOffsetAccessor) recipe;
+        this.cnpcplus$shapeless = from.cnpcplus$isShapeless();
         this.cnpcplus$setOffset(from.cnpcplus$getOffsetX(), from.cnpcplus$getOffsetY(), from.cnpcplus$hasSavedOffset());
     }
 
     @Inject(method = "m_5818_", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$matchSavedOffset(CraftingContainer inventoryCrafting, Level world, CallbackInfoReturnable<Boolean> cir) {
+        if (this.cnpcplus$shapeless) {
+            RecipeCarpentry recipe = (RecipeCarpentry)(Object)this;
+            var actual = new ArrayList<ItemStack>();
+            for (int i = 0; i < inventoryCrafting.getContainerSize(); i++) {
+                ItemStack stack = inventoryCrafting.getItem(i);
+                if (!stack.isEmpty()) actual.add(stack);
+            }
+            var required = new ArrayList<Predicate<ItemStack>>();
+            for (int i = 0; i < recipe.getWidth() * recipe.getHeight(); i++) {
+                ItemStack stack = this.getCraftingItem(i);
+                if (!stack.isEmpty()) required.add(input -> CraftUtils.matches(input, stack, this.ignoreDamage, this.ignoreNBT));
+            }
+            cir.setReturnValue(!required.isEmpty() && RecipeMatcher.findMatches(actual, required) != null);
+            return;
+        }
         if (this.cnpcplus$hasSavedOffset && (this.cnpcplus$offsetX != 0 || this.cnpcplus$offsetY != 0)) {
             boolean normal = this.cnpcplus$checkMatch(inventoryCrafting, this.cnpcplus$offsetX, this.cnpcplus$offsetY, false);
             boolean mirrored = this.cnpcplus$checkMatch(inventoryCrafting, this.cnpcplus$offsetX, this.cnpcplus$offsetY, true);

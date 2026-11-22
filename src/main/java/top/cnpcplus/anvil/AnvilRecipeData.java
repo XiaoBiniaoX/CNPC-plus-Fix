@@ -25,6 +25,7 @@ public class AnvilRecipeData {
     public int expCost = 1;
     /** 仅名字检查（只校验物品id+物品名字，附魔/耐久/其余NBT不参与，=CNPC NoppesUtilPlayer 同链）。 */
     public boolean nameOnly = false;
+    public boolean shapeless;
 
     public CompoundTag toNBT() {
         return this.toNBT(true);
@@ -42,6 +43,7 @@ public class AnvilRecipeData {
         t.putString("Name", this.name == null ? "" : this.name);
         t.putInt("ExpCost", this.expCost);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.putBoolean("Shapeless", this.shapeless);
         t.put("Availability", this.availability.save(new CompoundTag()));
         if (withItems) {
             t.put("InputA", this.inputA.save(new CompoundTag()));
@@ -61,6 +63,7 @@ public class AnvilRecipeData {
         if (d.expCost < -32767) d.expCost = -32767;
         if (d.expCost > 32767) d.expCost = 32767;
         d.nameOnly = t.getBoolean("NameOnly");
+        d.shapeless = t.getBoolean("Shapeless");
         d.inputA = ItemStack.of(t.getCompound("InputA"));
         d.inputB = ItemStack.of(t.getCompound("InputB"));
         d.result = ItemStack.of(t.getCompound("Result"));

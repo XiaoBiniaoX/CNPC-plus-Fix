@@ -2,14 +2,17 @@ package top.cnpcplus.station;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.nbt.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import top.cnpcplus.craftingview.RecipeAvailability;
+import top.cnpcplus.craftingview.RecipeDiskWrites;
 
 public final class StationRecipes {
     public static final String[] KINDS = {"grindstone", "brewing", "campfire"};
     private static final Map<Integer, LinkedHashMap<Integer, StationRecipe>> SERVER = new HashMap<>();
+    static final boolean[] saving = new boolean[KINDS.length];
     public static final Map<Integer, List<StationRecipe>> CLIENT = new HashMap<>();
     private StationRecipes() {}
 
@@ -28,16 +31,16 @@ public final class StationRecipes {
     }
 
     private static File file(int kind) { return new File(noppes.npcs.CustomNpcs.getLevelSaveDirectory(), "data/cnpcplus/recipes/" + KINDS[kind] + "/recipes.dat"); }
-    public static void persist(int kind) throws IOException {
-        File target = file(kind), dir = target.getParentFile();
-        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
+    static CompoundTag snapshot(Collection<StationRecipe> recipes) {
         CompoundTag tag = new CompoundTag();
         ListTag list = new ListTag();
-        for (StationRecipe recipe : catalogue(kind).values()) list.add(recipe.save(true));
+        for (StationRecipe recipe : recipes) list.add(recipe.save(true));
         tag.put("Recipes", list);
-        File temp = new File(dir, "recipes.tmp");
-        try (var output = new FileOutputStream(temp)) { NbtIo.writeCompressed(tag, output); }
-        top.cnpcplus.persist.FileReplacement.replace(temp.toPath(), target.toPath());
+        return tag;
+    }
+
+    static CompletableFuture<Void> persist(int kind, CompoundTag tag) {
+        return RecipeDiskWrites.save(file(kind).toPath(), tag, false);
     }
 
     public static StationRecipe find(int kind, ItemStack[] inputs, Player player) {
@@ -52,7 +55,10 @@ public final class StationRecipes {
         return client ? CLIENT.getOrDefault(kind, List.of()) : catalogue(kind).values();
     }
 
-    public static void clear() { SERVER.clear(); }
+    public static void clear() {
+        SERVER.clear();
+        Arrays.fill(saving, false);
+    }
 
     public static boolean hasMatch(int kind, ItemStack[] inputs) {
         return catalogue(kind).values().stream().anyMatch(r -> r.matchesInputs(inputs));
@@ -60,7 +66,12 @@ public final class StationRecipes {
     public static boolean accepts(int kind, int slot, ItemStack stack, boolean output) {
         var recipes = list(kind, net.minecraftforge.fml.util.thread.SidedThreadGroups.SERVER != Thread.currentThread().getThreadGroup());
         for (StationRecipe recipe : recipes) {
-            if (!recipe.inputs[slot].isEmpty() && stack.is(recipe.inputs[slot].getItem())) return true;
+            int interchangeable = kind == 0 ? 2 : 3;
+            if (recipe.shapeless && slot < interchangeable) {
+                for (int i = 0; i < interchangeable; i++) {
+                    if (stack.is(recipe.inputs[i].getItem()) || output && stack.is(recipe.outputs[i].getItem())) return true;
+                }
+            } else if (!recipe.inputs[slot].isEmpty() && stack.is(recipe.inputs[slot].getItem())) return true;
             if (output && slot < 3 && !recipe.outputs[slot].isEmpty() && stack.is(recipe.outputs[slot].getItem())) return true;
         }
         return false;

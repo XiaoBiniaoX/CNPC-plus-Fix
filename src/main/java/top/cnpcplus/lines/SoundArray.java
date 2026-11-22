@@ -6,18 +6,28 @@ import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.resources.ResourceLocation;
+import noppes.npcs.shared.client.util.NoppesStringUtils;
 
 /** Editable values are preserved; only valid, nonempty resources participate in playback. */
 public final class SoundArray {
     public final List<String> sounds = new ArrayList<>();
     public boolean randomPitch;
 
-    public String first() { return sounds.isEmpty() ? "" : sounds.get(0); }
+    public String first() { return playable().stream().findFirst().orElse(""); }
 
     public String choose() {
-        List<String> playable = sounds.stream().filter(s -> s != null && !s.isBlank()).map(ResourceLocation::tryParse)
-                .filter(java.util.Objects::nonNull).map(ResourceLocation::toString).toList();
+        List<String> playable = playable();
         return playable.isEmpty() ? "" : playable.get(ThreadLocalRandom.current().nextInt(playable.size()));
+    }
+
+    private List<String> playable() {
+        List<String> playable = new ArrayList<>();
+        for (String sound : sounds) {
+            if (sound == null || sound.isBlank()) continue;
+            ResourceLocation id = ResourceLocation.tryParse(NoppesStringUtils.cleanResource(sound));
+            if (id != null && !id.getPath().isEmpty()) playable.add(id.toString());
+        }
+        return playable;
     }
 
     public float pitch() {

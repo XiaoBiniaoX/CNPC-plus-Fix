@@ -20,6 +20,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.IGui;
+import top.cnpcplus.transport.TransportFare;
 import top.cnpcplus.transport.TransportKeys;
 import top.cnpcplus.transport.TransportPanelStyle;
 import top.cnpcplus.transport.TransportVisualMeta;
@@ -60,6 +61,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     private static final int FIELD_X_ID = 63;
     private static final int FIELD_Y_ID = 64;
     private static final int BTN_SAVE_ID = 60;
+    private static final int BTN_FARE_ID = 61;
     private static final int AREA_CONTENT_ID = 67;
 
     private static final int CELL = 30;
@@ -132,7 +134,10 @@ public class GuiTransporterVisualEditor extends GuiBasic
     private boolean rowOrderChanged;
     private long rowScrollMs;
 
-    public GuiTransporterVisualEditor(TransportLocation location, int npcId) {
+    private final net.minecraft.client.gui.screens.Screen returnScreen;
+
+    public GuiTransporterVisualEditor(net.minecraft.client.gui.screens.Screen returnScreen, TransportLocation location, int npcId) {
+        this.returnScreen = returnScreen;
         this.location = location;
         this.npcId = npcId;
         this.imageWidth = TransportLayout.DESIGN_W;
@@ -199,6 +204,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     private void cnpcplus$init() {
         super.m_7856_();
         this.layout();
+        this.applyLocal();
         TransportClientCache.requestMeta(this.npcId, true);
         // 241n：meta 到达后重建列表 + 重新覆盖本地改动（不再整体替换导致"改了没反应"）
         this.metaListener = () -> {
@@ -265,6 +271,8 @@ public class GuiTransporterVisualEditor extends GuiBasic
         this.addButton(new GuiButtonNop(this, BTN_SAVE_ID,
                 this.width - 78, 4, 74, 18,
                 tr("cnpcplus.transporter.editor.save")));
+        this.addButton(new GuiButtonNop(this, BTN_FARE_ID, this.width - 182, 4, 100, 18,
+                tr("cnpcplus.transporter.fare.title")));
         this.applyFilter();
         this.syncFields();
     }
@@ -366,6 +374,18 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == BTN_FARE_ID) {
+            String entry = this.selectedName;
+            CompoundTag meta = TransportClientCache.editMeta(entry);
+            if (meta != null) Minecraft.getInstance().setScreen(new TransportFareScreen(this,
+                    meta.getCompound(TransportFare.KEY), fare -> {
+                this.entryLocal.computeIfAbsent(entry, key -> new CompoundTag()).put(TransportFare.KEY, fare);
+                this.applyLocal();
+                TransportPacketHandler.CHANNEL.sendToServer(PacketTransportMetaSave.fare(this.npcId, entry, fare));
+                this.setHint(tr("cnpcplus.transporter.editor.hint.saving"));
+            }));
+            return;
+        }
         if (button.id == BTN_SAVE_ID) {
             this.saveNow();
             return;
@@ -1018,8 +1038,17 @@ public class GuiTransporterVisualEditor extends GuiBasic
 
     @Override
     public boolean m_7933_(int key, int scanCode, int modifiers) {
-        // 241o：ESC = **退出编辑器并保存**（用户明确要求）；边栏用「关闭」按钮收起
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            m_7379_();
+            return true;
+        }
         return super.m_7933_(key, scanCode, modifiers);
+    }
+
+    @Override public void m_7379_() {
+        GuiTextFieldNop.unfocus();
+        save();
+        Minecraft.getInstance().setScreen(returnScreen);
     }
 
     @Override
@@ -1682,6 +1711,8 @@ public class GuiTransporterVisualEditor extends GuiBasic
         if (meta == null) return;
         CompoundTag t = new CompoundTag();
         copyEntry(meta, t);
+        CompoundTag previous = this.entryLocal.get(name);
+        if (previous != null && previous.contains(TransportFare.KEY)) t.put(TransportFare.KEY, previous.get(TransportFare.KEY));
         this.entryLocal.put(name, t);
     }
 

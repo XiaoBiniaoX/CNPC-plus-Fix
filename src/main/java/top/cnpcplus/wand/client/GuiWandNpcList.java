@@ -1,5 +1,6 @@
 package top.cnpcplus.wand.client;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +33,9 @@ public final class GuiWandNpcList extends GuiNpcRemoteEditor implements ICustomS
     private EntityNPCInterface preview;
     private int previewId = -1;
     private long previewRequest;
+    private IntOpenHashSet frozenIds = new IntOpenHashSet();
+    private boolean globalFrozen;
+    private boolean canFreeze;
     private long copyRequest;
     private final long opened = System.nanoTime();
 
@@ -68,7 +72,8 @@ public final class GuiWandNpcList extends GuiNpcRemoteEditor implements ICustomS
         if (!copying) {
             addButton(new GuiButtonNop(this, 2, guiLeft + 330, guiTop + 110, 82, 20, "gui.reset"));
             addButton(new GuiButtonNop(this, 5, guiLeft + 330, guiTop + 134, 82, 20, "remote.resetall"));
-            addButton(new GuiButtonNop(this, 3, guiLeft + 330, guiTop + 158, 82, 20, "remote.freeze"));
+            addButton(new GuiButtonNop(this, 3, guiLeft + 330, guiTop + 158, 82, 20, "cnpcplus.wand.freezeAll"));
+            addButton(new GuiButtonNop(this, 7, guiLeft + 330, guiTop + 182, 82, 20, "cnpcplus.wand.freezeOne"));
         }
         filter();
     }
@@ -96,16 +101,38 @@ public final class GuiWandNpcList extends GuiNpcRemoteEditor implements ICustomS
         for (int id : new int[]{0, 1, 2, 4}) if (getButton(id) != null)
             getButton(id).setEnabled(id == 0 && copyRequest != 0 ? false : id == 1 || id == 2 ? !ids.isEmpty() : ids.size() == 1);
         int id = ids.size() == 1 ? ids.get(0) : -1;
-        if (id == previewId) return;
-        previewId = id;
-        preview = null;
-        previewRequest = System.nanoTime();
-        if (id >= 0) WandNpcPacket.send(id, previewRequest, false);
+        if (id != previewId) {
+            previewId = id;
+            preview = null;
+            previewRequest = System.nanoTime();
+            if (id >= 0) WandNpcPacket.send(id, previewRequest, false);
+        }
+        updateFreezeButton();
     }
 
     public void acceptPreview(int id, long request, CompoundTag snapshot) {
         if (id != previewId || request != previewRequest) return;
         preview = snapshot == null ? null : PlayerTextPreview.npc(snapshot);
+    }
+
+    public void acceptFreezeState(boolean global, boolean allowed, int[] ids) {
+        globalFrozen = global;
+        canFreeze = allowed;
+        frozenIds = new IntOpenHashSet(ids);
+        updateFreezeButton();
+    }
+
+    boolean isIndividuallyFrozen(String label) {
+        return frozenIds.contains(data.getOrDefault(label, -1).intValue());
+    }
+
+    private void updateFreezeButton() {
+        if (getButton(7) == null) return;
+        getButton(3).setEnabled(canFreeze);
+        getButton(3).setMessage(Component.translatable(globalFrozen ? "cnpcplus.wand.unfreezeAll" : "cnpcplus.wand.freezeAll"));
+        getButton(7).setEnabled(canFreeze && !globalFrozen && previewId >= 0);
+        getButton(7).setMessage(Component.translatable(frozenIds.contains(previewId)
+                ? "cnpcplus.wand.unfreezeOne" : "cnpcplus.wand.freezeOne"));
     }
 
     public void acceptCopy(long request, CompoundTag snapshot) {
@@ -124,9 +151,7 @@ public final class GuiWandNpcList extends GuiNpcRemoteEditor implements ICustomS
         filter(selected);
     }
 
-    @Override public void setSelected(String selected) {
-        if (getButton(3) != null) getButton(3).setDisplayText(selected);
-    }
+    @Override public void setSelected(String selected) { } // Use the localized label from the server's freeze state.
 
     @Override public void buttonEvent(GuiButtonNop button) {
         var ids = selectedIds();
@@ -164,6 +189,11 @@ public final class GuiWandNpcList extends GuiNpcRemoteEditor implements ICustomS
                 if (list != null) list.cancelDrag();
                 selectionChanged();
                 Packets.sendServer(new SPacketRemoteNpcsGet());
+            }
+            case 7 -> {
+                if (copying || ids.size() != 1 || !canFreeze || globalFrozen) return;
+                previewRequest = System.nanoTime();
+                WandNpcPacket.toggleFreeze(ids.get(0), previewRequest);
             }
             default -> { }
         }

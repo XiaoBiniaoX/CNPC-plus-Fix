@@ -62,6 +62,8 @@ public class CnpcPlus {
                         top.cnpcplus.transport.network.PacketTransportImageChunk.clearPlayer(e.getEntity().getUUID()));
         top.cnpcplus.bossbar.BossBarPacket.init();
         top.cnpcplus.wand.network.WandNpcPacket.init();
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                top.cnpcplus.ai.PursuitLimit::filterTarget);
         top.cnpcplus.clone.ClonePreviewPacket.init();
         // 241t：版本横幅 + 传送子系统日志（确认跑的是哪一版 jar；日志在 logs/latest.log 与 CNPC 日志）
         top.cnpcplus.transport.TransportLog.banner();
@@ -99,6 +101,7 @@ public class CnpcPlus {
                     top.cnpcplus.smithing.SmithingRecipeRegistry.awaitDiskPending();
                     top.cnpcplus.anvil.AnvilRecipeRegistry.awaitDiskPending();
                     top.cnpcplus.drop.DropRecipeRegistry.awaitDiskPending();
+                    top.cnpcplus.craftingview.RecipeDiskWrites.awaitPending();
                     top.cnpcplus.smelting.SmeltingRecipeRegistry.clearCache();
                     top.cnpcplus.smithing.SmithingRecipeRegistry.clearCache();
                     top.cnpcplus.anvil.AnvilRecipeRegistry.clearCache();
