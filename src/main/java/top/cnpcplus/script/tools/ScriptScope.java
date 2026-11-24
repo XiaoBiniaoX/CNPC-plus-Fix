@@ -23,6 +23,9 @@ import noppes.npcs.controllers.data.PlayerScriptData;
 
 public final class ScriptScope {
     private record Context(ScriptContainer script, IScriptHandler handler, Object event) {}
+    private record Lifetime(WeakReference<ScriptContainer> script, BooleanSupplier alive) implements BooleanSupplier {
+        @Override public boolean getAsBoolean() { return alive.getAsBoolean(); }
+    }
     private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
     private static final ThreadLocal<BooleanSupplier> INHERITED = new ThreadLocal<>();
 
@@ -41,13 +44,29 @@ public final class ScriptScope {
 
     static void callback(BooleanSupplier owner, Runnable action) {
         BooleanSupplier previous = INHERITED.get();
+        Context context = CURRENT.get();
+        CURRENT.remove();
         INHERITED.set(owner);
         try {
             action.run();
         } finally {
             if (previous == null) INHERITED.remove();
             else INHERITED.set(previous);
+            if (context != null) CURRENT.set(context);
         }
+    }
+
+    static ScriptContainer script() {
+        Context context = CURRENT.get();
+        ScriptContainer script = context != null ? context.script
+                : INHERITED.get() instanceof Lifetime lifetime ? lifetime.script.get() : null;
+        if (script == null) throw new IllegalStateException("CNPCPLUS.EVENTS.SCRIPT_CONTEXT_REQUIRED");
+        return script;
+    }
+
+    static BooleanSupplier withLifetime(BooleanSupplier scope, BooleanSupplier condition) {
+        BooleanSupplier alive = () -> scope.getAsBoolean() && condition.getAsBoolean();
+        return scope instanceof Lifetime lifetime ? new Lifetime(lifetime.script, alive) : alive;
     }
 
     static BooleanSupplier current() {
@@ -69,7 +88,7 @@ public final class ScriptScope {
         long loaded = controller.lastLoaded, playerUpdate = controller.lastPlayerUpdate;
         String code = script.script, language = context.handler.getLanguage();
         List<String> links = List.copyOf(script.scripts);
-        return () -> {
+        return new Lifetime(scriptRef, () -> {
             var active = scriptRef.get();
             var handler = handlerRef.get();
             return CustomNpcs.EnableScripting && controller == ScriptController.Instance && controller.lastLoaded == loaded
@@ -77,7 +96,7 @@ public final class ScriptScope {
                     && (handler instanceof PlayerScriptData player ? player.isEnabled() && controller.lastPlayerUpdate == playerUpdate : handler.getEnabled())
                     && handler.getScripts().contains(active) && Objects.equals(code, active.script)
                     && links.equals(active.scripts) && Objects.equals(language, handler.getLanguage()) && alive.getAsBoolean();
-        };
+        });
     }
 
     static BooleanSupplier owner(Object owner) {

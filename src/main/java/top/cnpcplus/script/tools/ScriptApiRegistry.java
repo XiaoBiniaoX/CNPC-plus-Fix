@@ -32,6 +32,7 @@ public final class ScriptApiRegistry {
             new Module("Navigation", new ScriptNavigation(), ThreadPolicy.MAIN_THREAD_ONLY, "ENTITY", "Native pathfinding. Probes are limited to once every 10 ticks per mob."),
             new Module("Scheduler", new ScriptScheduler(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT", "Server ticks. Script-scoped callbacks by default."),
             new Module("Async", new ScriptAsync(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT", "Wall-clock milliseconds. Detached jobs run in workers. Script callbacks run on the server."),
+            new Module("events", new ScriptEvents(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT_PAGE", "Forge gameplay bus only. on returns a listener handle. off/has/list/offAll operate on the current script page. Synchronous server-thread callbacks receive the raw Java event. Client/worker events and reentrant calls to the same subscription are skipped. Removing/disabling/reloading a page automatically unregisters its listeners by the next server tick. CNPC editor saves rebuild all pages for that handler; unchanged pages must subscribe again. No MOD bus or generic events."),
             new Module("Debug", new ScriptDebug(), ThreadPolicy.ANY_THREAD, "SERVER", "Bounded diagnostics. Capture and metrics require the server thread."),
             new Module("Cooldown", new ScriptCooldowns(), ThreadPolicy.MAIN_THREAD_ONLY, "SERVER", "Server ticks. Runtime state per owner and ID."));
     private static final Map<String, Class<?>> ROOTS = rootsMap();
@@ -83,7 +84,7 @@ public final class ScriptApiRegistry {
             for (Class<?> type : module.tool.getClass().getClasses()) {
                 if (type != ScriptUI.Scale.class && type != ScriptUI.Layout.class && !type.isRecord()
                         && !Set.of(ScriptEntities.Query.class, ScriptScheduler.TaskHandle.class, ScriptScheduler.TaskGroup.class,
-                                ScriptAsync.Task.class, ScriptAsync.Group.class).contains(type)) continue;
+                                ScriptAsync.Task.class, ScriptAsync.Group.class, ScriptEvents.Subscription.class).contains(type)) continue;
                 methods(entries, module, module.name + "." + type.getSimpleName(), type);
             }
         }
