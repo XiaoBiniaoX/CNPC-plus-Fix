@@ -31,6 +31,7 @@ public final class ScriptApiRegistry {
             new Module("Teleport", new ScriptTeleport(), ThreadPolicy.MAIN_THREAD_ONLY, "WORLD", "Loaded chunks only. Cross-dimension travel requires ALLOW."),
             new Module("Navigation", new ScriptNavigation(), ThreadPolicy.MAIN_THREAD_ONLY, "ENTITY", "Native pathfinding. Probes are limited to once every 10 ticks per mob."),
             new Module("Scheduler", new ScriptScheduler(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT", "Server ticks. Script-scoped callbacks by default."),
+            new Module("events", new ScriptEvents(() -> false), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT_PAGE", "NeoForge game bus, server thread only. on returns an ID. off/has/offAll/list are page-local. list returns immutable id/eventClass records. Deleted, disabled or reloaded pages are unregistered by the next server tick."),
             new Module("Async", new ScriptAsync(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT", "Wall-clock milliseconds. Detached jobs run in workers. Script callbacks run on the server."),
             new Module("Debug", new ScriptDebug(), ThreadPolicy.ANY_THREAD, "SERVER", "Bounded diagnostics. Capture and metrics require the server thread."),
             new Module("Cooldown", new ScriptCooldowns(), ThreadPolicy.MAIN_THREAD_ONLY, "SERVER", "Server ticks. Runtime state per owner and ID."));
@@ -48,6 +49,8 @@ public final class ScriptApiRegistry {
 
     public static void bind(Map<String, Object> bindings) {
         for (Module module : MODULES) {
+            // events is installed per page by MixinScriptTaskScope, never shared through CNPC's Data map.
+            if (module.name.equals("events")) continue;
             bindings.put(module.name.equals("Math") ? "CNPCPlusMath" : module.name, module.tool);
         }
     }

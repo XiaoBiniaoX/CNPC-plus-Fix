@@ -8,6 +8,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import noppes.npcs.api.IWorld;
 import noppes.npcs.api.NpcAPI;
 import noppes.npcs.api.entity.IEntity;
@@ -51,7 +52,8 @@ public final class ScriptRayTrace {
         if (mode == null) return miss(ray.origin(), 0, "INVALID_COLLISION_MODE");
         Vec3 start = ScriptWorld.vec(ray.origin()), finish = ScriptWorld.vec(end);
         Entity ignored = options.ignoreEntity == null ? null : options.ignoreEntity.getMCEntity();
-        ClipContext clip = new ClipContext(start, finish, mode, options.includeFluids ? ClipContext.Fluid.ANY : ClipContext.Fluid.NONE, ignored);
+        CollisionContext collision = ignored == null ? CollisionContext.empty() : CollisionContext.of(ignored);
+        ClipContext clip = new ClipContext(start, finish, mode, options.includeFluids ? ClipContext.Fluid.ANY : ClipContext.Fluid.NONE, collision);
         Result hit = BlockGetter.traverseBlocks(start, finish, clip, (context, mutablePos) -> {
             BlockPos pos = mutablePos.immutable();
             if (!ScriptWorld.loaded(level, pos)) {

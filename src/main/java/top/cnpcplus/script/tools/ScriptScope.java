@@ -41,12 +41,15 @@ public final class ScriptScope {
 
     static void callback(BooleanSupplier owner, Runnable action) {
         BooleanSupplier previous = INHERITED.get();
+        Context previousContext = CURRENT.get();
+        CURRENT.remove();
         INHERITED.set(owner);
         try {
             action.run();
         } finally {
             if (previous == null) INHERITED.remove();
             else INHERITED.set(previous);
+            if (previousContext != null) CURRENT.set(previousContext);
         }
     }
 
@@ -73,7 +76,7 @@ public final class ScriptScope {
             var active = scriptRef.get();
             var handler = handlerRef.get();
             return CustomNpcs.EnableScripting && controller == ScriptController.Instance && controller.lastLoaded == loaded
-                    && active != null && handler != null
+                    && active != null && !active.errored && handler != null
                     && (handler instanceof PlayerScriptData player ? player.isEnabled() && controller.lastPlayerUpdate == playerUpdate : handler.getEnabled())
                     && handler.getScripts().contains(active) && Objects.equals(code, active.script)
                     && links.equals(active.scripts) && Objects.equals(language, handler.getLanguage()) && alive.getAsBoolean();
