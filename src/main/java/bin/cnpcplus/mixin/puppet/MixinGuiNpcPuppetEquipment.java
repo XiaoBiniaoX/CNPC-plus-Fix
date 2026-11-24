@@ -41,6 +41,9 @@ public abstract class MixinGuiNpcPuppetEquipment implements ITextfieldListener {
             "cnpcplus.puppet.boots"
     };
 
+    @org.spongepowered.asm.mixin.injection.Redirect(method = "func_73866_w_", at = @At(value = "FIELD", target = "Lnoppes/npcs/roles/JobPuppet;animationSpeed:I"), require = 1)
+    private int cnpcplus$oldSpeedIndex(JobPuppet puppet) { return 0; }
+
     @Inject(method = "func_73866_w_", at = @At(value = "FIELD",
             target = "Lnoppes/npcs/client/gui/roles/GuiNpcPuppet;data:Ljava/util/HashMap;",
             opcode = 181, shift = At.Shift.AFTER, ordinal = 0), remap = false)
@@ -75,6 +78,12 @@ public abstract class MixinGuiNpcPuppetEquipment implements ITextfieldListener {
     @Inject(method = "func_73866_w_", at = @At("RETURN"), remap = false)
     private void cnpcplus$addOffsetFieldsTop(CallbackInfo ci) {
         GuiNpcPuppet self = (GuiNpcPuppet) (Object) this;
+        if (job.animate) {
+            self.getButton(34).visible = false;
+            GuiNpcTextField speed = new GuiNpcTextField(134, self, self.guiLeft + 240, self.guiTop + 80, 60, 20, Integer.toString(job.animationSpeed));
+            speed.setMinMaxDefault(0, 20, job.animationSpeed); speed.numbersOnly = true;
+            self.addTextField(speed);
+        }
         if (this.selectedName == null || this.data == null) return;
         Object cfg = this.data.get(this.selectedName);
         if (cfg == null) return;
@@ -135,6 +144,7 @@ public abstract class MixinGuiNpcPuppetEquipment implements ITextfieldListener {
 
     @Override
     public void unFocused(GuiNpcTextField field) {
+        if (field.getId() == 134) { job.setAnimationSpeed(field.getInteger()); field.setText(Integer.toString(job.animationSpeed)); }
         cnpcplus$writeOffsetToPart(true);
     }
 

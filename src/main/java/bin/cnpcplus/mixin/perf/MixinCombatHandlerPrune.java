@@ -74,6 +74,12 @@ public abstract class MixinCombatHandlerPrune {
     @Shadow private EntityNPCInterface npc;
     @Shadow public abstract boolean isValidTarget(EntityLivingBase target);
 
+    @Inject(method = "isValidTarget", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$limitPursuit(EntityLivingBase target, CallbackInfoReturnable<Boolean> cir) {
+        if (target != null && (((bin.cnpcplus.ai.NpcControlAccess)npc).cnpcplus$isDisengaging()
+                || bin.cnpcplus.ai.PursuitLimit.outside(npc, target))) cir.setReturnValue(false);
+    }
+
     @Inject(method = "start()V", at = @At("TAIL"), require = 1)
     private void cnpcplus$rememberCombatHome(CallbackInfo ci) {
         CombatReturnState.begin(npc);

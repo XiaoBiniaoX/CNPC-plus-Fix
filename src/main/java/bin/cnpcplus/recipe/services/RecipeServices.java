@@ -31,6 +31,27 @@ public final class RecipeServices {
 
     private RecipeServices() {}
 
+    /** Only replace this stable registry key; editing conditions never rebuilds other recipes. */
+    public static void updateGlobalRecipe(int syncId, RecipeCarpentry recipe) {
+        IForgeRegistry<IRecipe> registry = RecipeController.Registry != null ? RecipeController.Registry : ForgeRegistries.RECIPES;
+        resolveMethods();
+        ResourceLocation key = new ResourceLocation("customnpcs", "global/id_" + syncId);
+        IRecipe previous = registry.getValue(key);
+        int numericId = previous != null && registry instanceof ForgeRegistry ? ((ForgeRegistry<IRecipe>)registry).getID(previous) : -1;
+        boolean unfroze = invokeUnfreeze(registry);
+        try {
+            invokeRemove(registry, key);
+            if (recipe != null && recipe.isValid()) {
+                clearRegistryName(recipe);
+                recipe.setRegistryName(key);
+                if (addMethod != null && registry instanceof ForgeRegistry) addMethod.invoke(registry, numericId, recipe, "cnpcplus");
+                else registry.register(recipe);
+            }
+        } catch (Exception error) {
+            CnpcPlus.LOGGER.error("Cannot update recipe {}", key, error);
+        } finally { if (unfroze) invokeFreeze(registry); }
+    }
+
     public static boolean compareItems(ItemStack required, ItemStack actual, boolean ignoreDamage, boolean ignoreNBT) {
         return CraftUtils.matches(actual, required, ignoreDamage, ignoreNBT);
     }

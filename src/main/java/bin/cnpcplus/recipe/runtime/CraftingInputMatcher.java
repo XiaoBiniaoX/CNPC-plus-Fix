@@ -24,6 +24,15 @@ public final class CraftingInputMatcher {
         if (recipe.getResult() == null || recipe.getResult().isEmpty()) return MatchResult.MISS;
         NonNullList<Ingredient> ings = recipe.getIngredients();
         if (ings == null || ings.isEmpty()) return MatchResult.MISS;
+        if (((RecipeCarpentryOffsetAccessor)recipe).cnpcplus$isShapeless()) {
+            java.util.List<ItemStack> actual = new java.util.ArrayList<>();
+            for (int i = 0; i < input.getSizeInventory(); i++) if (!input.getStackInSlot(i).isEmpty()) actual.add(input.getStackInSlot(i));
+            java.util.List<com.google.common.base.Predicate<ItemStack>> required = new java.util.ArrayList<>();
+            for (Ingredient ingredient : ings) if (ingredient != Ingredient.EMPTY && ingredient.getMatchingStacks().length > 0)
+                required.add(stack -> ingredient.apply(stack) || RecipeServices.compareItems(first(ingredient), stack, recipe.ignoreDamage, recipe.ignoreNBT));
+            return net.minecraftforge.common.util.RecipeMatcher.findMatches(actual, required) == null
+                    ? MatchResult.MISS : new MatchResult(recipe, 0, 0, false, 1);
+        }
 
         int gridW = Math.max(1, input.getWidth());
         int gridH = Math.max(1, input.getHeight());

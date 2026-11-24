@@ -6,6 +6,7 @@ uniform mat4 InverseWorldViewProjection;
 uniform mat4 WorldViewProjection;
 uniform vec3 CameraPosition;
 uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec3 Color;
 uniform float Radius;
 uniform float Intensity;
@@ -106,7 +107,7 @@ float shape(vec3 p) {
 }
 void main() {
     vec4 original=texture2D(DiffuseSampler,texCoord);gl_FragColor=original;
-    vec3 rd=normalize(unproject(1.0)), center=WorldPosition-CameraPosition;
+    vec3 rd=normalize(unproject(1.0)), center=CameraRelativeWorldPosition;
     float depth=texture2D(DepthSampler,texCoord).r;
     vec3 surface=unproject(depth);
     float sceneDistance=length(surface);

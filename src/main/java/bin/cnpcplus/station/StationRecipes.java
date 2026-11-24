@@ -61,7 +61,10 @@ public final class StationRecipes {
     }
     public static boolean accepts(int kind, int slot, ItemStack stack, boolean client) {
         for (StationRecipe recipe : list(kind, client))
-            if (!recipe.inputs[slot].isEmpty() && stack.getItem() == recipe.inputs[slot].getItem()) return true;
+            for (int i = 0; i < (recipe.shapeless && slot < (kind == 1 ? 3 : 2) ? (kind == 1 ? 3 : 2) : 1); i++) {
+                int expected = recipe.shapeless && slot < (kind == 1 ? 3 : 2) ? i : slot;
+                if (!recipe.inputs[expected].isEmpty() && stack.getItem() == recipe.inputs[expected].getItem()) return true;
+            }
         return false;
     }
 }

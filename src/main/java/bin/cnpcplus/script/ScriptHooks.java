@@ -28,6 +28,8 @@ public final class ScriptHooks {
             default: nativeTypes = ""; // Forge names derive from actual event class names, not CNPC's enum.
         }
         for (String type : nativeTypes.split(" ")) if (!type.isEmpty()) names.add(EnumScriptType.valueOf(type).function);
+        if (!nativeTypes.isEmpty()) names.add("tickfix");
+        if (context.equals("ItemEvent")) names.add("timer");
         return new ArrayList<>(names);
     }
     public static void read(ScriptContainer owner, NBTTagCompound tag) {

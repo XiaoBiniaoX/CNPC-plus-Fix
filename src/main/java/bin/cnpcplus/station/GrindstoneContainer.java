@@ -40,8 +40,9 @@ public final class GrindstoneContainer extends Container {
                     while (xp > 0) { int part = EntityXPOrb.getXPSplit(xp); xp -= part; world.spawnEntity(new EntityXPOrb(world, pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5, part)); }
                 }
                 // Compute both counts before either change can replace the current recipe.
-                int top = matched == null ? input.getStackInSlot(0).getCount() : matched.inputs[0].getCount();
-                int bottom = matched == null ? input.getStackInSlot(1).getCount() : matched.inputs[1].getCount();
+                int[] mapping = matched == null ? null : matched.matchSlots(new ItemStack[]{input.getStackInSlot(0), input.getStackInSlot(1)});
+                int top = matched == null ? input.getStackInSlot(0).getCount() : matched.inputs[mapping[0]].getCount();
+                int bottom = matched == null ? input.getStackInSlot(1).getCount() : matched.inputs[mapping[1]].getCount();
                 taking = true; input.decrStackSize(0, top); input.decrStackSize(1, bottom); taking = false;
                 world.playSound(null, pos, net.minecraft.init.SoundEvents.BLOCK_ANVIL_USE, net.minecraft.util.SoundCategory.BLOCKS, .5f, 1.5f);
                 onCraftMatrixChanged(input);

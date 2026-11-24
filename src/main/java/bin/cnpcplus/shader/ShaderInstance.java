@@ -2,6 +2,7 @@ package bin.cnpcplus.shader;
 
 import java.util.*;
 import net.minecraft.nbt.*;
+import net.minecraft.util.math.Vec3d;
 import bin.cnpcplus.CnpcPlus;
 
 public final class ShaderInstance {
@@ -13,10 +14,12 @@ public final class ShaderInstance {
     public final Map<String, float[]> uniforms = new LinkedHashMap<>();
     public final Map<String, String> textures = new LinkedHashMap<>();
     public final Map<String, Animation> animations = new LinkedHashMap<>();
+    private Vec3d worldPosition;
     public ShaderInstance(UUID token, ShaderDefinition definition, String target) {
         this.token = token; this.definition = definition; this.target = target;
         duration = definition.duration; priority = definition.priority;
         definition.uniforms.forEach((name, parameter) -> uniforms.put(name, parameter.defaults())); textures.putAll(definition.samplers);
+        worldPosition = definition.defaultWorldPosition;
     }
     private void changed() { if (controller != null) controller.changed(this); }
     public void follow(noppes.npcs.api.entity.IEntity entity) { followEntity = entity.getMCEntity().getUniqueID(); changed(); }
@@ -44,9 +47,11 @@ public final class ShaderInstance {
     public Object getDefaultUniform(String name) { ShaderDefinition.Parameter p = definition.uniforms.get(name); return p == null ? null : p.defaults(); }
     public boolean setUniform(String name, Object value) {
         try {
-            float[] numbers = numbers(value);
+            double[] precise = numericValues(value); float[] numbers = floats(precise);
             if (getUniformType(name).equals("bool") != (value instanceof Boolean) && numbers.length == 1) throw new IllegalArgumentException("Boolean uniform type mismatch");
-            definition.validate(name, numbers); uniforms.put(name, numbers); animations.remove(name); changed(); return true;
+            definition.validate(name, numbers);
+            if (worldPosition != null && name.equals("WorldPosition")) worldPosition = new Vec3d(precise[0],precise[1],precise[2]);
+            uniforms.put(name, numbers); animations.remove(name); changed(); return true;
         } catch (IllegalArgumentException e) { error = e.getMessage(); CnpcPlus.LOGGER.error("[shader] {} {}", getId(), error); return false; }
     }
     private boolean typed(String name, String type, Object value) {
@@ -62,8 +67,8 @@ public final class ShaderInstance {
     public boolean setVector(String name, Object values) { return setUniform(name, values); }
     public boolean setMatrix4(String name, Object values) { return typed(name, "matrix4", values); }
     public boolean setUniforms(Map<?,?> values) { boolean result = true; for (Map.Entry<?,?> entry : values.entrySet()) result &= setUniform(entry.getKey().toString(), entry.getValue()); return result; }
-    public boolean resetUniform(String name) { ShaderDefinition.Parameter p = definition.uniforms.get(name); if (p == null) return false; uniforms.put(name, p.defaults()); animations.remove(name); changed(); return true; }
-    public void resetUniforms() { animations.clear(); definition.uniforms.forEach((name, p) -> uniforms.put(name, p.defaults())); changed(); }
+    public boolean resetUniform(String name) { ShaderDefinition.Parameter p = definition.uniforms.get(name); if (p == null) return false; uniforms.put(name, p.defaults()); animations.remove(name); if (name.equals("WorldPosition")) worldPosition = definition.defaultWorldPosition; changed(); return true; }
+    public void resetUniforms() { animations.clear(); worldPosition = definition.defaultWorldPosition; definition.uniforms.forEach((name, p) -> uniforms.put(name, p.defaults())); changed(); }
     public boolean hasTexture(String name) { return textures.containsKey(name); } public String getTexture(String name) { return textures.get(name); }
     public String[] getTextureNames() { return definition.getSamplerNames(); }
     public boolean setTexture(String name, String id) {
@@ -72,23 +77,36 @@ public final class ShaderInstance {
     }
     public boolean resetTexture(String name) { if (!hasTexture(name)) return false; textures.put(name, definition.samplers.get(name)); changed(); return true; }
     public Animation animateUniform(String name, Object from, Object to, int ticks, String easing) {
-        float[] start = numbers(from), end = numbers(to); definition.validate(name, start); definition.validate(name, end);
+        double[] preciseFrom = numericValues(from), preciseTo = numericValues(to);
+        float[] start = floats(preciseFrom), end = floats(preciseTo); definition.validate(name, start); definition.validate(name, end);
         if (getUniformType(name).equals("int") || getUniformType(name).equals("bool")) throw new IllegalArgumentException("Animate float/vector/matrix uniforms only");
         if (ticks < 1 || ticks > 1000000 || !Arrays.asList("linear","easeIn","easeOut","easeInOut","smoothstep").contains(easing)) throw new IllegalArgumentException("Invalid animation duration/easing");
-        Animation animation = new Animation(start, end, ticks, easing, time); animations.put(name, animation); uniforms.put(name, start.clone()); changed(); return animation;
+        Animation animation = new Animation(start, end, ticks, easing, time);
+        if (worldPosition != null && name.equals("WorldPosition")) { animation.preciseFrom = preciseFrom; animation.preciseTo = preciseTo; worldPosition = new Vec3d(preciseFrom[0],preciseFrom[1],preciseFrom[2]); }
+        animations.put(name, animation); uniforms.put(name, start.clone()); changed(); return animation;
     }
-    public boolean cancelAnimation(String name) { boolean removed = animations.remove(name) != null; if (removed) changed(); return removed; }
+    public boolean cancelAnimation(String name) { Animation animation = animations.get(name); if (animation == null) return false; if (name.equals("WorldPosition") && animation.preciseFrom != null) worldPosition = worldPosition(0); animations.remove(name); changed(); return true; }
     public boolean isAnimating(String name) { return animations.containsKey(name); } public Animation getAnimation(String name) { return animations.get(name); }
     public static final class Animation {
         public final float[] from, to; public final int duration; public final String easing; public final float start;
+        private double[] preciseFrom, preciseTo;
         Animation(float[] from, float[] to, int duration, String easing, float start) { this.from = from; this.to = to; this.duration = duration; this.easing = easing; this.start = start; }
         public float[] from() { return from.clone(); } public float[] to() { return to.clone(); }
         public int duration() { return duration; } public String easing() { return easing; } public float start() { return start; }
-        public float[] value(float now) {
+        private float progress(float now) {
             float p = Math.max(0, Math.min(1, (now - start) / duration));
             switch (easing) { case "easeIn": p *= p; break; case "easeOut": p = 1-(1-p)*(1-p); break; case "easeInOut": p = p < .5f ? 2*p*p : 1-2*(1-p)*(1-p); break; case "smoothstep": p = p*p*(3-2*p); break; default: break; }
-            float[] value = new float[from.length]; for (int i = 0; i < value.length; i++) value[i] = from[i] + (to[i]-from[i])*p; return value;
+            return p;
         }
+        public float[] value(float now) {
+            float p = progress(now); float[] value = new float[from.length]; for (int i = 0; i < value.length; i++) value[i] = from[i] + (to[i]-from[i])*p; return value;
+        }
+    }
+    public Vec3d worldPosition(float partial) {
+        Animation animation = animations.get("WorldPosition");
+        if (animation == null || animation.preciseFrom == null) return worldPosition;
+        float p = animation.progress(time+(isPaused()?0:partial*speed)); double[] from = animation.preciseFrom, to = animation.preciseTo;
+        return new Vec3d(from[0]+(to[0]-from[0])*p,from[1]+(to[1]-from[1])*p,from[2]+(to[2]-from[2])*p);
     }
     public float opacity(float partial) {
         float now = time + (isPaused() ? 0 : partial * speed), value = fadeIn == 0 ? 1 : Math.min(1, now / fadeIn);
@@ -98,6 +116,7 @@ public final class ShaderInstance {
     public void tick() {
         if (!isActive() || isPaused()) return;
         if (state.equals("LOADING") || state.equals("READY")) state = "PLAYING"; time += speed;
+        worldPosition = worldPosition(0);
         for (Iterator<Map.Entry<String, Animation>> it = animations.entrySet().iterator(); it.hasNext();) {
             Map.Entry<String, Animation> entry = it.next(); uniforms.put(entry.getKey(), entry.getValue().value(time));
             if (time >= entry.getValue().start + entry.getValue().duration) it.remove();
@@ -106,8 +125,14 @@ public final class ShaderInstance {
         if (duration > 0 && time >= duration) { if (loop) time %= duration; else state = "STOPPED"; }
     }
     public static float[] numbers(Object value) {
-        if (value instanceof Boolean) return new float[]{(Boolean)value ? 1 : 0};
-        if (value instanceof Number) return new float[]{((Number)value).floatValue()};
+        return floats(numericValues(value));
+    }
+    private static float[] floats(double[] values) {
+        float[] result = new float[values.length]; for (int i = 0; i < result.length; i++) result[i] = (float)values[i]; return result;
+    }
+    private static double[] numericValues(Object value) {
+        if (value instanceof Boolean) return new double[]{(Boolean)value ? 1 : 0};
+        if (value instanceof Number) return new double[]{((Number)value).doubleValue()};
         Object[] array;
         if (value instanceof Map) array = ((Map<?,?>)value).values().toArray();
         else if (value instanceof Collection) array = ((Collection<?>)value).toArray();
@@ -115,19 +140,26 @@ public final class ShaderInstance {
             int size = java.lang.reflect.Array.getLength(value); array = new Object[size]; for (int i = 0; i < size; i++) array[i] = java.lang.reflect.Array.get(value, i);
         } else throw new IllegalArgumentException("Numeric scalar or array required");
         if (array.length < 1 || array.length > 16) throw new IllegalArgumentException("Uniform array length must be 1..16");
-        float[] result = new float[array.length]; for (int i = 0; i < array.length; i++) { if (!(array[i] instanceof Number)) throw new IllegalArgumentException("Numeric array required"); result[i] = ((Number)array[i]).floatValue(); } return result;
+        double[] result = new double[array.length]; for (int i = 0; i < array.length; i++) { if (!(array[i] instanceof Number)) throw new IllegalArgumentException("Numeric array required"); result[i] = ((Number)array[i]).doubleValue(); } return result;
     }
     private static NBTTagList list(float[] values) { NBTTagList list = new NBTTagList(); for (float value : values) list.appendTag(new NBTTagFloat(value)); return list; }
     private static float[] array(NBTTagList list) { float[] result = new float[list.tagCount()]; for (int i = 0; i < result.length; i++) result[i] = list.getFloatAt(i); return result; }
+    private static NBTTagList positionTag(double[] position) { NBTTagList list = new NBTTagList(); for (double value : position) list.appendTag(new NBTTagDouble(value)); return list; }
+    private static double[] positionArray(NBTTagList list) {
+        if (list.tagCount() != 3) throw new IllegalArgumentException("Expected three world position coordinates");
+        return new double[]{list.getDoubleAt(0),list.getDoubleAt(1),list.getDoubleAt(2)};
+    }
     public NBTTagCompound save() {
         NBTTagCompound tag = new NBTTagCompound(); tag.setUniqueId("Token", token); tag.setString("Id", getId()); tag.setString("Target", target);
         tag.setString("State", state); tag.setInteger("Duration", duration); tag.setInteger("FadeIn", fadeIn); tag.setInteger("FadeOut", fadeOut);
         tag.setInteger("Priority", priority); tag.setFloat("Speed", speed); tag.setFloat("Time", time); tag.setBoolean("Loop", loop); tag.setInteger("Stopping", stopping);
         if (followEntity != null) tag.setUniqueId("FollowEntity", followEntity);
         NBTTagCompound params = new NBTTagCompound(); uniforms.forEach((name, value) -> params.setTag(name, list(value))); tag.setTag("Uniforms", params);
+        if (worldPosition != null) tag.setTag("PreciseWorldPosition",positionTag(new double[]{worldPosition.x,worldPosition.y,worldPosition.z}));
         NBTTagCompound samplers = new NBTTagCompound(); textures.forEach(samplers::setString); tag.setTag("Textures", samplers);
         NBTTagCompound anims = new NBTTagCompound(); animations.forEach((name, value) -> {
             NBTTagCompound a = new NBTTagCompound(); a.setTag("From", list(value.from)); a.setTag("To", list(value.to)); a.setInteger("Duration", value.duration); a.setString("Easing", value.easing); a.setFloat("Start", value.start); anims.setTag(name, a);
+            if (value.preciseFrom != null) { a.setTag("PreciseFrom",positionTag(value.preciseFrom)); a.setTag("PreciseTo",positionTag(value.preciseTo)); }
         }); tag.setTag("Animations", anims); return tag;
     }
     public static ShaderInstance read(NBTTagCompound tag, ShaderManager manager) {
@@ -140,10 +172,17 @@ public final class ShaderInstance {
         if (tag.hasUniqueId("FollowEntity")) instance.followEntity = tag.getUniqueId("FollowEntity");
         if (instance.stopping < -1 || instance.stopping > 1000000) throw new IllegalArgumentException("Invalid stopping time");
         NBTTagCompound params = tag.getCompoundTag("Uniforms"); for (String name : params.getKeySet()) { float[] value = array(params.getTagList(name, 5)); instance.definition.validate(name, value); instance.uniforms.put(name, value); }
+        if (instance.worldPosition != null) {
+            if (tag.hasKey("PreciseWorldPosition",9)) {
+                double[] xyz = positionArray(tag.getTagList("PreciseWorldPosition",6)); instance.definition.validate("WorldPosition",floats(xyz)); instance.worldPosition = new Vec3d(xyz[0],xyz[1],xyz[2]);
+            } else if (params.hasKey("WorldPosition")) { float[] xyz = instance.uniforms.get("WorldPosition"); instance.worldPosition = new Vec3d(xyz[0],xyz[1],xyz[2]); }
+        }
         NBTTagCompound textures = tag.getCompoundTag("Textures"); for (String name : textures.getKeySet()) { if (!instance.hasTexture(name)) throw new IllegalArgumentException("Unknown sampler " + name); instance.textures.put(name, ShaderDefinition.resource(textures.getString(name))); }
         NBTTagCompound anims = tag.getCompoundTag("Animations"); for (String name : anims.getKeySet()) {
-            NBTTagCompound a = anims.getCompoundTag(name); instance.animateUniform(name, array(a.getTagList("From", 5)), array(a.getTagList("To", 5)), a.getInteger("Duration"), a.getString("Easing"));
-            Animation value = instance.animations.get(name); instance.animations.put(name, new Animation(value.from, value.to, value.duration, value.easing, a.getFloat("Start")));
-        } return instance;
+            NBTTagCompound a = anims.getCompoundTag(name); boolean precise = name.equals("WorldPosition") && a.hasKey("PreciseFrom",9);
+            instance.animateUniform(name, precise ? positionArray(a.getTagList("PreciseFrom",6)) : array(a.getTagList("From",5)), precise ? positionArray(a.getTagList("PreciseTo",6)) : array(a.getTagList("To",5)), a.getInteger("Duration"), a.getString("Easing"));
+            Animation value = instance.animations.get(name), restored = new Animation(value.from, value.to, value.duration, value.easing, a.getFloat("Start"));
+            restored.preciseFrom = value.preciseFrom; restored.preciseTo = value.preciseTo; instance.animations.put(name,restored);
+        } instance.worldPosition = instance.worldPosition(0); return instance;
     }
 }

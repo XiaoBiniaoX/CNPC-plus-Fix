@@ -53,6 +53,11 @@ public final class ScriptApiDocs {
         for (String name : installedTypes) addClass(classes, name);
         Map<String, String> sources = new HashMap<>();
         cached = index(new ArrayList<>(classes), globals(), name -> sources.computeIfAbsent(name, ScriptApiDocs::modSource));
+        for (bin.cnpcplus.script.tools.ScriptApiRegistry.Entry entry : bin.cnpcplus.script.tools.ScriptApiRegistry.entries()) {
+            String params = entry.parameters().stream().map(p -> p.type() + " " + p.name()).collect(Collectors.joining(", "));
+            cached.add(new Line("+ / CNPCPlus tools", entry.module(), entry.publicName() + "(" + params + ") : " + entry.returnType()
+                    + " [" + entry.threadPolicy() + "] " + entry.behaviorNotes(), "CNPCPlus 4.2.0", true));
+        }
         return cached;
     }
 

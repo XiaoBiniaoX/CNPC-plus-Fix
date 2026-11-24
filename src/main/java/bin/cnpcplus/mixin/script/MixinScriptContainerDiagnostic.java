@@ -15,10 +15,29 @@ import org.spongepowered.asm.mixin.injection.callback.*;
 @Mixin(value = ScriptContainer.class, remap = false)
 public abstract class MixinScriptContainerDiagnostic {
     @Shadow @Final private static HashMap<String, Object> Data;
+    @Shadow private noppes.npcs.controllers.IScriptHandler handler;
+    @Shadow private javax.script.ScriptEngine engine;
+    @org.spongepowered.asm.mixin.Unique private javax.script.ScriptEngine cnpcplus$boundEngine;
     @Inject(method = "<clinit>", at = @At("TAIL"), require = 1)
-    private static void cnpcplus$logBinding(CallbackInfo ci) { Data.put("CNPCPlusLog", bin.cnpcplus.CnpcPlus.LOGGER); }
+    private static void cnpcplus$logBinding(CallbackInfo ci) {
+        Data.put("CNPCPlusLog", bin.cnpcplus.CnpcPlus.LOGGER);
+        bin.cnpcplus.script.tools.ScriptApiRegistry.bind(Data);
+    }
+    @Inject(method = "setEngine", at = @At("RETURN"), require = 1)
+    private void cnpcplus$math(String language, CallbackInfo ci) {
+        if (engine == null || engine == cnpcplus$boundEngine) return;
+        String name = engine.getFactory().getLanguageName().toLowerCase(java.util.Locale.ROOT);
+        if (name.contains("ecmascript") || name.contains("javascript")) {
+            try { bin.cnpcplus.script.tools.ScriptApiRegistry.extendJavaScriptMath(engine); }
+            catch (javax.script.ScriptException error) { throw new IllegalStateException("Unable to register CNPCPlus Math", error); }
+        }
+        cnpcplus$boundEngine = engine;
+    }
     @Inject(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At("HEAD"), require = 1)
-    private void cnpcplus$observeHook(String type, Object event, CallbackInfo ci) { ScriptHooks.observe((ScriptContainer) (Object) this, type, event); }
+    private void cnpcplus$observeHook(String type, Object event, CallbackInfo ci) {
+        ScriptHooks.observe((ScriptContainer) (Object) this, type, event);
+        bin.cnpcplus.script.tools.ScriptScope.observe((ScriptContainer)(Object)this, handler, event);
+    }
     @Redirect(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At(value = "INVOKE", target = "Ljava/lang/Throwable;printStackTrace(Ljava/io/PrintWriter;)V"), require = 1)
     private void cnpcplus$captureError(Throwable error, PrintWriter writer) {
         ScriptDiagnostics.capture((ScriptContainer) (Object) this, error);

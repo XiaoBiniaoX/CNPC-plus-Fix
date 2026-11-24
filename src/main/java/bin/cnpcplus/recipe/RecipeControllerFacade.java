@@ -91,7 +91,7 @@ public final class RecipeControllerFacade {
         }
 
         RecipeStorage.INSTANCE.saveAll(controller);
-        reloadGlobalRecipes(controller);
+        RecipeServices.updateGlobalRecipe(id, recipe.isGlobal ? recipe : null);
 
         MinecraftServer server = CustomNpcs.Server;
         if (server != null) {
@@ -141,7 +141,7 @@ public final class RecipeControllerFacade {
         controller.anvilRecipes.remove(Integer.valueOf(syncId));
         RecipeIds.INSTANCE.unregister(syncId);
         RecipeStorage.INSTANCE.saveAll(controller);
-        reloadGlobalRecipes(controller);
+        RecipeServices.updateGlobalRecipe(syncId, null);
 
         MinecraftServer server = CustomNpcs.Server;
         if (server != null) {

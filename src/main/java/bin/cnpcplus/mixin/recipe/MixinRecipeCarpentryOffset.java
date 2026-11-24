@@ -16,6 +16,9 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
     @Unique private int cnpcplusOffsetX;
     @Unique private int cnpcplusOffsetY;
     @Unique private boolean cnpcplusHasOffset;
+    @Unique private boolean cnpcplus$shapeless;
+    public boolean cnpcplus$isShapeless() { return cnpcplus$shapeless; }
+    public void cnpcplus$setShapeless(boolean shapeless) { cnpcplus$shapeless = shapeless; }
 
     @Override
     public int cnpcplusGetOffsetX() {
@@ -43,6 +46,7 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
     private static void cnpcplusReadOffset(NBTTagCompound compound, CallbackInfoReturnable<RecipeCarpentry> cir) {
         RecipeCarpentry recipe = cir.getReturnValue();
         if (recipe == null || compound == null) return;
+        ((RecipeCarpentryOffsetAccessor)recipe).cnpcplus$setShapeless(compound.getBoolean("cnpcplus_shapeless"));
         if (!compound.hasKey("cnpcplus_offsetX") && !compound.hasKey("cnpcplus_offsetY")) return;
         ((RecipeCarpentryOffsetAccessor) recipe).cnpcplusSetOffset(
                 compound.getInteger("cnpcplus_offsetX"),
@@ -53,6 +57,7 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
 
     @Inject(method = "writeNBT", at = @At("RETURN"), remap = false)
     private void cnpcplusWriteOffset(CallbackInfoReturnable<NBTTagCompound> cir) {
+        cir.getReturnValue().setBoolean("cnpcplus_shapeless", cnpcplus$shapeless);
         if (!this.cnpcplusHasOffset) return;
         NBTTagCompound tag = cir.getReturnValue();
         if (tag == null) return;
@@ -63,6 +68,7 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
     @Inject(method = "copy", at = @At("RETURN"), remap = false)
     private void cnpcplusCopyOffset(RecipeCarpentry from, CallbackInfo ci) {
         RecipeCarpentryOffsetAccessor src = (RecipeCarpentryOffsetAccessor) from;
+        cnpcplus$shapeless = src.cnpcplus$isShapeless();
         this.cnpcplusSetOffset(src.cnpcplusGetOffsetX(), src.cnpcplusGetOffsetY(), src.cnpcplusHasSavedOffset());
         RecipeCarpentry self = (RecipeCarpentry) (Object) this;
         if ((self.name == null || self.name.isEmpty()) && from.name != null) {

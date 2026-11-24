@@ -9,8 +9,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderer.class)
 public abstract class MixinEntityRendererPost {
+    @Inject(method = "updateCameraAndRender", at = @At("HEAD"))
+    private void cnpcplus$begin(float partialTicks, long nanoTime, CallbackInfo ci) { ClientShaders.beginFrame(); }
     @Inject(method = "updateCameraAndRender", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/EntityRenderer;renderWorld(FJ)V", shift = At.Shift.AFTER))
+            target = "Lnet/minecraft/client/shader/Framebuffer;bindFramebuffer(Z)V", shift = At.Shift.AFTER))
     private void cnpcplus$postAfterWorld(float partialTicks, long nanoTime, CallbackInfo ci) {
         ClientShaders.renderPostAfterWorld();
     }

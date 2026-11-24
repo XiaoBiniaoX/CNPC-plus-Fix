@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "bin.cnpcplus.mixin.melee",
+  "refmap": "refmap.cnpcplus.json",
+  "mixins": ["MixinExplosionDamageEffects"],
+  "client": [],
+  "server": [],
+  "injectors": {"defaultRequire": 1}
+}

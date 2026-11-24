@@ -3,6 +3,7 @@ package bin.cnpcplus.shader;
 import com.google.gson.*;
 import java.util.*;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
 
 /** CPU-only metadata. No client classes are referenced by the script contract. */
 public final class ShaderDefinition {
@@ -15,6 +16,7 @@ public final class ShaderDefinition {
     public final String id, type, description, shaderResource;
     public final boolean remote, multiple, loop;
     public final int duration, priority;
+    public final Vec3d defaultWorldPosition;
     public final Map<String, Parameter> uniforms = new LinkedHashMap<>();
     public final Map<String, String> samplers = new LinkedHashMap<>();
     public final JsonObject json;
@@ -29,6 +31,7 @@ public final class ShaderDefinition {
         duration = json.has("defaultDuration") ? json.get("defaultDuration").getAsInt() : 200;
         priority = json.has("priority") ? json.get("priority").getAsInt() : 0;
         if (duration != -1 && (duration < 1 || duration > 1000000) || Math.abs((long)priority) > 1000000) throw new IllegalArgumentException("Invalid duration/priority");
+        Vec3d position = null;
         if (json.has("uniforms")) for (JsonElement element : json.getAsJsonArray("uniforms")) {
             JsonObject value = element.getAsJsonObject(); String name = value.get("name").getAsString(), kind = value.get("type").getAsString();
             int length = length(kind); JsonElement defaults = value.get("default"); float[] data = new float[length];
@@ -42,7 +45,11 @@ public final class ShaderDefinition {
             float min = value.has("min") ? value.get("min").getAsFloat() : -1000000, max = value.has("max") ? value.get("max").getAsFloat() : 1000000;
             if (!name.matches("[A-Za-z_][A-Za-z0-9_]*") || uniforms.containsKey(name) || !Float.isFinite(min) || !Float.isFinite(max) || min > max) throw new IllegalArgumentException("Invalid/duplicate parameter: " + name);
             uniforms.put(name, new Parameter(kind, data, min, max)); validate(name, data);
+            if (name.equals("WorldPosition") && kind.equals("vec3")) {
+                JsonArray xyz = defaults.getAsJsonArray(); position = new Vec3d(xyz.get(0).getAsDouble(),xyz.get(1).getAsDouble(),xyz.get(2).getAsDouble());
+            }
         }
+        defaultWorldPosition = position;
         if (uniforms.size() > 64) throw new IllegalArgumentException("At most 64 uniforms");
         if (json.has("samplers")) for (JsonElement element : json.getAsJsonArray("samplers")) {
             JsonObject value = element.getAsJsonObject(); samplers.put(value.get("name").getAsString(), resource(value.get("default").getAsString()));

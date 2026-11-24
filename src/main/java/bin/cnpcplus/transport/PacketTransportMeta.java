@@ -93,9 +93,8 @@ public final class PacketTransportMeta implements IMessage {
                 TransportLocation target = own.category.locations.get(message.data.getInteger("Id"));
                 if (target == null) target = TransportController.getInstance().getTransport(message.data.getInteger("Id"));
                 if (!visible(player, own, target)) return;
-                RoleEvent.TransporterUseEvent event = new RoleEvent.TransporterUseEvent(player, npc.wrappedNPC, target);
-                if (!EventHooks.onNPCRole(npc, event)) NoppesUtilPlayer.teleportPlayer(player,
-                        target.pos.getX(), target.pos.getY(), target.pos.getZ(), target.dimension);
+                if (!TransportTrade.travel(player, npc, target, message.data.hasKey("Fare", 10) ? message.data.getCompoundTag("Fare") : null))
+                    CraftingViewNetwork.CHANNEL.sendTo(new PacketTransportMeta(npc.getEntityId(), STATE, snapshot(player, npc, false)), player);
             } else if (message.action == IMAGE) {
                 String key = TransportData.key(message.data.getString("Key"));
                 NBTTagCompound allowed = snapshot(player, npc, editor);

@@ -10,9 +10,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.world.World;
 import net.minecraft.world.Explosion;
-import net.minecraftforge.event.world.ExplosionEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
+import bin.cnpcplus.common.ExplosionDamageEffects;
+import java.util.function.Consumer;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -31,29 +30,18 @@ public final class RangedBuffStore {
 
     private static final Map<Object, Map<String, int[]>> BUFFS = new WeakHashMap<>();
     private static final Object LOCK = new Object();
-    private static final ThreadLocal<EntityProjectile> EXPLODING = new ThreadLocal<>();
 
     private RangedBuffStore() {
     }
 
     public static Explosion explode(EntityProjectile projectile, World world, Entity source,
                                     double x, double y, double z, float strength, boolean fire, boolean terrain) {
-        EntityProjectile previous = EXPLODING.get();
-        EXPLODING.set(projectile);
+        Consumer<EntityLivingBase> previous = ExplosionDamageEffects.CURRENT.get();
+        ExplosionDamageEffects.CURRENT.set(victim -> { if (!world.isRemote) apply(projectile, victim); });
         try { return world.newExplosion(source, x, y, z, strength, fire, terrain); }
         finally {
-            if (previous == null) EXPLODING.remove();
-            else EXPLODING.set(previous);
-        }
-    }
-
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onExplosion(ExplosionEvent.Detonate event) {
-        EntityProjectile projectile = EXPLODING.get();
-        if (projectile == null || event.getWorld().isRemote) return;
-        // Start 事件取消时不会到 Detonate；使用 Forge 最终受影响列表，不另扫方盒。
-        for (Entity entity : event.getAffectedEntities()) {
-            if (entity instanceof EntityLivingBase) apply(projectile, (EntityLivingBase) entity);
+            if (previous == null) ExplosionDamageEffects.CURRENT.remove();
+            else ExplosionDamageEffects.CURRENT.set(previous);
         }
     }
 

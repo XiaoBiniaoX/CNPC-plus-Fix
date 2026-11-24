@@ -104,6 +104,7 @@ public final class ScriptApiCompletion {
             roots.put(eventName + ".block", load(API + "block." + (context.equals("BlockDoorEvent") ? "IBlockScriptedDoor" : "IBlockScripted")));
         roots.put("PosZero", load(API + "IPos"));
         roots.put("CNPCPlusLog", org.apache.logging.log4j.Logger.class);
+        roots.putAll(bin.cnpcplus.script.tools.ScriptApiRegistry.roots());
         for (String name : new String[]{"AnimationType", "EntityType", "RoleType", "JobType", "SideType", "TacticalType", "ParticleType"}) roots.put(name, load(API + "constants." + name));
         // ponytail: local declarations and API chains, not a JS type checker. Unknown/dynamic values stay unknown.
         m = ASSIGN.matcher(code.substring(scope, Math.max(scope, Math.min(cursor, code.length()))));
@@ -118,7 +119,12 @@ public final class ScriptApiCompletion {
     private static Class<?> eventClass(Class<?> base, String function) {
         if (base == null) return null;
         String name = function.toLowerCase(Locale.ROOT);
+        if (base.getSimpleName().equals("ItemEvent")) {
+            if (name.equals("timer")) return ExtraScriptHook.ItemTimerEvent.class;
+            if (name.equals("tick") || name.equals("tickfix")) return ExtraScriptHook.ItemTickEvent.class;
+        }
         switch (name) {
+            case "tickfix":
             case "tick": name = "update"; break;
             case "kill": name = "killedentity"; break;
             case "collide": name = base.getSimpleName().equals("BlockEvent") ? "collided" : "collide"; break;

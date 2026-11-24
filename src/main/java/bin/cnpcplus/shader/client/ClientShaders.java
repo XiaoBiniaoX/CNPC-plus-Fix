@@ -39,15 +39,19 @@ public final class ClientShaders {
     public static final ShaderController CONTROLLER = ShaderController.localController();
     private static final Map<String, Gpu> LOADED = new LinkedHashMap<>();
     private static final Map<String, ShaderController> OBJECTS = new HashMap<>();
-    private static final Map<UUID, Framebuffer[]> HISTORIES = new HashMap<>();
+    private static final Map<String, String> FAILURES = new HashMap<>();
+    private static final Map<String, ResourceLocation> TEXTURE_KEYS = new LinkedHashMap<>();
+    private static final PostPipeline PIPELINE = new PostPipeline();
     private static final Deque<String> TARGETS = new ArrayDeque<>();
     private static final Matrix4f VIEW_PROJECTION = new Matrix4f(), INVERSE = new Matrix4f();
     private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
     private static Object world, player;
     private static boolean catalogPending, postAfterWorld;
     private static ShaderInstance currentPost;
+    private static Shader currentPass;
     private static Vec3d camera = Vec3d.ZERO;
-    private static int depth = -1, depthWidth, depthHeight, previousProgram = -1;
+    private static int previousProgram = -1;
+    private static net.minecraft.client.shader.ShaderManager previousManager;
     public static boolean compilingList;
     private static int previousTextureUnit;
     private static float partial;
@@ -65,9 +69,10 @@ public final class ClientShaders {
     public static boolean isLoaded(String id) { return LOADED.containsKey(id); }
     public static String[] loaded() { return LOADED.keySet().toArray(new String[0]); }
     public static boolean load(String id) {
-        renderThread(); if (isLoaded(id)) return true; ShaderDefinition definition = MANAGER.get(id); Minecraft mc = Minecraft.getMinecraft(); Gpu gpu = new Gpu();
-        try {
-            if (!OpenGlHelper.shadersSupported || !OpenGlHelper.isFramebufferEnabled()) throw new IllegalStateException("OpenGL shaders/framebuffers are disabled");
+        renderThread(); id = ShaderDefinition.resource(id); if (FAILURES.containsKey(id)) return false; if (isLoaded(id)) return true;
+        if (!OpenGlHelper.shadersSupported || !OpenGlHelper.isFramebufferEnabled()) { String error = "OpenGL shaders/framebuffers are disabled"; FAILURES.put(id,error); CnpcPlus.LOGGER.error("[shader] load {}: {}",id,error); return false; }
+        ShaderDefinition definition = MANAGER.get(id); Minecraft mc = Minecraft.getMinecraft(); Gpu gpu = new Gpu();
+        try (PostRenderState state = new PostRenderState()) {
             if (LOADED.size() >= 32) { for (String old : new ArrayList<>(LOADED.keySet())) if (unload(old)) break; if (LOADED.size() >= 32) throw new IllegalStateException("At most 32 loaded shader effects"); }
             if (definition.type.equals("POST")) {
                 try (IResource resource = mc.getResourceManager().getResource(new ResourceLocation(definition.shaderResource)); Reader reader = new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)) {
@@ -80,20 +85,30 @@ public final class ClientShaders {
                     }
                     if (bytes > 268435456L) throw new IllegalArgumentException("Shader targets exceed 256 MiB");
                 }
-                gpu.post = new ShaderGroup(mc.getTextureManager(), mc.getResourceManager(), mc.getFramebuffer(), new ResourceLocation(definition.shaderResource));
+                Framebuffer target = PIPELINE.target(mc.getFramebuffer().framebufferWidth,mc.getFramebuffer().framebufferHeight);
+                IResourceManager resources = new ScriptShaderResources(mc.getResourceManager());
+                // Publish the group before parsing real passes so partial failures can be closed.
+                gpu.post = new ShaderGroup(mc.getTextureManager(),resources,target,new ResourceLocation("cnpcplus:shaders/post/script_empty.json"));
+                gpu.post.parseGroup(mc.getTextureManager(),new ResourceLocation(definition.shaderResource));
                 gpu.width = mc.getFramebuffer().framebufferWidth; gpu.height = mc.getFramebuffer().framebufferHeight; gpu.post.createBindFramebuffers(gpu.width,gpu.height);
-                for (String name : definition.uniforms.keySet()) if (((ShaderGroupAccess)gpu.post).cnpcplus$passes().stream().noneMatch(p -> p.getShaderManager().getShaderUniform(name) != null)) throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
+                for (Shader pass : ((ShaderGroupAccess)gpu.post).cnpcplus$passes()) {
+                    validateProgram(pass.getShaderManager());
+                    if (pass.framebufferIn == pass.framebufferOut) throw new IllegalArgumentException("Post pass reads its own output");
+                }
             } else {
                 gpu.render = new net.minecraft.client.shader.ShaderManager(mc.getResourceManager(), definition.shaderResource);
                 if (definition.json.has("blockShaderResource")) gpu.block = new net.minecraft.client.shader.ShaderManager(mc.getResourceManager(), ShaderDefinition.resource(definition.json.get("blockShaderResource").getAsString()));
-                for (net.minecraft.client.shader.ShaderManager shader : gpu.block == null ? new net.minecraft.client.shader.ShaderManager[]{gpu.render} : new net.minecraft.client.shader.ShaderManager[]{gpu.render,gpu.block})
-                    for (String name : definition.uniforms.keySet()) if (shader.getShaderUniform(name) == null) throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
+                validateProgram(gpu.render); if (gpu.block != null) validateProgram(gpu.block);
             }
             LOADED.put(id,gpu); return true;
-        } catch (IOException | RuntimeException error) { gpu.close(); CnpcPlus.LOGGER.error("[shader] load {}",id,error); return false; }
+        } catch (IOException | RuntimeException error) { try (PostRenderState state = new PostRenderState()) { gpu.close(); } FAILURES.put(id,error.toString()); CnpcPlus.LOGGER.error("[shader] load {}",id,error); return false; }
     }
-    public static boolean unload(String id) { renderThread(); if (CONTROLLER.isActive(id) || OBJECTS.values().stream().anyMatch(c -> c.isActive(id))) return false; Gpu gpu = LOADED.remove(id); if (gpu == null) return false; gpu.close(); return true; }
-    public static boolean reload(String id) { renderThread(); Gpu gpu = LOADED.remove(id); if (gpu != null) gpu.close(); return load(id); }
+    private static void validateProgram(net.minecraft.client.shader.ShaderManager shader) {
+        if (OpenGlHelper.glGetProgrami(shader.getProgram(),OpenGlHelper.GL_LINK_STATUS) == 0) throw new IllegalArgumentException("Shader link failed: " + OpenGlHelper.glGetProgramInfoLog(shader.getProgram(),32768));
+        if (((ShaderProgramAccess)shader).cnpcplus$samplerNames().size() > 8) throw new IllegalArgumentException("At most 8 GPU samplers");
+    }
+    public static boolean unload(String id) { renderThread(); if (CONTROLLER.isActive(id) || OBJECTS.values().stream().anyMatch(c -> c.isActive(id))) return false; Gpu gpu = LOADED.remove(id); if (gpu == null) return false; try (PostRenderState state = new PostRenderState()) { gpu.close(); } return true; }
+    public static boolean reload(String id) { renderThread(); id = ShaderDefinition.resource(id); FAILURES.remove(id); Gpu gpu = LOADED.remove(id); if (gpu != null) { try (PostRenderState state = new PostRenderState()) { gpu.close(); } } return load(id); }
     public static void reloadAll() {
         renderThread(); clear(); MANAGER = new ShaderManager(); IResourceManager resources = Minecraft.getMinecraft().getResourceManager();
         Set<ResourceLocation> discovered = new LinkedHashSet<>();
@@ -139,9 +154,10 @@ public final class ClientShaders {
         } catch (RuntimeException error) { CnpcPlus.LOGGER.error("[shader] receive",error); }
     }
     public static void clear() {
-        renderThread(); CONTROLLER.instances.clear(); OBJECTS.clear(); LOADED.values().forEach(Gpu::close); LOADED.clear(); TARGETS.clear();
-        HISTORIES.values().forEach(targets -> Arrays.stream(targets).forEach(Framebuffer::deleteFramebuffer)); HISTORIES.clear();
-        if (depth >= 0) GlStateManager.deleteTexture(depth); depth = -1; currentPost = null; postAfterWorld = false; world = null; player = null;
+        renderThread();
+        if (OpenGlHelper.shadersSupported) try (PostRenderState state = new PostRenderState()) { CONTROLLER.instances.clear(); OBJECTS.clear(); LOADED.values().forEach(Gpu::close); LOADED.clear(); TARGETS.clear(); PIPELINE.close(); }
+        else { CONTROLLER.instances.clear(); OBJECTS.clear(); LOADED.clear(); TARGETS.clear(); }
+        FAILURES.clear(); TEXTURE_KEYS.clear(); currentPost = null; currentPass = null; postAfterWorld = false; world = null; player = null;
     }
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return; Minecraft mc = Minecraft.getMinecraft(); if (world != mc.world || player != mc.player) { clear(); world = mc.world; player = mc.player; catalogPending = mc.world != null; }
@@ -155,7 +171,7 @@ public final class ClientShaders {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void capturePost(RenderWorldLastEvent event) {
         postAfterWorld = false;
-        Minecraft mc = Minecraft.getMinecraft(); if (mc.world == null || CONTROLLER.instances.isEmpty() || !OpenGlHelper.isFramebufferEnabled()) return;
+        Minecraft mc = Minecraft.getMinecraft(); if (mc.world == null || !OpenGlHelper.isFramebufferEnabled() || !hasPost()) return;
         partial = mc.isGamePaused() ? 0 : event.getPartialTicks();
         MATRIX.clear(); GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX,MATRIX); Matrix4f view = new Matrix4f(); view.load(MATRIX);
         Matrix4f cameraView = Matrix4f.invert(view,null); Entity viewer = mc.getRenderViewEntity();
@@ -166,16 +182,24 @@ public final class ClientShaders {
         Matrix4f.transpose(VIEW_PROJECTION,VIEW_PROJECTION); Matrix4f.transpose(INVERSE,INVERSE);
         Framebuffer main = mc.getFramebuffer();
         int worldDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-        if (worldDraw == main.framebufferObject) {
-            captureDepth(worldDraw, 0, 0, main.framebufferWidth, main.framebufferHeight);
-            renderPost(mc, main);
-        } else {
-            // OptiFine is still rendering into its world framebuffer. Take depth now and use its final color later.
-            java.nio.IntBuffer viewport = BufferUtils.createIntBuffer(16);
-            GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
-            captureDepth(worldDraw, viewport.get(0), viewport.get(1), viewport.get(2), viewport.get(3));
+        try {
+            if (worldDraw == main.framebufferObject) PIPELINE.captureDepth(worldDraw,0,0,main.framebufferWidth,main.framebufferHeight);
+            else { java.nio.IntBuffer viewport = BufferUtils.createIntBuffer(16); GL11.glGetInteger(GL11.GL_VIEWPORT,viewport); PIPELINE.captureDepth(worldDraw,viewport.get(0),viewport.get(1),viewport.get(2),viewport.get(3)); }
             postAfterWorld = true;
+        } catch (RuntimeException error) { for (ShaderInstance instance : CONTROLLER.instances.values()) if (instance.isActive()) fail(instance,error.toString()); }
+    }
+
+    public static void beginFrame() {
+        postAfterWorld = false; PIPELINE.beginFrame();
+        PIPELINE.retireHistories(CONTROLLER.instances);
+    }
+    private static boolean hasPost() {
+        boolean found = false;
+        for (ShaderInstance instance : CONTROLLER.instances.values()) if (instance.isActive()) {
+            if (FAILURES.containsKey(instance.getId())) fail(instance,FAILURES.get(instance.getId()));
+            else if (load(instance.getId())) found = true; else fail(instance,FAILURES.get(instance.getId()));
         }
+        return found;
     }
 
     public static void renderPostAfterWorld() {
@@ -185,88 +209,66 @@ public final class ClientShaders {
         renderPost(mc, mc.getFramebuffer());
     }
 
-    private static boolean splitFramebuffers() {
-        ContextCapabilities caps = GLContext.getCapabilities();
-        return caps.OpenGL30 || caps.GL_ARB_framebuffer_object || caps.GL_EXT_framebuffer_blit;
-    }
-
-    private static void captureDepth(int draw, int x, int y, int width, int height) {
-        int read = splitFramebuffers() ? GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING) : draw;
-        int texture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
-        if (depth < 0 || width != depthWidth || height != depthHeight) {
-            if (depth >= 0) GlStateManager.deleteTexture(depth);
-            depthWidth = width; depthHeight = height; depth = GlStateManager.generateTexture(); GlStateManager.bindTexture(depth);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D,0,GL14.GL_DEPTH_COMPONENT24,width,height,0,GL11.GL_DEPTH_COMPONENT,GL11.GL_FLOAT,(java.nio.ByteBuffer)null);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_MIN_FILTER,GL11.GL_NEAREST); GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_MAG_FILTER,GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_WRAP_S,GL12.GL_CLAMP_TO_EDGE); GL11.glTexParameteri(GL11.GL_TEXTURE_2D,GL11.GL_TEXTURE_WRAP_T,GL12.GL_CLAMP_TO_EDGE);
-        }
-        if (read != draw) OpenGlHelper.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER,draw);
-        GlStateManager.bindTexture(depth);
-        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D,0,0,0,x,y,width,height);
-        GlStateManager.bindTexture(texture);
-        if (read != draw) OpenGlHelper.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER,read);
-    }
-
     private static void renderPost(Minecraft mc, Framebuffer main) {
+        if (!hasPost()) return;
         int width = main.framebufferWidth, height = main.framebufferHeight;
-        boolean split = splitFramebuffers();
-        int draw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-        int read = split ? GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING) : draw;
-        int oldUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE), oldProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-        net.minecraft.client.shader.ShaderManager oldManager = ShaderProgramAccess.cnpcplus$manager();
-        int[] bindings = new int[8]; boolean[] textures = new boolean[8];
-        for (int i = 0; i < 8; i++) { GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit+i); bindings[i] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D); textures[i] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D); }
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        boolean blend = GL11.glIsEnabled(GL11.GL_BLEND), depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST), alpha = GL11.glIsEnabled(GL11.GL_ALPHA_TEST), fog = GL11.glIsEnabled(GL11.GL_FOG), lighting = GL11.glIsEnabled(GL11.GL_LIGHTING), material = GL11.glIsEnabled(GL11.GL_COLOR_MATERIAL), cull = GL11.glIsEnabled(GL11.GL_CULL_FACE), depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
-        int src = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB), dst = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB), srcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA), dstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA), equation = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
-        java.nio.IntBuffer viewport = BufferUtils.createIntBuffer(16); GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
-        java.nio.ByteBuffer colorMask = BufferUtils.createByteBuffer(16); GL11.glGetBoolean(GL11.GL_COLOR_WRITEMASK, colorMask);
-        FloatBuffer clearColor = BufferUtils.createFloatBuffer(16); GL11.glGetFloat(GL11.GL_COLOR_CLEAR_VALUE, clearColor);
-        double clearDepth = GL11.glGetDouble(GL11.GL_DEPTH_CLEAR_VALUE); int matrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
-        FloatBuffer color = BufferUtils.createFloatBuffer(16); GL11.glGetFloat(GL11.GL_CURRENT_COLOR,color);
-        HISTORIES.entrySet().removeIf(entry -> { if (CONTROLLER.instances.containsKey(entry.getKey())) return false; Arrays.stream(entry.getValue()).forEach(Framebuffer::deleteFramebuffer); return true; });
-        GlStateManager.matrixMode(GL11.GL_PROJECTION); GlStateManager.pushMatrix(); GlStateManager.matrixMode(GL11.GL_MODELVIEW); GlStateManager.pushMatrix();
-        try {
-            GlStateManager.disableCull();
+        try (PostRenderState state = new PostRenderState()) {
+            PIPELINE.captureScene(main);
+            boolean rendered = false;
             ShaderInstance[] effects = CONTROLLER.getAllInstances(); Arrays.sort(effects,Comparator.comparingInt(ShaderInstance::getPriority));
             for (ShaderInstance instance : effects) {
-                currentPost = instance; if (!load(instance.getId())) { fail(instance,"GPU resource loading failed"); continue; } Gpu gpu = LOADED.get(instance.getId());
-                if (gpu.width != width || gpu.height != height) { gpu.post.createBindFramebuffers(width,height); gpu.width = width; gpu.height = height; }
-                Framebuffer[] history = null;
-                if (instance.textures.containsKey("HistorySampler")) {
-                    history = HISTORIES.get(instance.token);
-                    if (history == null || history[0].framebufferWidth != width || history[0].framebufferHeight != height) {
-                        if (history != null) Arrays.stream(history).forEach(Framebuffer::deleteFramebuffer); history = new Framebuffer[3];
-                        for (int i = 0; i < 3; i++) { history[i] = new Framebuffer(width,height,false); copyColor(main,history[i]); } HISTORIES.put(instance.token,history);
-                    }
-                }
-                gpu.post.render(partial);
-                if (history != null && !mc.isGamePaused() && !instance.isPaused()) { Framebuffer oldest = history[2]; history[2] = history[1]; history[1] = history[0]; history[0] = oldest; copyColor(main,oldest); }
+                if (!instance.isActive() || FAILURES.containsKey(instance.getId())) continue;
+                currentPost = instance; Gpu gpu = LOADED.get(instance.getId());
+                PIPELINE.beginEffect(instance.token,instance.textures.containsValue("cnpcplus:history") || instance.textures.containsValue("cnpcplus:history_2") || instance.textures.containsValue("cnpcplus:history_3"));
+                try {
+                    if (gpu.width != width || gpu.height != height) { gpu.post.createBindFramebuffers(width,height); gpu.width = width; gpu.height = height; }
+                    gpu.post.render(partial);
+                    PIPELINE.finishEffect(instance.token,!mc.isGamePaused() && !instance.isPaused());
+                    rendered = true;
+                } catch (RuntimeException error) { PIPELINE.rollback(); fail(instance,error.toString()); }
+                finally { currentPass = null; }
             }
+            if (rendered) PIPELINE.present(main);
         } catch (RuntimeException error) { if (currentPost != null) fail(currentPost,error.toString()); }
-        finally {
-            currentPost = null;
-            if (read == draw) OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER,draw);
-            else {
-                OpenGlHelper.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER,read);
-                OpenGlHelper.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER,draw);
-            }
-            GlStateManager.matrixMode(GL11.GL_MODELVIEW); GlStateManager.popMatrix(); GlStateManager.matrixMode(GL11.GL_PROJECTION); GlStateManager.popMatrix(); GlStateManager.matrixMode(GL11.GL_MODELVIEW);
-            if (blend) GlStateManager.enableBlend(); else GlStateManager.disableBlend(); GlStateManager.tryBlendFuncSeparate(src,dst,srcAlpha,dstAlpha); GlStateManager.glBlendEquation(equation);
-            if (depthTest) GlStateManager.enableDepth(); else GlStateManager.disableDepth(); GlStateManager.depthMask(depthMask);
-            if (alpha) GlStateManager.enableAlpha(); else GlStateManager.disableAlpha(); if (fog) GlStateManager.enableFog(); else GlStateManager.disableFog();
-            if (lighting) GlStateManager.enableLighting(); else GlStateManager.disableLighting(); if (material) GlStateManager.enableColorMaterial(); else GlStateManager.disableColorMaterial();
-            if (cull) GlStateManager.enableCull(); else GlStateManager.disableCull(); GlStateManager.color(color.get(0),color.get(1),color.get(2),color.get(3));
-            GlStateManager.colorMask(colorMask.get(0) != 0,colorMask.get(1) != 0,colorMask.get(2) != 0,colorMask.get(3) != 0);
-            GlStateManager.clearColor(clearColor.get(0),clearColor.get(1),clearColor.get(2),clearColor.get(3)); GlStateManager.clearDepth(clearDepth);
-            GlStateManager.viewport(viewport.get(0),viewport.get(1),viewport.get(2),viewport.get(3)); GlStateManager.matrixMode(matrixMode);
-            for (int i = 0; i < 8; i++) { GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit+i); GlStateManager.bindTexture(bindings[i]); if (textures[i]) GlStateManager.enableTexture2D(); else GlStateManager.disableTexture2D(); }
-            GlStateManager.setActiveTexture(oldUnit); OpenGlHelper.glUseProgram(oldProgram); ShaderProgramAccess.cnpcplus$program(oldProgram); ShaderProgramAccess.cnpcplus$manager(oldManager); ShaderBlendAccess.cnpcplus$invalidate(null);
-        }
+        finally { currentPost = null; currentPass = null; }
     }
-    private static void copyColor(Framebuffer source, Framebuffer target) { GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit); source.bindFramebuffer(false); GlStateManager.bindTexture(target.framebufferTexture); GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D,0,0,0,0,0,source.framebufferWidth,source.framebufferHeight); }
-    public static boolean preserveMainDepth(Framebuffer framebuffer) { return currentPost != null && framebuffer == Minecraft.getMinecraft().getFramebuffer(); }
-    private static void fail(ShaderInstance instance, String message) { instance.error = message; instance.state = "ERROR"; CnpcPlus.LOGGER.error("[shader] {} {}",instance.getId(),message); }
+    public static boolean preserveMainDepth(Framebuffer framebuffer) { return currentPost != null && PIPELINE.isTarget(framebuffer); }
+    private static void fail(ShaderInstance instance, String message) { instance.error = message == null ? "GPU resource loading failed" : message; instance.state = "ERROR"; if (!FAILURES.containsKey(instance.getId())) { FAILURES.put(instance.getId(),instance.error); CnpcPlus.LOGGER.error("[shader] {} {}",instance.getId(),instance.error); } }
+    public static void preparePost(Shader pass) {
+        if (currentPost == null) return;
+        currentPass = pass; bindPost(pass.getShaderManager());
+        ShaderProgramAccess access = (ShaderProgramAccess)pass.getShaderManager();
+        for (String name : access.cnpcplus$samplerNames()) {
+            Object value = access.cnpcplus$samplers().get(name);
+            int texture = value instanceof Framebuffer ? ((Framebuffer)value).framebufferTexture : value instanceof Integer ? (Integer)value : value instanceof net.minecraft.client.renderer.texture.ITextureObject ? ((net.minecraft.client.renderer.texture.ITextureObject)value).getGlTextureId() : -1;
+            if (texture == pass.framebufferOut.framebufferTexture) throw new IllegalArgumentException("Post sampler reads its own output: " + name);
+        }
+        PostRenderState.beforeDraw(); GlStateManager.depthMask(true); GL11.glDepthMask(true); ShaderProgramAccess.cnpcplus$program(-1);
+    }
+    public static void preparePostDraw() {
+        if (currentPost == null || currentPass == null) return;
+        PostRenderState.beforeDraw();
+        // Allocation/clear and external render hooks may have changed these after preparePost.
+        currentPass.framebufferOut.bindFramebuffer(false);
+        GlStateManager.viewport(0,0,currentPass.framebufferOut.framebufferTextureWidth,currentPass.framebufferOut.framebufferTextureHeight);
+        OpenGlHelper.glUseProgram(currentPass.getShaderManager().getProgram());
+        ShaderProgramAccess access = (ShaderProgramAccess)currentPass.getShaderManager();
+        int unit = 0;
+        for (String name : access.cnpcplus$samplerNames()) {
+            Object value = access.cnpcplus$samplers().get(name);
+            int texture = value instanceof Framebuffer ? ((Framebuffer)value).framebufferTexture : value instanceof Integer ? (Integer)value : value instanceof net.minecraft.client.renderer.texture.ITextureObject ? ((net.minecraft.client.renderer.texture.ITextureObject)value).getGlTextureId() : -1;
+            PostRenderState.activeTexture(OpenGlHelper.defaultTexUnit+unit++); if (texture >= 0) PostRenderState.bindTexture(texture);
+        }
+        PostRenderState.activeTexture(OpenGlHelper.defaultTexUnit);
+        ShaderProgramAccess.cnpcplus$program(currentPass.getShaderManager().getProgram());
+        ShaderProgramAccess.cnpcplus$manager(currentPass.getShaderManager());
+        String fragment = currentPass.getShaderManager().getFragmentShaderLoader().getShaderFilename();
+        if (fragment.equals("cnpcplus:script_blit")) { GlStateManager.disableBlend(); GL11.glDisable(GL11.GL_BLEND); }
+    }
+    public static void preparePostUpload() {
+        if (currentPost == null || currentPass == null) return;
+        PostRenderState.clientArrays(); preparePostDraw();
+    }
     public static void bindPost(net.minecraft.client.shader.ShaderManager shader) {
         if (currentPost == null) return; bindUniforms(currentPost,shader,partial);
         shader.getShaderUniformOrDefault("WorldViewProjection").set(VIEW_PROJECTION); shader.getShaderUniformOrDefault("InverseWorldViewProjection").set(INVERSE);
@@ -274,38 +276,63 @@ public final class ClientShaders {
         Entity follow = null; Minecraft mc = Minecraft.getMinecraft();
         if (currentPost.followEntity != null) { for (Entity entity : mc.world.loadedEntityList) if (entity.getUniqueID().equals(currentPost.followEntity)) { follow = entity; break; } }
         else if (currentPost.definition.json.has("followPlayer") && currentPost.definition.json.get("followPlayer").getAsBoolean()) follow = mc.player;
-        if (follow != null) shader.getShaderUniformOrDefault("WorldPosition").set((float)(follow.lastTickPosX+(follow.posX-follow.lastTickPosX)*partial),(float)(follow.lastTickPosY+(follow.posY-follow.lastTickPosY)*partial)+follow.height/2,(float)(follow.lastTickPosZ+(follow.posZ-follow.lastTickPosZ)*partial));
-        currentPost.textures.forEach((name,id) -> { if (!name.equals("DiffuseSampler")) shader.addSamplerTexture(name,texture(id)); });
+        Vec3d position = currentPost.worldPosition(partial);
+        if (follow != null) position = new Vec3d(follow.lastTickPosX+(follow.posX-follow.lastTickPosX)*partial,follow.lastTickPosY+(follow.posY-follow.lastTickPosY)*partial+follow.height/2,follow.lastTickPosZ+(follow.posZ-follow.lastTickPosZ)*partial);
+        if (position != null) {
+            shader.getShaderUniformOrDefault("WorldPosition").set((float)position.x,(float)position.y,(float)position.z);
+            shader.getShaderUniformOrDefault("CameraRelativeWorldPosition").set((float)(position.x-camera.x),(float)(position.y-camera.y),(float)(position.z-camera.z));
+        }
+        List<String> samplers = ((ShaderProgramAccess)shader).cnpcplus$samplerNames();
+        currentPost.textures.forEach((name,id) -> { if (!name.equals("DiffuseSampler") && samplers.contains(name)) shader.addSamplerTexture(name,texture(id)); });
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
     }
     private static int texture(String id) {
-        Minecraft mc = Minecraft.getMinecraft(); if (id.equals("minecraft:main")) return mc.getFramebuffer().framebufferTexture; if (id.equals("minecraft:depth")) return depth;
-        if (id.equals("cnpcplus:history") || id.equals("cnpcplus:history_2") || id.equals("cnpcplus:history_3")) return HISTORIES.get(currentPost.token)[id.equals("cnpcplus:history") ? 0 : id.equals("cnpcplus:history_2") ? 1 : 2].framebufferTexture;
-        ResourceLocation key = new ResourceLocation(id); if (mc.getTextureManager().getTexture(key) == null) mc.getTextureManager().bindTexture(key); return mc.getTextureManager().getTexture(key).getGlTextureId();
+        Minecraft mc = Minecraft.getMinecraft(); if (id.equals("minecraft:main")) return currentPost == null ? mc.getFramebuffer().framebufferTexture : PIPELINE.sceneColor(); if (id.equals("minecraft:depth")) return PIPELINE.sceneDepth();
+        if (id.equals("cnpcplus:history") || id.equals("cnpcplus:history_2") || id.equals("cnpcplus:history_3")) return PIPELINE.history(currentPost.token,id.equals("cnpcplus:history") ? 0 : id.equals("cnpcplus:history_2") ? 1 : 2);
+        ResourceLocation key = TEXTURE_KEYS.get(id); if (key == null) { if (TEXTURE_KEYS.size() >= 256) TEXTURE_KEYS.remove(TEXTURE_KEYS.keySet().iterator().next()); key = new ResourceLocation(id); TEXTURE_KEYS.put(id,key); }
+        if (mc.getTextureManager().getTexture(key) == null) mc.getTextureManager().bindTexture(key); return mc.getTextureManager().getTexture(key).getGlTextureId();
     }
     private static void bindUniforms(ShaderInstance instance, net.minecraft.client.shader.ShaderManager shader, float framePartial) {
         float now = instance.time+(instance.isPaused() ? 0 : framePartial*instance.speed);
         instance.uniforms.forEach((name,value) -> {
             ShaderUniform uniform = shader.getShaderUniform(name); if (uniform == null) return;
+            int expected = uniformType(instance.getUniformType(name));
+            if (((ShaderUniformAccess)uniform).cnpcplus$type() != expected) throw new IllegalArgumentException("GPU uniform type mismatch: " + name);
             float[] data = instance.animations.containsKey(name) ? instance.animations.get(name).value(now) : value;
-            if (name.equals("Time")) data = new float[]{data[0]+now/20}; if (name.equals("Opacity")) data = new float[]{data[0]*instance.opacity(framePartial)};
             ShaderUniformAccess access = (ShaderUniformAccess)uniform; if (access.cnpcplus$count() != data.length) throw new IllegalArgumentException("GPU uniform length mismatch: " + name);
+            if (name.equals("Time") || name.equals("Opacity")) {
+                if (data.length != 1) throw new IllegalArgumentException("Scalar GPU uniform required: " + name);
+                float scalar = name.equals("Time") ? data[0]+now/20 : data[0]*instance.opacity(framePartial);
+                if (access.cnpcplus$type() <= 3) uniform.set((int)scalar,0,0,0); else uniform.set(scalar); return;
+            }
             // Script matrix4 stays column-major, including animated values; native upload expects row-major.
             if (access.cnpcplus$type() <= 3) uniform.set((int)data[0],data.length>1 ? (int)data[1] : 0,data.length>2 ? (int)data[2] : 0,data.length>3 ? (int)data[3] : 0); else if (data.length == 16) uniform.set(data[0],data[4],data[8],data[12],data[1],data[5],data[9],data[13],data[2],data[6],data[10],data[14],data[3],data[7],data[11],data[15]); else uniform.set(data);
         });
+    }
+    private static int uniformType(String type) {
+        switch (type) {
+            case "int": case "bool": return 0;
+            case "float": return 4;
+            case "vec2": return 5;
+            case "vec3": return 6;
+            case "vec4": return 7;
+            case "matrix4": return 10;
+            default: throw new IllegalArgumentException("Unsupported script uniform type: " + type);
+        }
     }
     public static void pushTarget(String target) { TARGETS.push(target); }
     public static void pushItem(ItemStack stack) { NBTTagCompound tag = stack.getTagCompound(); pushTarget(tag != null && tag.hasUniqueId("CNPCPlusShaderItem") ? "item:"+tag.getUniqueId("CNPCPlusShaderItem") : ""); }
     public static void popTarget() { TARGETS.pop(); }
     public static void beginDraw() {
-        if (TARGETS.isEmpty() || currentPost != null || compilingList) return;
+        if (currentPost != null) { if (currentPass != null) preparePostDraw(); return; }
+        if (TARGETS.isEmpty() || compilingList) return;
         ShaderInstance selected = null; String selectedTarget = "";
-        for (String target : TARGETS) { ShaderController controller = OBJECTS.get(target); if (controller == null) continue; selected = Arrays.stream(controller.getAllInstances()).max(Comparator.comparingInt(ShaderInstance::getPriority)).orElse(null); if (selected != null) { selectedTarget = target; break; } }
+        for (String target : TARGETS) { ShaderController controller = OBJECTS.get(target); if (controller == null) continue; for (ShaderInstance instance : controller.instances.values()) if (instance.isActive() && (selected == null || instance.priority > selected.priority)) selected = instance; if (selected != null) { selectedTarget = target; break; } }
         if (selected == null) return;
         try {
             if (!load(selected.getId())) { fail(selected,"GPU resource loading failed"); return; }
             Gpu gpu = LOADED.get(selected.getId()); net.minecraft.client.shader.ShaderManager shader = selectedTarget.startsWith("block:") && gpu.block != null ? gpu.block : gpu.render;
-            previousProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM); previousTextureUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE); OpenGlHelper.glUseProgram(shader.getProgram()); bindUniforms(selected,shader,Minecraft.getMinecraft().isGamePaused() ? 0 : Minecraft.getMinecraft().getRenderPartialTicks());
+            previousProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM); previousManager = ShaderProgramAccess.cnpcplus$manager(); previousTextureUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE); OpenGlHelper.glUseProgram(shader.getProgram()); ShaderProgramAccess.cnpcplus$program(shader.getProgram()); ShaderProgramAccess.cnpcplus$manager(shader); bindUniforms(selected,shader,Minecraft.getMinecraft().isGamePaused() ? 0 : Minecraft.getMinecraft().getRenderPartialTicks());
             shader.getShaderUniformOrDefault("Lighting").set(GL11.glIsEnabled(GL11.GL_LIGHTING) ? 1 : 0,0,0,0);
             shader.getShaderUniformOrDefault("FogMode").set(GL11.glIsEnabled(GL11.GL_FOG) ? GL11.glGetInteger(GL11.GL_FOG_MODE) : 0,0,0,0);
             GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit); shader.getShaderUniformOrDefault("Textured").set(GL11.glIsEnabled(GL11.GL_TEXTURE_2D) ? 1 : 0,0,0,0);
@@ -320,7 +347,7 @@ public final class ClientShaders {
         } catch (RuntimeException error) { fail(selected,error.toString()); endDraw(); }
     }
     public static void endDraw() {
-        if (previousProgram < 0) return; OpenGlHelper.glUseProgram(previousProgram); previousProgram = -1;
+        if (previousProgram < 0) return; OpenGlHelper.glUseProgram(previousProgram); ShaderProgramAccess.cnpcplus$program(previousProgram); ShaderProgramAccess.cnpcplus$manager(previousManager); previousManager = null; previousProgram = -1;
         RESTORE_TEXTURES.forEach((unit,texture) -> { GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit+unit); GlStateManager.bindTexture(texture); }); RESTORE_TEXTURES.clear(); GlStateManager.setActiveTexture(previousTextureUnit);
     }
 }

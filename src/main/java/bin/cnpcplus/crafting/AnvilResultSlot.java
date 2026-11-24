@@ -32,8 +32,8 @@ public final class AnvilResultSlot extends Slot {
         if (!getHasStack()) return false;
         CustomRecipe recipe = access.cnpcplus$customRecipe();
         if (!world.isRemote && (recipe == null || !bin.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player))) return false;
-        if (recipe != null && (container.getSlot(0).getStack().getCount() < recipe.inputs[0].getCount()
-                || container.getSlot(1).getStack().getCount() < recipe.inputs[1].getCount())) return false;
+        if (recipe != null && CustomRecipe.matchSlots(new ItemStack[]{container.getSlot(0).getStack(), container.getSlot(1).getStack()},
+                recipe.inputs, recipe.nameOnly, recipe.shapeless, false) == null) return false;
         return player.capabilities.isCreativeMode || container.maximumCost <= player.experienceLevel;
     }
     @Override public ItemStack onTake(EntityPlayer player, ItemStack stack) {
@@ -45,10 +45,10 @@ public final class AnvilResultSlot extends Slot {
         }
         if (world.isRemote) return stack;
         CustomRecipe recipe = access.cnpcplus$customRecipe();
-        int leftCost = recipe == null ? 1 : Math.max(1, recipe.inputs[0].getCount());
-        int rightCost = recipe == null ? 1 : Math.max(1, recipe.inputs[1].getCount());
         ItemStack left = container.getSlot(0).getStack().copy(), right = container.getSlot(1).getStack().copy();
-        if (left.getCount() < leftCost || right.getCount() < rightCost) return stack;
+        int[] slots = CustomRecipe.matchSlots(new ItemStack[]{left, right}, recipe.inputs, recipe.nameOnly, recipe.shapeless, false);
+        if (slots == null) return stack;
+        int leftCost = recipe.inputs[slots[0]].getCount(), rightCost = recipe.inputs[slots[1]].getCount();
         int cost = container.maximumCost;
         float chance = ForgeHooks.onAnvilRepair(player, stack, left, right);
         access.cnpcplus$setTakingRecipe(true);

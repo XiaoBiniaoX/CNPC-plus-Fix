@@ -28,6 +28,7 @@ public final class GuiWandNpcList extends GuiNPCInterface implements IScrollData
     private String search = "";
     private GuiCustomScroll list;
     private EntityNPCInterface preview;
+    private boolean frozen;
     private int previewId = -1;
     private long previewRequest, copyRequest;
     private final long opened = System.nanoTime();
@@ -85,6 +86,8 @@ public final class GuiWandNpcList extends GuiNPCInterface implements IScrollData
             addButton(new GuiNpcButton(2, guiLeft + 330, guiTop + 110, 82, 20, "remote.reset"));
             addButton(new GuiNpcButton(5, guiLeft + 330, guiTop + 134, 82, 20, "remote.resetall"));
             addButton(new GuiNpcButton(3, guiLeft + 330, guiTop + 158, 82, 20, "remote.freeze"));
+            addButton(new GuiNpcButton(7, guiLeft + 330, guiTop + 182, 82, 20,
+                    frozen ? "cnpcplus.wand.unfreezeOne" : "cnpcplus.wand.freezeOne"));
         }
         addLabel(new GuiNpcLabel(1, "cnpcplus.wand.selectionHelp", guiLeft + 8, guiTop + 205)); filter();
     }
@@ -98,7 +101,7 @@ public final class GuiWandNpcList extends GuiNPCInterface implements IScrollData
         highlight(); selectionChanged();
     }
     private void selectionChanged() {
-        for (int id : new int[]{0, 1, 2, 4}) if (getButton(id) != null)
+        for (int id : new int[]{0, 1, 2, 4, 7}) if (getButton(id) != null)
             getButton(id).setEnabled(id == 0 && copyRequest != 0 ? false : id == 1 || id == 2 ? !selected.isEmpty() : selected.size() == 1);
         int id = selected.size() == 1 ? selected.iterator().next() : -1;
         if (id == previewId) return;
@@ -110,7 +113,9 @@ public final class GuiWandNpcList extends GuiNPCInterface implements IScrollData
             if (!copying || copyRequest == 0 || copyRequest != packet.request) return;
             copyRequest = 0; selectionChanged(); if (packet.snapshot != null) displayGuiScreen(new GuiNpcMobSpawnerAdd(packet.snapshot)); return;
         }
-        if (packet.action != 0 || packet.id != previewId || packet.request != previewRequest) return;
+        if (packet.action != 0 && packet.action != 4 || packet.id != previewId || packet.request != previewRequest) return;
+        frozen = packet.snapshot != null && packet.snapshot.getBoolean("CNPCPlusFrozen");
+        if (getButton(7) != null) getButton(7).setDisplayText(frozen ? "cnpcplus.wand.unfreezeOne" : "cnpcplus.wand.freezeOne");
         Entity entity = packet.snapshot == null ? null : EntityList.createEntityFromNBT(packet.snapshot.copy(), mc.world);
         preview = entity instanceof EntityNPCInterface ? (EntityNPCInterface) entity : null;
     }
@@ -129,6 +134,7 @@ public final class GuiWandNpcList extends GuiNPCInterface implements IScrollData
             case 4: if (ids.size() == 1) { Client.sendData(EnumPacketServer.RemoteTpToNpc, ids.get(0)); close(); } break;
             case 5: if (!copying) for (int id : new HashSet<>(data.values())) Client.sendData(EnumPacketServer.RemoteReset, id); break;
             case 6: copyRequest = 0; previewId = -1; selectionChanged(); Client.sendData(EnumPacketServer.RemoteNpcsGet); break;
+            case 7: if (!copying && ids.size() == 1) { previewRequest = System.nanoTime(); CraftingViewNetwork.CHANNEL.sendToServer(new PacketWandNpc(ids.get(0), 4, previewRequest, 0, "")); } break;
             default: break;
         }
     }

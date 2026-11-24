@@ -11,5 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinShaderPost {
     @Shadow @Final private ShaderManager manager;
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/shader/ShaderManager;useShader()V"))
-    private void cnpcplus$parameters(float partial, CallbackInfo ci) { ClientShaders.bindPost(manager); }
+    private void cnpcplus$parameters(float partial, CallbackInfo ci) { ClientShaders.preparePost((Shader)(Object)this); }
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/Tessellator;draw()V"))
+    private void cnpcplus$draw(float partial, CallbackInfo ci) { ClientShaders.preparePostUpload(); }
 }

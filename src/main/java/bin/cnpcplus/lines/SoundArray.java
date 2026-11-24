@@ -10,12 +10,18 @@ public final class SoundArray {
     public final List<String> sounds = new ArrayList<>();
     public boolean randomPitch;
 
-    public String first() { return sounds.isEmpty() ? "" : sounds.get(0); }
-    public String choose() {
+    public String first() { return playable().stream().findFirst().orElse(""); }
+    private List<String> playable() {
         List<String> playable = new ArrayList<>();
         for (String sound : sounds) {
-            if (sound != null && sound.matches("(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+")) playable.add(sound);
+            if (sound == null) continue;
+            String id = sound.trim();
+            if (id.matches("(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+")) playable.add(new net.minecraft.util.ResourceLocation(id).toString());
         }
+        return playable;
+    }
+    public String choose() {
+        List<String> playable = playable();
         return playable.isEmpty() ? "" : playable.get(ThreadLocalRandom.current().nextInt(playable.size()));
     }
     public float pitch() {

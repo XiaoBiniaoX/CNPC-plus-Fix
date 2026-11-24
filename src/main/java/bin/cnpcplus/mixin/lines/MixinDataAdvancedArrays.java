@@ -42,7 +42,7 @@ public abstract class MixinDataAdvancedArrays {
     private void cnpcplus$stableSound(int type, CallbackInfoReturnable<String> cir) {
         NpcSoundArrays value = NpcSoundArrays.peek((DataAdvanced) (Object) this);
         if (value != null && type >= 0 && type < 5) {
-            String sound = value.slots[type].sounds.stream().filter(s -> s != null && !s.trim().isEmpty()).findFirst().orElse("");
+            String sound = value.slots[type].first();
             cir.setReturnValue(sound.isEmpty() ? null : sound);
         }
     }

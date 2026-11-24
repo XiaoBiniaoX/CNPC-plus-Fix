@@ -6,6 +6,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import noppes.npcs.entity.EntityNPCInterface;
 import bin.cnpcplus.common.IDataStatsFloatAccess;
 import bin.cnpcplus.common.IDataMeleeFloatAccess;
+import bin.cnpcplus.common.IDataStatsHideDelayAccess;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -59,10 +60,14 @@ public abstract class MixinEntityNPCInterfaceStatsSync {
         EntityNPCInterface self = (EntityNPCInterface) (Object) this;
         float hp = ((IDataStatsFloatAccess) self.stats).cnpcplus$getMaxHealthFloat();
         compound.setFloat("CNPCPlusMaxHealth", hp);
+        compound.setInteger("CNPCPlusHideDelay", ((IDataStatsHideDelayAccess) self.stats).cnpcplus$getHideDelay());
     }
 
     @Inject(method = "readSpawnData(Lnet/minecraft/nbt/NBTTagCompound;)V", at = @At("TAIL"))
     private void cnpcplus$onReadSpawnData(NBTTagCompound compound, CallbackInfo ci) {
+        EntityNPCInterface npc = (EntityNPCInterface) (Object) this;
+        ((IDataStatsHideDelayAccess) npc.stats).cnpcplus$setHideDelay(
+                compound.hasKey("CNPCPlusHideDelay", 99) ? compound.getInteger("CNPCPlusHideDelay") : 5);
         if (compound.hasKey("CNPCPlusMaxHealth")) {
             EntityNPCInterface self = (EntityNPCInterface) (Object) this;
             float health = compound.getFloat("CNPCPlusMaxHealth");

@@ -19,6 +19,7 @@ public final class TransportAssets {
     private static final Map<String, ResourceLocation> RESOURCES = new HashMap<>();
     /** 资源包里的 PNG 尺寸；null 表示确认不存在。资源重载时整体清空。 */
     private static final Map<ResourceLocation, int[]> SIZES = new HashMap<>();
+    private static final Map<ResourceLocation, ResourceLocation> GRAYSCALE = new HashMap<>();
     static {
         try (InputStream in = TransportAssets.class.getResourceAsStream("/assets/cnpcplus/textures/gui/transporter/icons.txt")) {
             if (in != null) try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
@@ -33,6 +34,30 @@ public final class TransportAssets {
         GlStateManager.color(1, 1, 1, 1);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         Gui.drawModalRectWithCustomSizedTexture(x, y, 0, 0, width, height, width, height);
+    }
+
+    public static void draw(ResourceLocation texture, int x, int y, int width, int height, boolean gray) {
+        if (!gray) { draw(texture, x, y, width, height); return; }
+        ResourceLocation muted = GRAYSCALE.get(texture);
+        if (muted == null) {
+            Minecraft mc = Minecraft.getMinecraft();
+            mc.getTextureManager().bindTexture(texture);
+            int w = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_WIDTH);
+            int h = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_HEIGHT);
+            java.nio.IntBuffer pixels = org.lwjgl.BufferUtils.createIntBuffer(w * h);
+            org.lwjgl.opengl.GL11.glGetTexImage(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL12.GL_BGRA,
+                    org.lwjgl.opengl.GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+            net.minecraft.client.renderer.texture.DynamicTexture image = new net.minecraft.client.renderer.texture.DynamicTexture(w, h);
+            int[] data = image.getTextureData();
+            for (int i = 0; i < data.length; i++) {
+                int rgb = pixels.get(i), luminance = (54 * (rgb >> 16 & 255) + 183 * (rgb >> 8 & 255) + 19 * (rgb & 255)) >> 8;
+                data[i] = rgb & 0xFF000000 | luminance << 16 | luminance << 8 | luminance;
+            }
+            image.updateDynamicTexture();
+            muted = mc.getTextureManager().getDynamicTextureLocation("cnpcplus_transport_gray", image);
+            GRAYSCALE.put(texture, muted);
+        }
+        draw(muted, x, y, width, height);
     }
 
     /**
@@ -64,5 +89,7 @@ public final class TransportAssets {
     /** 资源包/语言重载后尺寸与存在性都可能变化。 */
     public static void clear() {
         synchronized (SIZES) { SIZES.clear(); }
+        for (ResourceLocation texture : GRAYSCALE.values()) Minecraft.getMinecraft().getTextureManager().deleteTexture(texture);
+        GRAYSCALE.clear();
     }
 }

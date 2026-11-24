@@ -7,6 +7,7 @@ import bin.cnpcplus.transport.PacketTransportImage;
 import bin.cnpcplus.transport.PacketTransportMeta;
 import bin.cnpcplus.transport.TransportData;
 import bin.cnpcplus.transport.TransportImages;
+import bin.cnpcplus.transport.TransportTrade;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.resources.I18n;
@@ -96,7 +97,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
             if (original.npc != null) event.setGui(new TransportScreen(original.npc.getEntityId(), false, null));
         }
     }
-    @SubscribeEvent public static void unload(WorldEvent.Unload event) { if (event.getWorld().isRemote) active = null; }
+    @SubscribeEvent public static void unload(WorldEvent.Unload event) { if (event.getWorld().isRemote) { active = null; TransportAssets.clear(); } }
     /** 材质包换图后 PNG 尺寸缓存必须失效，否则新图仍按旧尺寸画。 */
     @SubscribeEvent public static void reload(TextureStitchEvent.Post event) { TransportAssets.clear(); }
     public static void receive(PacketTransportMeta message) {
@@ -140,7 +141,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                     importPath.isEmpty() ? lastImportDir : importPath);
             path.setMaxStringLength(512); this.addTextField(path);
             this.addButton(new GuiNpcButton(60, this.width - 78, 4, 74, 18, "gui.save"));
-            for (int id : new int[]{70, 71, 72, 73, 80, 81, 82, 83, 84, 89, 90, 92}) this.addButton(new GuiNpcButton(id, 0, 0, 40, 18, ""));
+            for (int id : new int[]{70, 71, 72, 73, 80, 81, 82, 83, 84, 89, 90, 92, 93}) this.addButton(new GuiNpcButton(id, 0, 0, 40, 18, ""));
         }
         syncWidgets();
         if (!ready) request();
@@ -363,6 +364,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         button(90, 4, 206, half, "cnpcplus.transport.apply_color", text);
         button(89, half + 10, 206, half, "cnpcplus.transport.clear_color", text);
         button(92, 4, 312, width - 16, "cnpcplus.transport.delete", element == 0 && selected != current.getInteger("Id"));
+        button(93, 4, 336, width - 16, "cnpcplus.transport.trade", element == 0 || element == 1);
     }
 
     @Override public void textUpdate(String text) {
@@ -522,6 +524,13 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
 
     @Override public void buttonEvent(GuiButton button) {
         if (!ready) return;
+        if (button.id == 93) {
+            flushFields();
+            final int id = element == 1 ? current.getInteger("Id") : selected;
+            setSubGui(new SubGuiTransportTrade(meta(id), true, fare -> {
+                meta(id).merge(fare); dirtyEntries.add(id); dirty = true; diskDirty = true; lastChange = 0;
+            }));
+        }
         if (button.id == 60) { flushFields(); sendSave(true); hint = I18n.format("cnpcplus.transport.saving"); }
         if (button.id == 80) { flushFields(); element = (element + 1) % 8; sidebarScroll = 0; syncWidgets(); }
         if (button.id >= 70 && button.id <= 73) format(-1, button.id == 70 ? 1 : button.id == 71 ? 2 : 4, button.id == 73);
@@ -607,7 +616,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         // 子界面收不到 mouseClickMove/mouseReleased（CNPC 父界面只转发点击），
         // 所以拖动必须每帧自己看左键状态，否则按下去永远不动。
-        pollMouse(mouseX, mouseY);
+        if (!hasSubGui()) pollMouse(mouseX, mouseY);
         this.drawDefaultBackground();
         if (editor) { drawRect(0, 0, sidebarWidth(), this.height, 0xE0202020); positionWidgets(); }
         GlStateManager.pushMatrix(); GlStateManager.translate(originX, originY, 0); GlStateManager.scale(scale, scale, 1);
@@ -619,23 +628,24 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                 128 + panel.getInteger("TabX"), -6 + panel.getInteger("TabY"), panel.getInteger("TabSize"), panel.getInteger("TabColor"), 0);
         TransportAssets.draw("search_box.png", 74, 36, 404, 44); TransportAssets.draw("search_icon.png", 86, 46, 24, 24);
         TransportAssets.draw("list_gutter.png", 74, 88, 404, 354);
+        boolean unavailable = !editor && TransportTrade.payment(mc.player, current) == null;
         for (int row = 0; row < 5 && row + offset < filtered.size(); row++) {
             int id = filtered.get(row + offset), y = 98 + row * 70;
             NBTTagCompound entry = meta(id);
             boolean lifted = rowDrag && id == rowPressId;
-            TransportAssets.draw(id == selected || lifted ? "row_bg.png" : "row_normal.png", 86, y, 372, 64);
+            TransportAssets.draw(TransportAssets.resource(id == selected || lifted ? "row_bg.png" : "row_normal.png"), 86, y, 372, 64, unavailable);
             if (editor) {
                 // 左侧小“把手”：提示这一行可以拖动排序。
                 for (int line = 0; line < 3; line++) drawRect(77, y + 28 + line * 3, 83, y + 29 + line * 3, lifted ? 0xFFFFFFFF : 0xFF888888);
             }
             String key = id == selected && !entry.getString("IconSel").isEmpty() ? entry.getString("IconSel") : entry.getString("Icon");
             int iconSize = 40 * entry.getInteger("IconSize") / 100;
-            icon(key, 94 + (40 - iconSize) / 2, y + 12 + (40 - iconSize) / 2, iconSize, "default_icon.png");
+            icon(key, 94 + (40 - iconSize) / 2, y + 12 + (40 - iconSize) / 2, iconSize, "default_icon.png", unavailable);
             int size = entry.getInteger("TextSize") > 0 ? entry.getInteger("TextSize") : panel.getInteger("RowSize");
             int color = entry.getInteger("TextColor") >= 0 ? entry.getInteger("TextColor") : panel.getInteger("RowColor");
             scissor(140, y + 2, 308, 60);
-            TransportText.draw(this.getFontRenderer(), entry.getString("Name"), entry.getString("NameSpans"),
-                    148 + panel.getInteger("RowX"), y + (64 - size) / 2 + panel.getInteger("RowY"), size, color, 0);
+            TransportText.draw(this.getFontRenderer(), entry.getString("Name"), unavailable ? "" : entry.getString("NameSpans"),
+                    148 + panel.getInteger("RowX"), y + (64 - size) / 2 + panel.getInteger("RowY"), size, unavailable ? 0x888888 : color, 0);
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
         }
         if (filtered.size() > 5) {
@@ -661,21 +671,31 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         GL11.glDisable(GL11.GL_SCISSOR_TEST); GlStateManager.disableBlend(); GlStateManager.popMatrix();
         if (editor) drawSidebar();
         super.drawScreen(mouseX, mouseY, partialTicks);
+        int dx = (int)((mouseX - originX) / scale), dy = (int)((mouseY - originY) / scale);
+        if (unavailable && !hasSubGui() && dx >= 86 && dx < 458 && dy >= 98 && dy < 442 && offset + (dy - 98) / 70 < filtered.size()) {
+            List<String> tooltip = new ArrayList<>();
+            tooltip.add(I18n.format("cnpcplus.transport.trade.missing"));
+            for (net.minecraft.item.ItemStack cost : TransportTrade.costs(current)) if (!cost.isEmpty()) tooltip.add(cost.getDisplayName() + " x " + cost.getCount());
+            drawHoveringText(tooltip, mouseX, mouseY);
+        }
         if (editor) this.getFontRenderer().drawString(this.getFontRenderer().trimStringToWidth(hint, this.width - 8), 4, this.height - 17, 0xFFFFFF);
     }
 
     private void icon(String key, int x, int y, int size, String fallback) {
-        if (key.isEmpty()) { TransportAssets.draw(fallback, x, y, size, size); return; }
+        icon(key, x, y, size, fallback, false);
+    }
+    private void icon(String key, int x, int y, int size, String fallback, boolean gray) {
+        if (key.isEmpty()) { TransportAssets.draw(TransportAssets.resource(fallback), x, y, size, size, gray); return; }
         if (TransportData.isPath(key)) {
             // 资源包路径：直接从客户端资源管理器读，不经上传通道，换图只要换包里的文件。
             ResourceLocation texture = TransportData.resource(key);
-            TransportAssets.draw(TransportAssets.exists(texture) ? texture : TransportAssets.resource("default_icon.png"), x, y, size, size);
+            TransportAssets.draw(TransportAssets.exists(texture) ? texture : TransportAssets.resource("default_icon.png"), x, y, size, size, gray);
             return;
         }
-        if (TransportAssets.ICONS.contains(key)) { TransportAssets.draw("icons/" + key + ".png", x, y, size, size); return; }
+        if (TransportAssets.ICONS.contains(key)) { TransportAssets.draw(TransportAssets.resource("icons/" + key + ".png"), x, y, size, size, gray); return; }
         ClientTransportImages.Image image = ClientTransportImages.get(npcId, editor, key);
-        if (image != null) TransportAssets.draw(image.texture, x, y, size, size);
-        else TransportAssets.draw(fallback, x, y, size, size);
+        if (image != null) TransportAssets.draw(image.texture, x, y, size, size, gray);
+        else TransportAssets.draw(TransportAssets.resource(fallback), x, y, size, size, gray);
     }
     private void scissor(int x, int y, int width, int height) {
         double factorX = this.mc.displayWidth / (double) this.width, factorY = this.mc.displayHeight / (double) this.height;
@@ -762,9 +782,10 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         }
     }
     private void label(String key, int x, int y) { if (y >= 26 && y + 10 < this.height - 24) this.getFontRenderer().drawString(I18n.format(key), x, y, 0xDDDDDD); }
-    private int sidebarHeight() { return textElement() ? 336 : element == 7 ? 224 : 160 + (TransportAssets.ICONS.size() + Math.max(1, (sidebarWidth() - 12) / 30) - 1) / Math.max(1, (sidebarWidth() - 12) / 30) * 30; }
+    private int sidebarHeight() { return textElement() ? 360 : element == 7 ? 224 : 160 + (TransportAssets.ICONS.size() + Math.max(1, (sidebarWidth() - 12) / 30) - 1) / Math.max(1, (sidebarWidth() - 12) / 30) * 30; }
 
     @Override public void mouseClicked(int x, int y, int button) throws IOException {
+        if (hasSubGui()) { super.mouseClicked(x, y, button); return; }
         if (!ready) { super.mouseClicked(x, y, button); return; }
         if (editor && x < sidebarWidth()) {
             if (button == 0 && x >= sidebarWidth() - 8 && y >= 26 && y < this.height - 24) {
@@ -792,9 +813,11 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                 int row = (dy - 98) / 70, index = offset + row;
                 if (row < 5 && index < filtered.size()) {
                     flushFields(); int id = filtered.get(index); long now = System.currentTimeMillis();
+                    if (!editor && TransportTrade.payment(mc.player, current) == null) return;
                     if (!editor && id == lastClickId && now - lastClickTime <= 400) {
-                        NBTTagCompound tag = new NBTTagCompound(); tag.setInteger("Id", id);
-                        CraftingViewNetwork.CHANNEL.sendToServer(new PacketTransportMeta(npcId, PacketTransportMeta.TRAVEL, tag)); close(); return;
+                        if (current.getBoolean("TradeEnabled")) setSubGui(new SubGuiTransportTrade(current, false, fare -> travel(id, fare)));
+                        else travel(id, null);
+                        return;
                     }
                     selected = id; lastClickId = id; lastClickTime = now;
                     if (editor) {
@@ -821,6 +844,12 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
         super.mouseClicked(x, y, button);
     }
     private void scrollAt(int designY) { offset = Math.max(0, Math.min(Math.max(0, filtered.size() - 5), (designY - 96) * Math.max(0, filtered.size() - 5) / 340)); }
+    private void travel(int id, NBTTagCompound fare) {
+        NBTTagCompound tag = new NBTTagCompound(); tag.setInteger("Id", id);
+        if (fare != null) tag.setTag("Fare", fare);
+        CraftingViewNetwork.CHANNEL.sendToServer(new PacketTransportMeta(npcId, PacketTransportMeta.TRAVEL, tag));
+        close();
+    }
     private void sidebarAt(int y) {
         int maximum = Math.max(0, sidebarHeight() - (this.height - 50));
         sidebarScroll = Math.max(0, Math.min(maximum, (y - 26) * maximum / Math.max(1, this.height - 50)));
@@ -873,6 +902,7 @@ public final class TransportScreen extends SubGuiInterface implements IGuiData, 
                 this.height - eventY * this.height / this.mc.displayHeight - 1, delta);
     }
     private void wheel(int x, int y, int wheel) {
+        if (hasSubGui()) return;
         if (wheel == 0) return;
         if (editor && x < sidebarWidth()) {
             sidebarScroll = Math.max(0, Math.min(Math.max(0, sidebarHeight() - (this.height - 50)), sidebarScroll + (wheel > 0 ? -18 : 18))); positionWidgets(); return;

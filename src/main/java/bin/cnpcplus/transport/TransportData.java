@@ -89,6 +89,7 @@ public final class TransportData {
     public static NBTTagCompound cleanEntry(NBTTagCompound source) {
         if (source == null) source = new NBTTagCompound();
         NBTTagCompound tag = new NBTTagCompound();
+        tag.merge(TransportTrade.clean(source));
         for (String key : new String[]{"Icon", "IconSel", "Image"}) tag.setString(key, image(source.getString(key)));
         tag.setString("Desc", limit(source.getString("Desc"), 2048));
         tag.setString("DescSpans", limit(source.getString("DescSpans"), 8192));

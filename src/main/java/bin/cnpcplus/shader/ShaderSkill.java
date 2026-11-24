@@ -63,7 +63,7 @@ final class ShaderSkill {
         } else {
             if (age%30 == 0 && age <= 120) layer(age/30); if (age != 180) return;
             ShaderInstance beam = controller.playBuiltin("cnpcplus:post/arcane_beam", Collections.singletonMap("replace",false));
-            beam.setDuration(16); beam.setFadeOut(4); beam.setPriority(90); beam.setVec3("WorldPosition",(float)origin.x,(float)origin.y,(float)origin.z); beam.setFloat("Radius",2.5f); beam.setFloat("Height",27); beam.setFloat("Downward",1); beam.setFloat("Intensity",1.3f); effects.add(beam);
+            beam.setDuration(16); beam.setFadeOut(4); beam.setPriority(90); beam.setUniform("WorldPosition",new double[]{origin.x,origin.y,origin.z}); beam.setFloat("Radius",2.5f); beam.setFloat("Height",27); beam.setFloat("Downward",1); beam.setFloat("Intensity",1.3f); effects.add(beam);
             for (Entity entity : caster.world.getEntitiesWithinAABBExcludingEntity(null,new AxisAlignedBB(origin.x-3,origin.y-2,origin.z-3,origin.x+3,origin.y+27,origin.z+3)))
                 if (canHurt(entity) && Math.abs(entity.posX-origin.x) <= 2.5 && Math.abs(entity.posZ-origin.z) <= 2.5 && entity.posY >= origin.y && entity.posY <= origin.y+24) entity.attackEntityFrom(DamageSource.causePlayerDamage(caster), damage);
         }
@@ -71,6 +71,6 @@ final class ShaderSkill {
     private void layer(int index) {
         String[] ids = {"hexagram","strange_pattern","super_strike","hexagram","strange_pattern"}; float[] heights = {24,24.65f,25.3f,26.1f,27}, radii = {3.6f,3.2f,2.8f,2.4f,2}, speeds = {.35f,-.7f,1.1f,-1.4f,.2f};
         ShaderInstance effect = controller.playBuiltin("cnpcplus:post/"+ids[index], Collections.singletonMap("replace",false));
-        effect.setDuration(210-age); effect.setFadeIn(15); effect.setFadeOut(8); effect.setPriority(60+index); effect.setVec3("WorldPosition",(float)origin.x,(float)origin.y+heights[index],(float)origin.z); effect.setVec3("PlaneNormal",0,1,0); effect.setFloat("Radius",radii[index]); effect.setVec3("Color",.4f,.72f,1); effect.setFloat("RotationSpeed",speeds[index]); effects.add(effect); effect.animateUniform("Radius",.1f,radii[index],25,"easeOut");
+        effect.setDuration(210-age); effect.setFadeIn(15); effect.setFadeOut(8); effect.setPriority(60+index); effect.setUniform("WorldPosition",new double[]{origin.x,origin.y+heights[index],origin.z}); effect.setVec3("PlaneNormal",0,1,0); effect.setFloat("Radius",radii[index]); effect.setVec3("Color",.4f,.72f,1); effect.setFloat("RotationSpeed",speeds[index]); effects.add(effect); effect.animateUniform("Radius",.1f,radii[index],25,"easeOut");
     }
 }

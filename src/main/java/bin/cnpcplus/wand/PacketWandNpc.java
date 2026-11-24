@@ -37,8 +37,8 @@ public final class PacketWandNpc implements IMessage {
             player.getServerWorld().addScheduledTask(() -> {
                 Object tool = player.getHeldItemMainhand().getItem();
                 if (CustomNpcs.OpsOnly && !NoppesUtilServer.isOp(player) || !(tool == CustomItems.wand || tool == CustomItems.cloner || tool == CustomItems.scripter)
-                        || packet.action < 0 || packet.action > 3 || !CustomNpcsPermissions.hasPermission(player,
-                        packet.action == 1 || packet.action == 2 ? CustomNpcsPermissions.NPC_CLONE
+                        || packet.action < 0 || packet.action > 4 || !CustomNpcsPermissions.hasPermission(player,
+                        packet.action == 4 ? CustomNpcsPermissions.NPC_FREEZE : packet.action == 1 || packet.action == 2 ? CustomNpcsPermissions.NPC_CLONE
                                 : packet.action == 3 ? CustomNpcsPermissions.NPC_ADVANCED : CustomNpcsPermissions.NPC_GUI)) return;
                 if (packet.action == 1 && tool != CustomItems.cloner) return;
                 NBTTagCompound snapshot = null;
@@ -55,9 +55,15 @@ public final class PacketWandNpc implements IMessage {
                 } else {
                     Entity entity = player.world.getEntityByID(packet.id);
                     if (entity instanceof EntityNPCInterface && !entity.isDead) {
+                        if (packet.action == 4) {
+                            if (tool != CustomItems.wand) return;
+                            bin.cnpcplus.ai.NpcControlAccess state = (bin.cnpcplus.ai.NpcControlAccess)entity;
+                            state.cnpcplus$setFrozen(!state.cnpcplus$isFrozen());
+                        }
                         try {
                             if (packet.action == 1) snapshot = CloneMounts.capture(entity);
-                            else { snapshot = new NBTTagCompound(); entity.writeToNBTAtomically(snapshot); }
+                            else { snapshot = new NBTTagCompound(); entity.writeToNBTAtomically(snapshot);
+                                snapshot.setBoolean("CNPCPlusFrozen", ((bin.cnpcplus.ai.NpcControlAccess)entity).cnpcplus$isFrozen()); }
                         } catch (java.io.IOException | RuntimeException error) {
                             player.sendMessage(new net.minecraft.util.text.TextComponentString("未复制：" + error.getMessage()));
                         }

@@ -33,9 +33,10 @@ public abstract class MixinDataMeleeFloat implements IDataMeleeFloatAccess {
 
     @Inject(method = "readFromNBT", at = @At("TAIL"))
     private void cnpcplus$onReadFromNBT(NBTTagCompound compound, CallbackInfo ci) {
-        cnpcplus$attackStrength = compound.hasKey("CNPCPlusAttackStrength", 99) ? cnpcplus$validStrength(compound.getFloat("CNPCPlusAttackStrength")) : (float) this.attackStrength;
-        cnpcplus$attackSpeed = compound.hasKey("CNPCPlusAttackSpeed", 99) ? cnpcplus$validSpeed(compound.getFloat("CNPCPlusAttackSpeed")) : (float) this.attackSpeed;
-        cnpcplus$applyStrengthAttribute();
+        cnpcplus$setStrengthFloat(compound.hasKey("CNPCPlusAttackStrength", 99)
+                ? compound.getFloat("CNPCPlusAttackStrength") : this.attackStrength);
+        cnpcplus$setDelayFloat(compound.hasKey("CNPCPlusAttackSpeed", 99)
+                ? compound.getFloat("CNPCPlusAttackSpeed") : this.attackSpeed);
     }
 
     @Inject(method = "writeToNBT", at = @At("RETURN"))
@@ -52,11 +53,14 @@ public abstract class MixinDataMeleeFloat implements IDataMeleeFloatAccess {
     @Inject(method = "setStrength", at = @At("RETURN"))
     private void cnpcplus$syncStrengthFromInt(int strength, CallbackInfo ci) {
         cnpcplus$attackStrength = cnpcplus$validStrength(strength);
+        this.attackStrength = Math.round(cnpcplus$attackStrength);
+        cnpcplus$applyStrengthAttribute();
     }
 
     @Inject(method = "setDelay", at = @At("RETURN"))
     private void cnpcplus$syncDelayFromInt(int speed, CallbackInfo ci) {
         cnpcplus$attackSpeed = cnpcplus$validSpeed(speed);
+        this.attackSpeed = Math.max(1, Math.round(cnpcplus$attackSpeed));
     }
 
     @Override

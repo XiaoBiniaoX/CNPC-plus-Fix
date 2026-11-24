@@ -51,6 +51,8 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (self.getButton(9) == null) {
             self.addButton(new GuiNpcButton(9, self.field_147003_i + 306, self.field_147009_r + 170, 84, 20, "cnpcplus.recipe.availability"));
         }
+        self.addButton(new GuiNpcButton(109, self.field_147003_i + 306, self.field_147009_r + 192, 84, 20,
+                new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, 0));
         cnpcplusRefresh(self);
     }
 
@@ -59,6 +61,11 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (guibutton == null) return;
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
         int id = guibutton.id;
+        if (id == 109) {
+            if (container != null && container.recipe != null) ((bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor)container.recipe)
+                    .cnpcplus$setShapeless(((GuiNpcButton)guibutton).getValue() == 1);
+            ci.cancel(); return;
+        }
 
         if (id == 2) {
             try {
@@ -394,6 +401,11 @@ public class MixinGuiNpcManageRecipesSaveButton {
                 add.setEnabled(true);
             }
             GuiNpcButton availability = self.getButton(9);
+            if (self.getButton(109) != null) {
+                self.getButton(109).setEnabled(container != null && container.recipe != null && selected != null);
+                self.getButton(109).setDisplay(container != null && container.recipe != null
+                        && ((bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor)container.recipe).cnpcplus$isShapeless() ? 1 : 0);
+            }
             if (availability != null) {
                 availability.displayString = cnpcplusLabel("cnpcplus.recipe.availability", "Conditions");
                 availability.setEnabled(this.selected != null && !this.selected.isEmpty());

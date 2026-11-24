@@ -36,7 +36,7 @@ public abstract class MixinSubGuiNpcMeleePropertiesFloat {
     private void cnpcplus$onUnfocused(GuiNpcTextField textfield, CallbackInfo ci) {
         SubGuiNpcMeleeProperties self = (SubGuiNpcMeleeProperties) (Object) this;
         IDataMeleeFloatAccess acc = (IDataMeleeFloatAccess) this.stats;
-        if (self.getTextField(1) == textfield) {
+        if (textfield.getId() == 1) {
             String text = textfield.getText().trim();
             float val = 5.0f;
             if (!text.isEmpty()) {
@@ -50,10 +50,11 @@ public abstract class MixinSubGuiNpcMeleePropertiesFloat {
                 val = 0.0f;
             }
             acc.cnpcplus$setStrengthFloat(val);
+            textfield.setText(Float.toString(acc.cnpcplus$getStrengthFloat()));
             ci.cancel();
             return;
         }
-        if (self.getTextField(3) == textfield) {
+        if (textfield.getId() == 3) {
             String text = textfield.getText().trim();
             float val = 20.0f;
             if (!text.isEmpty()) {
@@ -67,6 +68,7 @@ public abstract class MixinSubGuiNpcMeleePropertiesFloat {
                 val = 1.0f;
             }
             acc.cnpcplus$setDelayFloat(val);
+            textfield.setText(Float.toString(acc.cnpcplus$getDelayFloat()));
             ci.cancel();
         }
     }

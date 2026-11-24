@@ -29,6 +29,16 @@ public final class ScriptStaticCheck {
         if (!references) return null;
         for (int i = 0; i < tokens.size(); i++) if (DYNAMIC.contains(tokens.get(i).text) && at(tokens, i + 1).equals("(")) return null;
         Bindings bindings = new Bindings(tokens, globals); bindings.collect();
+        // CNPC scripts execute server-side. Read policy from the same registry as docs/completion.
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!tokens.get(i).identifier() || at(tokens, i - 1).equals(".")) continue;
+            String name = at(tokens, i); int end = i;
+            while (at(tokens, end + 1).equals(".") && end + 2 < tokens.size() && tokens.get(end + 2).identifier()) {
+                name += "." + at(tokens, end + 2); end += 2;
+            }
+            if (at(tokens, end + 1).equals("(") && bin.cnpcplus.script.tools.ScriptApiRegistry.isClientOnly(name))
+                return hint(script, tokens.get(i), "client_thread_only");
+        }
         for (int i = 0; i < tokens.size(); i++) {
             Token token = tokens.get(i);
             if (!token.identifier() || token.binding || KEYWORDS.contains(token.text)) continue;
@@ -63,6 +73,7 @@ public final class ScriptStaticCheck {
         Bindings(List<Token> tokens, Set<String> globals) {
             this.tokens = tokens; global = new Scope(0, tokens.size()); global.function = true;
             global.names.addAll(GLOBALS); global.names.addAll(globals); scopes.add(global);
+            global.names.addAll(bin.cnpcplus.script.tools.ScriptApiRegistry.roots().keySet());
             for (int i = 0; i < tokens.size(); i++) if (at(tokens, i).equals("{")) scopes.add(new Scope(i, tokens.get(i).pair));
         }
         // ponytail: lexical scope scans match the brother's lint; this is not a complete JS parser.

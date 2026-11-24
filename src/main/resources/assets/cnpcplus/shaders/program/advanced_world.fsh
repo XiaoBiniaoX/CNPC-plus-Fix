@@ -7,6 +7,7 @@ uniform mat4 InverseWorldViewProjection;
 uniform mat4 WorldViewProjection;
 uniform vec3 CameraPosition;
 uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec3 PlaneNormal;
 uniform vec3 Color;
 uniform vec4 Hit0;
@@ -148,7 +149,7 @@ void main() {
     gl_FragColor=original;
     vec3 ray=normalize(unproject(texCoord,1.0));
     float sceneDistance=length(unproject(texCoord,texture2D(DepthSampler,texCoord).r));
-    vec3 center=WorldPosition-CameraPosition;
+    vec3 center=CameraRelativeWorldPosition;
     vec3 ro=-center;
     vec3 result=original.rgb;
 

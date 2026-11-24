@@ -69,6 +69,12 @@ public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener
                     self.guiLeft + 144, self.guiTop + 137, 40, 20,
                     new String[]{"gui.no", "gui.yes"}, data.cnpcplus$isUntargetable() ? 1 : 0));
         }
+        bin.cnpcplus.ai.PursuitLimit limit = (bin.cnpcplus.ai.PursuitLimit)cnpcplus$advanced();
+        self.addButton(new GuiNpcButton(17, self.guiLeft + 4, self.guiTop + 162, 140, 20,
+                new String[]{"cnpcplus.pursuit.off", "cnpcplus.pursuit.on"}, limit.cnpcplus$isPursuitLimited() ? 1 : 0));
+        self.addLabel(new GuiNpcLabel(18, "cnpcplus.pursuit.radius", self.guiLeft + 4, self.guiTop + 190));
+        self.addTextField(new GuiNpcTextField(18, self, self.getFontRenderer(), self.guiLeft + 98, self.guiTop + 186, 45, 20,
+                Float.toString(limit.cnpcplus$getPursuitRadius())));
     }
 
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true)
@@ -83,6 +89,8 @@ public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener
         } else if (button.id == CNPCPLUS_BTN_UNTARGETABLE) {
             ((IUntargetableAccess) this.cnpcplus$advanced())
                     .cnpcplus$setUntargetable(((GuiNpcButton) button).getValue() == 1);
+        } else if (button.id == 17) {
+            ((bin.cnpcplus.ai.PursuitLimit)cnpcplus$advanced()).cnpcplus$setPursuitLimited(((GuiNpcButton)button).getValue() == 1);
         } else {
             return;
         }
@@ -94,9 +102,15 @@ public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener
     @Override
     public void unFocused(GuiNpcTextField textfield) {
         GuiNPCFactionSetup self = (GuiNPCFactionSetup) (Object) this;
-        if (textfield == null || self.getTextField(CNPCPLUS_TF_DISTANCE) != textfield) return;
-        ((IDamageInspectionAccess) this.cnpcplus$advanced())
-                .cnpcplus$setInspectionDistance(textfield.getInteger());
+        if (textfield == null) return;
+        if (textfield.getId() == 18) {
+            bin.cnpcplus.ai.PursuitLimit limit = (bin.cnpcplus.ai.PursuitLimit)cnpcplus$advanced();
+            try { limit.cnpcplus$setPursuitRadius(Float.parseFloat(textfield.getText().trim())); }
+            catch (NumberFormatException ignored) { }
+            textfield.setText(Float.toString(limit.cnpcplus$getPursuitRadius()));
+        } else if (textfield.getId() == CNPCPLUS_TF_DISTANCE) ((IDamageInspectionAccess) this.cnpcplus$advanced())
+                 .cnpcplus$setInspectionDistance(textfield.getInteger());
+        else return;
         Client.sendData(EnumPacketServer.MainmenuAdvancedSave,
                 this.cnpcplus$advanced().writeToNBT(new NBTTagCompound()));
     }

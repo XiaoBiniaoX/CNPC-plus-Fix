@@ -86,6 +86,12 @@
       ]
     },
     {
+      "name": "CameraRelativeWorldPosition",
+      "type": "float",
+      "count": 3,
+      "values": [0, 0, 0]
+    },
+    {
       "name": "WorldPosition",
       "type": "float",
       "count": 3,

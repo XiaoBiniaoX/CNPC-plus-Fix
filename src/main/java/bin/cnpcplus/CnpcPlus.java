@@ -24,11 +24,12 @@ import org.apache.logging.log4j.Logger;
 public class CnpcPlus {
     public static final String MODID = "cnpcplus";
     public static final String NAME = "CNPCPlus";
-    public static final String VERSION = "4.1.0";
+    public static final String VERSION = "4.2.0";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.EventHandler
     public void onPreInit(FMLPreInitializationEvent event) {
+        bin.cnpcplus.script.ExtraScriptHook.tickfix();
         bin.cnpcplus.script.ScriptApiDocs.discover(event.getAsmData());
         CnpcPlusConfig.init(event.getSuggestedConfigurationFile());
         CraftingViewNetwork.init();
@@ -55,6 +56,11 @@ public class CnpcPlus {
     /** Smelting recipes are per save, so the cache must not survive a world change. */
     @Mod.EventHandler
     public void onServerStopped(FMLServerStoppedEvent event) {
+        bin.cnpcplus.script.tools.ScriptScheduler.stop();
+        bin.cnpcplus.script.tools.ScriptAsync.stop();
+        bin.cnpcplus.script.tools.ScriptDebug.stop();
+        bin.cnpcplus.script.tools.ScriptCooldowns.stop();
+        bin.cnpcplus.script.tools.ScriptScope.stop();
         SmeltingRecipeRegistry.clearCache();
         bin.cnpcplus.fx.FxEngine.clear();
         bin.cnpcplus.crafting.RecipeStore.clear();

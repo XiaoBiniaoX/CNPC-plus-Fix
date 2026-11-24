@@ -12,7 +12,7 @@ public final class CustomRecipe {
     public final CraftKind kind;
     public int id = -1;
     public String name = "", sound = "", dimension = "";
-    public boolean nameOnly, bindPosition;
+    public boolean nameOnly, bindPosition, shapeless;
     public int x, y, z, experience = 1;
     public final ItemStack[] inputs;
     public ItemStack result = ItemStack.EMPTY;
@@ -30,6 +30,7 @@ public final class CustomRecipe {
         tag.setInteger("Id", id);
         tag.setString("Name", name);
         tag.setBoolean("NameOnly", nameOnly);
+        tag.setBoolean("Shapeless", shapeless);
         tag.setTag("Availability", availability.writeToNBT(new NBTTagCompound()));
         if (kind == CraftKind.ANVIL) tag.setInteger("ExpCost", experience);
         if (kind == CraftKind.DROP) {
@@ -51,6 +52,7 @@ public final class CustomRecipe {
         recipe.id = tag.hasKey("Id", 99) ? tag.getInteger("Id") : -1;
         recipe.name = SmeltingRecipeData.clampName(tag.getString("Name"));
         recipe.nameOnly = tag.getBoolean("NameOnly");
+        recipe.shapeless = kind != CraftKind.DROP && tag.getBoolean("Shapeless");
         recipe.availability = bin.cnpcplus.craftingview.RecipeAvailability.read(tag.getCompoundTag("Availability"));
         recipe.experience = tag.hasKey("ExpCost", 99) ? Math.max(-32767, Math.min(32767, tag.getInteger("ExpCost"))) : 1;
         recipe.sound = SmeltingRecipeData.clampName(tag.getString("SoundId"));
@@ -82,6 +84,20 @@ public final class CustomRecipe {
     }
 
     public CustomRecipe copy() { return fromNBT(kind, toNBT(true)); }
+
+    /** Actual slot -> configured slot, also used for the exact counts consumed. */
+    public static int[] matchSlots(ItemStack[] actual, ItemStack[] expected, boolean nameOnly, boolean shapeless, boolean exactCounts) {
+        java.util.List<com.google.common.base.Predicate<ItemStack>> tests = new ArrayList<>();
+        for (int i = 0; i < actual.length; i++) {
+            ItemStack need = expected[i];
+            tests.add(stack -> matches(stack, need, nameOnly) && (need.isEmpty()
+                    || (exactCounts ? stack.getCount() == need.getCount() : stack.getCount() >= need.getCount())));
+        }
+        if (shapeless) return net.minecraftforge.common.util.RecipeMatcher.findMatches(java.util.Arrays.asList(actual), tests);
+        int[] slots = new int[actual.length];
+        for (int i = 0; i < slots.length; i++) { if (!tests.get(i).apply(actual[i])) return null; slots[i] = i; }
+        return slots;
+    }
 
     public static boolean matches(ItemStack have, ItemStack need, boolean nameOnly) {
         if (have.isEmpty() || need.isEmpty()) return have.isEmpty() && need.isEmpty();

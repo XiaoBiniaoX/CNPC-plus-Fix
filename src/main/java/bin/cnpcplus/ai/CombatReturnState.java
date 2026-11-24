@@ -23,7 +23,7 @@ public final class CombatReturnState {
         double[] home = HOMES.get(npc);
         if (home == null) return null;
         double dx = npc.posX - home[0], dz = npc.posZ - home[2];
-        if (!needsHome(npc) || !npc.isAttacking() && dx * dx + dz * dz <= 0.04D) {
+        if (!needsHome(npc) || !npc.isAttacking() && ReturnHomeState.target(npc) == null && dx * dx + dz * dz <= 0.0004D) {
             HOMES.remove(npc);
             return null;
         }

@@ -55,6 +55,8 @@ public final class StationScreen extends GuiContainerNPCInterface2 implements IC
         String[] labels = {"gui.add", "gui.remove", "gui.save", "availability.options"};
         for (int i = 0; i < 4; i++) addButton(new GuiNpcButton(10 + i, guiLeft + 314, guiTop + 8 + 24 * i, 98, 20, labels[i]));
         addButton(new GuiIconToggleButton(14, guiLeft + 54, guiTop + 91, 20, 20, new ItemStack(Items.NAME_TAG), editing.nameOnly, "cnpcplus.smelting.nameonly"));
+        if (container.kind != 2) addButton(new GuiNpcButton(15, guiLeft + 314, guiTop + 104, 98, 20,
+                new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, editing.shapeless ? 1 : 0));
     }
     private void capture() {
         if (getTextField(30) != null) editing.name = getTextField(30).getText();
@@ -69,6 +71,7 @@ public final class StationScreen extends GuiContainerNPCInterface2 implements IC
         else if (button.id == 12) send(3);
         else if (button.id == 13) setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(editing.availability));
         else if (button.id == 14) editing.nameOnly = ((GuiIconToggleButton)button).isOn();
+        else if (button.id == 15) editing.shapeless = ((GuiNpcButton)button).getValue() == 1;
     }
     private void send(int action) {
         CraftingViewNetwork.CHANNEL.sendToServer(new StationPacket(action, container.kind, container.windowId, editing.save(false)));
@@ -110,7 +113,7 @@ public final class StationScreen extends GuiContainerNPCInterface2 implements IC
     }
     @Override public void drawScreen(int x, int y, float partial) {
         super.drawScreen(x, y, partial); if (hasSubGui()) return;
-        if (!notice.isEmpty()) fontRenderer.drawSplitString(net.minecraft.client.resources.I18n.format(notice), guiLeft + 314, guiTop + 108, 98, result > 0 ? 0x55FF55 : 0xFF5555);
+        if (!notice.isEmpty()) fontRenderer.drawSplitString(net.minecraft.client.resources.I18n.format(notice), guiLeft + 314, guiTop + 132, 98, result > 0 ? 0x55FF55 : 0xFF5555);
         if (y >= guiTop + 92 && y < guiTop + 110 && x >= guiLeft + 8 && x < guiLeft + 48)
             drawHoveringText(net.minecraft.client.resources.I18n.format(container.kind == 0 ? "cnpcplus.station.experience" : "cnpcplus.station.time"), x, y);
     }

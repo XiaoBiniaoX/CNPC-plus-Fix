@@ -14,6 +14,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = JobPuppet.class, remap = false)
 public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
+    @org.spongepowered.asm.mixin.Shadow public int animationSpeed;
+    @org.spongepowered.asm.mixin.Shadow public boolean animate;
+    @org.spongepowered.asm.mixin.Shadow private int startTick;
+    @Unique private static final int[] CNPCPLUS_LEGACY_SPEEDS = {1, 2, 3, 4, 6, 10, 13, 20};
+
+    @org.spongepowered.asm.mixin.injection.ModifyConstant(method = "setAnimationSpeed", constant = @org.spongepowered.asm.mixin.injection.Constant(intValue = 7), require = 1)
+    private int cnpcplus$maxSpeed(int old) { return 20; }
+
+    @Inject(method = "calcRotation", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$rotation(float from, float to, float partial, CallbackInfoReturnable<Float> cir) {
+        if (!animate || animationSpeed == 0) { cir.setReturnValue(from); return; }
+        int ticks = ((JobPuppet)(Object)this).npc.ticksExisted - startTick;
+        float phase = ((ticks % 160) + partial) * animationSpeed * (float)Math.PI / 80;
+        cir.setReturnValue(from + (to - from) * (1 - net.minecraft.util.math.MathHelper.cos(phase)) / 2);
+    }
     @Unique public JobPuppet.PartConfig cnpcplus$mainhand;
     @Unique public JobPuppet.PartConfig cnpcplus$offhand;
     @Unique public JobPuppet.PartConfig cnpcplus$helmet;
@@ -29,6 +44,7 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
 
     @Inject(method = "<init>", at = @At("RETURN"), remap = false)
     private void cnpcplus$initEquipmentParts(EntityNPCInterface npc, CallbackInfo ci) {
+        animationSpeed = CNPCPLUS_LEGACY_SPEEDS[animationSpeed];
         JobPuppet self = (JobPuppet) (Object) this;
         this.cnpcplus$mainhand = self.new PartConfig();
         this.cnpcplus$offhand = self.new PartConfig();
@@ -48,6 +64,7 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
     private void cnpcplus$saveEquipmentParts(NBTTagCompound compound, CallbackInfoReturnable<NBTTagCompound> cir) {
         NBTTagCompound tag = cir.getReturnValue();
         if (tag == null) return;
+        tag.setBoolean("CNPCPlusPuppetSpeed20", true);
         tag.setTag("PuppetMainHand", this.cnpcplus$mainhand.writeNBT());
         tag.setTag("PuppetOffHand", this.cnpcplus$offhand.writeNBT());
         tag.setTag("PuppetHelmet", this.cnpcplus$helmet.writeNBT());
@@ -64,6 +81,8 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
 
     @Inject(method = "readFromNBT", at = @At("RETURN"), remap = false)
     private void cnpcplus$loadEquipmentParts(NBTTagCompound compound, CallbackInfo ci) {
+        if (!compound.getBoolean("CNPCPlusPuppetSpeed20"))
+            animationSpeed = CNPCPLUS_LEGACY_SPEEDS[net.minecraft.util.math.MathHelper.clamp(animationSpeed, 0, 7)];
         if (compound == null) return;
         this.cnpcplus$mainhand.readNBT(compound.getCompoundTag("PuppetMainHand"));
         this.cnpcplus$offhand.readNBT(compound.getCompoundTag("PuppetOffHand"));

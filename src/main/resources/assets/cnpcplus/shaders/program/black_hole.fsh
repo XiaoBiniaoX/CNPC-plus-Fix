@@ -7,6 +7,7 @@ uniform mat4 WorldViewProjection;
 uniform mat4 InverseWorldViewProjection;
 uniform vec3 CameraPosition;
 uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec2 OutSize;
 uniform float Radius;
 uniform float InfluenceRadius;
@@ -37,7 +38,7 @@ void main() {
     gl_FragColor = original;
     vec3 ray = normalize(unproject(texCoord, 1.0));
     float sceneDistance = length(unproject(texCoord, texture2D(DepthSampler, texCoord).r));
-    vec3 hole = WorldPosition - CameraPosition;
+    vec3 hole = CameraRelativeWorldPosition;
     float along = dot(hole, ray);
     vec3 impact = ray * along - hole;
     float b = length(impact);

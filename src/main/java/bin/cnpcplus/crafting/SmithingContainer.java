@@ -23,6 +23,7 @@ public final class SmithingContainer extends Container {
     private boolean taking;
     /** 当前匹配的配方；结果槽按它的输入数量扣材料。 */
     private CustomRecipe matched;
+    private int[] matchedSlots;
 
     public SmithingContainer(EntityPlayer player, BlockPos pos) {
         this.world = player.world; this.pos = pos; this.owner = player;
@@ -36,7 +37,7 @@ public final class SmithingContainer extends Container {
                     taking = true;
                     try {
                         for (int i = 0; i < 3; i++) {
-                            int need = matched != null && !matched.inputs[i].isEmpty() ? matched.inputs[i].getCount() : 1;
+                            int need = matched.inputs[matchedSlots[i]].getCount();
                             input.decrStackSize(i, need);
                         }
                     } finally { taking = false; }
@@ -61,17 +62,9 @@ public final class SmithingContainer extends Container {
         matched = null;
         for (CustomRecipe recipe : RecipeStore.list(CraftKind.SMITHING)) {
             if (!bin.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, owner)) continue;
-            boolean matches = true;
-            for (int i = 0; i < 3; i++) {
-                matches &= CustomRecipe.matches(input.getStackInSlot(i), recipe.inputs[i], recipe.nameOnly);
-                if (!matches) break;
-                // 配方写了数量就得凑够，否则等于免费赠送。
-                if (!recipe.inputs[i].isEmpty() && input.getStackInSlot(i).getCount() < recipe.inputs[i].getCount()) {
-                    matches = false;
-                    break;
-                }
-            }
-            if (matches) { matched = recipe; result = recipe.result.copy(); break; }
+            int[] slots = CustomRecipe.matchSlots(new ItemStack[]{input.getStackInSlot(0), input.getStackInSlot(1), input.getStackInSlot(2)},
+                    recipe.inputs, recipe.nameOnly, recipe.shapeless, false);
+            if (slots != null) { matchedSlots = slots; matched = recipe; result = recipe.result.copy(); break; }
         }
         output.setInventorySlotContents(0, result);
         detectAndSendChanges();
