@@ -25,7 +25,7 @@ public final class ScriptScheduler {
     public TaskGroup createGroup() { ScriptWorld.server(); return new TaskGroup(ScriptScope.current()); }
     public TaskGroup createGroup(Object owner) {
         ScriptWorld.server(); BooleanSupplier script = ScriptScope.current(), lifetime = ScriptScope.owner(owner);
-        return new TaskGroup(() -> script.getAsBoolean() && lifetime.getAsBoolean());
+        return new TaskGroup(ScriptScope.withLifetime(script, lifetime));
     }
     public TaskGroup createGlobalGroup() { ScriptWorld.server(); return new TaskGroup(() -> true); }
     private static TaskHandle schedule(int delay, int period, boolean fixedRate, Runnable action, BooleanSupplier owner) {
@@ -38,10 +38,10 @@ public final class ScriptScheduler {
     public static final class TaskGroup {
         private final BooleanSupplier owner; private boolean cancelled;
         private TaskGroup(BooleanSupplier owner) { this.owner = owner; }
-        public TaskHandle runLater(int delayTicks, Runnable task) { return schedule(delayTicks, 0, false, task, () -> !cancelled && owner.getAsBoolean()); }
+        public TaskHandle runLater(int delayTicks, Runnable task) { return schedule(delayTicks, 0, false, task, ScriptScope.withLifetime(owner, () -> !cancelled)); }
         public TaskHandle runRepeating(int initialDelayTicks, int intervalTicks, Runnable task) {
             if (intervalTicks < 1) throw new IllegalArgumentException("Interval must be positive");
-            return schedule(initialDelayTicks, intervalTicks, true, task, () -> !cancelled && owner.getAsBoolean());
+            return schedule(initialDelayTicks, intervalTicks, true, task, ScriptScope.withLifetime(owner, () -> !cancelled));
         }
         public void cancel() { ScriptWorld.server(); cancelled = true; }
     }

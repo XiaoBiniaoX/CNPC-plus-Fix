@@ -50,12 +50,14 @@ public class CnpcPlus {
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.transport.TransportImages.class);
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.respawn.RespawnClock.class);
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.shader.ShaderController.class);
+        bin.cnpcplus.script.tools.ScriptEvents.init();
         SmeltingGuiOpener.register();
     }
 
     /** Smelting recipes are per save, so the cache must not survive a world change. */
     @Mod.EventHandler
     public void onServerStopped(FMLServerStoppedEvent event) {
+        bin.cnpcplus.script.tools.ScriptEvents.stop();
         bin.cnpcplus.script.tools.ScriptScheduler.stop();
         bin.cnpcplus.script.tools.ScriptAsync.stop();
         bin.cnpcplus.script.tools.ScriptDebug.stop();

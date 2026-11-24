@@ -51,6 +51,7 @@
     "script.MixinDataDisplayScriptExtensions",
     "script.MixinLivingPotionStringApi",
     "script.MixinScriptContainerDiagnostic",
+    "script.MixinScriptPageEvents",
     "script.MixinScriptItemTimers",
     "script.MixinNpcTickFix",
     "script.MixinPlayerTickFix",

@@ -50,7 +50,8 @@ public final class ScriptApiRegistry {
             new Module("Scheduler", new ScriptScheduler(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT", "Server ticks; script and owner lifetime; callbacks run on server thread."),
             new Module("Async", new ScriptAsync(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT", "Bounded SHA256/JSON_COMPACT workers; callbacks on server thread; duration in milliseconds."),
             new Module("Debug", new ScriptDebug(), ThreadPolicy.MAIN_THREAD_ONLY, "SERVER", "Bounded diagnostic snapshots; inspect hides string contents."),
-            new Module("Cooldown", new ScriptCooldowns(), ThreadPolicy.MAIN_THREAD_ONLY, "SERVER", "Server ticks; per-owner IDs; runtime state."));
+            new Module("Cooldown", new ScriptCooldowns(), ThreadPolicy.MAIN_THREAD_ONLY, "SERVER", "Server ticks; per-owner IDs; runtime state."),
+            new Module("events", new ScriptEvents(), ThreadPolicy.MAIN_THREAD_ONLY, "SCRIPT_PAGE", "NORMAL-priority synchronous Forge/CNPC events on the server thread; page-owned handles; save/delete/reload/unload cleans listeners; no worker/client callbacks."));
     private static final Map<String, Class<?>> ROOTS = new LinkedHashMap<>();
     private static final List<Entry> ENTRIES = new ArrayList<>();
     static {

@@ -69,7 +69,7 @@ public class ScriptToolsTest {
                 assertFalse(file.toString(), source.contains(";"));
                 ((Compilable)engine).compile(source); count++;
             }
-            assertEquals(8, count);
+            assertEquals(10, count);
         }
     }
     @Test public void registryBindingsWorkInJava8Nashorn() throws Exception {
@@ -85,5 +85,30 @@ public class ScriptToolsTest {
         assertNull(ScriptStaticCheck.check("Math.wrapDegrees(360)", Collections.emptySet(), true));
         for (ScriptApiRegistry.Entry entry : ScriptApiRegistry.entries()) for (ScriptApiRegistry.Parameter parameter : entry.parameters())
             assertFalse(entry.publicName(), parameter.name().matches("arg[0-9]+"));
+    }
+    @Test public void verificationScriptsHandleDefaultReporterAndRawForgeEntities() throws Exception {
+        String fixtures;
+        try (java.io.InputStream input = getClass().getResourceAsStream("/verification-scripts-check.js")) {
+            fixtures = new String(com.google.common.io.ByteStreams.toByteArray(input), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        String[] scripts = {"01-五类对象-tickfix-CD.js", "02-载体-timer.js", "03-NPC-数学文本布局.js", "09-NPC-事件订阅.js"};
+        assertEquals(Boolean.TRUE, new jdk.nashorn.api.scripting.NashornScriptEngineFactory().getScriptEngine().eval("typeof load === 'function'"));
+        for (String script : scripts) for (String owner : script.startsWith("01") ? Arrays.asList("npc", "player", "block", "item") : Collections.singletonList("npc")) {
+            ScriptEngine engine = new jdk.nashorn.api.scripting.NashornScriptEngineFactory().getScriptEngine("--language=es5");
+            Map<String, Object> bindings = new HashMap<>(); ScriptApiRegistry.bind(bindings);
+            for (Map.Entry<String, Object> entry : bindings.entrySet()) engine.put(entry.getKey(), entry.getValue());
+            ScriptApiRegistry.extendJavaScriptMath(engine);
+            engine.put("testTimers", new ScriptItemTimers());
+            engine.eval(fixtures);
+            engine.eval(new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("验证脚本-4.2.0", script)), java.nio.charset.StandardCharsets.UTF_8));
+            engine.eval("check" + script.substring(0, 2) + "('" + owner + "')");
+        }
+    }
+    @Test public void eventSubscriptionApiIsRegisteredAndDocumented() {
+        Map<String, Object> bindings = new HashMap<>(); ScriptApiRegistry.bind(bindings);
+        assertTrue(bindings.get("events") instanceof ScriptEvents);
+        for (String method : Arrays.asList("on", "off", "offAll", "has", "list"))
+            assertTrue(method, ScriptApiRegistry.entries().stream().anyMatch(entry -> entry.publicName().equals("events." + method)));
+        assertTrue(ScriptApiRegistry.entries().stream().anyMatch(entry -> entry.publicName().equals("events.Subscription.getEventClass")));
     }
 }

@@ -26,6 +26,7 @@ public abstract class MixinScriptContainerDiagnostic {
     @Inject(method = "setEngine", at = @At("RETURN"), require = 1)
     private void cnpcplus$math(String language, CallbackInfo ci) {
         if (engine == null || engine == cnpcplus$boundEngine) return;
+        bin.cnpcplus.script.tools.ScriptEvents.release((ScriptContainer)(Object)this);
         String name = engine.getFactory().getLanguageName().toLowerCase(java.util.Locale.ROOT);
         if (name.contains("ecmascript") || name.contains("javascript")) {
             try { bin.cnpcplus.script.tools.ScriptApiRegistry.extendJavaScriptMath(engine); }
@@ -48,6 +49,11 @@ public abstract class MixinScriptContainerDiagnostic {
     private void cnpcplus$clearSuccessful(String type, Object event, CallbackInfo ci) {
         ScriptContainer self = (ScriptContainer) (Object) this;
         if (self.isValid()) ScriptDiagnostics.clear(self);
+        bin.cnpcplus.script.tools.ScriptScope.leave();
+    }
+    @Inject(method = "readFromNBT", at = @At("HEAD"), require = 1)
+    private void cnpcplus$releaseEvents(NBTTagCompound nbt, CallbackInfo ci) {
+        bin.cnpcplus.script.tools.ScriptEvents.release((ScriptContainer)(Object)this);
     }
     @Inject(method = "readFromNBT", at = @At("RETURN"), require = 1)
     private void cnpcplus$readError(NBTTagCompound nbt, CallbackInfo ci) {

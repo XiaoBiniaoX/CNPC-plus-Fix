@@ -117,7 +117,7 @@ public final class ScriptAsync {
             ScriptWorld.server(); CompletableFuture<Object> result = new CompletableFuture<>(); Task next = track(result);
             if (next.isDone()) return next;
             BooleanSupplier source = owner, subscriber = next.owner;
-            next.owner = () -> source.getAsBoolean() && subscriber.getAsBoolean();
+            next.owner = ScriptScope.withLifetime(subscriber, source);
             callbacks.add(() -> {
                 if (result.isDone()) return;
                 if (isCancelled() || !next.owner.getAsBoolean()) { result.cancel(false); return; }
