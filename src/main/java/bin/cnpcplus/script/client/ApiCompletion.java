@@ -1,6 +1,8 @@
 package bin.cnpcplus.script.client;
 
 import bin.cnpcplus.script.ScriptLexical;
+import top.cnpcplus.script.ExtraScriptHook;
+import top.cnpcplus.script.tools.ScriptApiRegistry;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -97,6 +99,7 @@ public final class ApiCompletion {
                     + (context.equals("BlockDoorEvent") ? "IBlockScriptedDoor" : "IBlockScripted")));
         roots.put("PosZero", load(API + "IPos"));
         roots.put("CNPCPlusLog", org.slf4j.Logger.class);
+        roots.putAll(ScriptApiRegistry.roots());
         for (String name : new String[]{"AnimationType", "EntitiesType", "RoleType", "JobType", "SideType", "PotionEffectType", "ParticleType"})
             roots.put(name, load(API + "constants." + name));
         matcher = ASSIGN.matcher(code.substring(scope, Math.max(scope, Math.min(cursor, code.length()))));
@@ -110,6 +113,13 @@ public final class ApiCompletion {
         String name = function.toLowerCase(Locale.ROOT);
         switch (name) {
             case "tick" -> name = "update";
+            case "tickfix" -> {
+                if (base.getSimpleName().equals("ItemEvent")) return ExtraScriptHook.ItemTickEvent.class;
+                return eventClass(base, "tick");
+            }
+            case "timer" -> {
+                if (base.getSimpleName().equals("ItemEvent")) return ExtraScriptHook.ItemTimerEvent.class;
+            }
             case "kill" -> name = "killedentity";
             case "collide" -> name = base.getSimpleName().equals("BlockEvent") ? "collided" : "collide";
             case "broken" -> name = "break";

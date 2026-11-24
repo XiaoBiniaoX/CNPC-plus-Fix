@@ -6,8 +6,7 @@ uniform sampler2D HistorySampler;
 uniform sampler2D HistorySampler2;
 uniform sampler2D HistorySampler3;
 uniform mat4 WorldViewProjection;
-uniform vec3 CameraPosition;
-uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec2 OutSize;
 uniform vec2 ScreenCenter;
 uniform vec3 Color;
@@ -78,7 +77,7 @@ void main() {
         result=mix(first,rgb(texCoord+second,offset*1.8+second),0.5);
         result+=Color*pow(max(0.0,1.0-abs(sin((texCoord.x+texCoord.y)*35.0))),30.0)*Intensity*0.035;
     } else {
-        vec4 clip=WorldViewProjection*vec4(WorldPosition-CameraPosition,1.0);
+        vec4 clip=WorldViewProjection*vec4(CameraRelativeWorldPosition,1.0);
         vec2 center=clip.w>0.0 ? clip.xy/clip.w*0.5+0.5 : ScreenCenter;
         vec2 delta=(texCoord-center)*aspect;
         float radius=length(delta);

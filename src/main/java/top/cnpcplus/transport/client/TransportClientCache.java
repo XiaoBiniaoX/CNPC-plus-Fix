@@ -31,6 +31,7 @@ public final class TransportClientCache {
     private static final Map<String, Long> IMAGE_REQUESTED = new ConcurrentHashMap<>();
 
     private static volatile CompoundTag root;
+    private static volatile CompoundTag playerRoot;
     private static volatile String currentName = "";
     private static volatile CompoundTag panel = new CompoundTag();
     private static volatile Runnable metaListener;
@@ -80,6 +81,7 @@ public final class TransportClientCache {
             return;
         }
         root = data;
+        if (!editor) playerRoot = data;
         currentName = data.getString("Current");
         CompoundTag p = data.getCompound("Panel");
         panel = p == null ? new CompoundTag() : p;
@@ -153,6 +155,7 @@ public final class TransportClientCache {
     }
 
     public static CompoundTag root() { return root; }
+    public static CompoundTag playerRoot() { return playerRoot; }
     public static String currentName() { return currentName; }
     public static CompoundTag panel() { return panel; }
     public static CompoundTag meta(String name) { return name == null ? null : META.get(name); }

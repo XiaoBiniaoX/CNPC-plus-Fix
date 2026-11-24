@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.ai.DamageInspectionAccess;
 import top.cnpcplus.ai.UntargetableAccess;
+import top.cnpcplus.ai.PursuitLimit;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
 
@@ -47,6 +48,21 @@ public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener
         }
     }
 
+    @Inject(method = "init", at = @At("TAIL"))
+    private void cnpcplus$addPursuit(CallbackInfo ci) {
+        GuiNPCFactionSetup self = (GuiNPCFactionSetup)(Object)this;
+        PursuitLimit pursuit = (PursuitLimit)self.npc.advanced;
+        self.addLabel(new noppes.npcs.shared.client.gui.components.GuiLabel(17,
+                "cnpcplus.pursuit.distance", self.guiLeft + 4, self.guiTop + 166));
+        var radius = new GuiTextFieldNop(17, self, self.guiLeft + 98, self.guiTop + 161, 44, 20,
+                Float.toString(pursuit.cnpcplus$getPursuitRadius()));
+        radius.setFloatsOnly().setMinMaxDefault(0.0F, 32.0F, 32.0F);
+        self.addTextField(radius);
+        self.addButton(new GuiButtonNop(self, 18, self.guiLeft + 144, self.guiTop + 161, 40, 20,
+                new String[]{"gui.no", "gui.yes"}, pursuit.cnpcplus$isPursuitLimited() ? 1 : 0));
+        self.getButton(18).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("cnpcplus.pursuit.tooltip")));
+    }
+
     @Inject(method = "buttonEvent", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$toggleInspection(GuiButtonNop button, CallbackInfo ci) {
         GuiNPCFactionSetup self = (GuiNPCFactionSetup) (Object) this;
@@ -57,6 +73,9 @@ public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener
             button.setMessage(Component.translatable(enabled ? "cnpcplus.inspection.enabled" : "cnpcplus.inspection.disabled"));
         } else if (button.id == 16) {
             ((UntargetableAccess) self.npc.advanced).cnpcplus$setUntargetable(button.getValue() == 1);
+        } else if (button.id == 18) {
+            GuiTextFieldNop.unfocus();
+            ((PursuitLimit)self.npc.advanced).cnpcplus$setPursuitLimited(button.getValue() == 1);
         } else {
             return;
         }
@@ -66,8 +85,15 @@ public abstract class MixinGuiNPCFactionInspection implements ITextfieldListener
 
     @Override
     public void unFocused(GuiTextFieldNop field) {
-        if (field.id != 14) return;
         GuiNPCFactionSetup self = (GuiNPCFactionSetup) (Object) this;
+        if (field.id == 17) {
+            PursuitLimit pursuit = (PursuitLimit)self.npc.advanced;
+            if (field.isFloat()) pursuit.cnpcplus$setPursuitRadius(field.getFloat());
+            field.setValue(Float.toString(pursuit.cnpcplus$getPursuitRadius()));
+            Packets.sendServer(new SPacketMenuSave(EnumMenuType.ADVANCED, self.npc.advanced.save(new CompoundTag())));
+            return;
+        }
+        if (field.id != 14) return;
         try {
             ((DamageInspectionAccess) self.npc.advanced).cnpcplus$setInspectionDistance(
                 Math.max(1, Math.min(16, Integer.parseInt(field.getValue()))));

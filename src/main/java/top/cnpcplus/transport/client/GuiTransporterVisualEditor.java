@@ -21,6 +21,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.IGui;
 import top.cnpcplus.transport.TransportKeys;
+import top.cnpcplus.transport.TransportFare;
 import top.cnpcplus.transport.TransportPanelStyle;
 import top.cnpcplus.transport.TransportVisualMeta;
 import top.cnpcplus.transport.TransportOrder;
@@ -60,6 +61,7 @@ public class GuiTransporterVisualEditor extends GuiBasic
     private static final int FIELD_X_ID = 63;
     private static final int FIELD_Y_ID = 64;
     private static final int BTN_SAVE_ID = 60;
+    private static final int BTN_FARE_ID = 61;
     private static final int AREA_CONTENT_ID = 67;
 
     private static final int CELL = 30;
@@ -258,6 +260,8 @@ public class GuiTransporterVisualEditor extends GuiBasic
         this.addButton(new GuiButtonNop(this, BTN_SAVE_ID,
                 this.width - 78, 4, 74, 18,
                 tr("cnpcplus.transporter.editor.save")));
+        this.addButton(new GuiButtonNop(this, BTN_FARE_ID, this.width - 182, 4, 100, 18,
+                tr("cnpcplus.transporter.fare.title")));
         this.applyFilter();
         this.syncFields();
     }
@@ -361,6 +365,18 @@ public class GuiTransporterVisualEditor extends GuiBasic
     public void buttonEvent(GuiButtonNop button) {
         if (button.id == BTN_SAVE_ID) {
             this.saveNow();
+            return;
+        }
+        if (button.id == BTN_FARE_ID) {
+            String entry = this.selectedName;
+            CompoundTag meta = TransportClientCache.editMeta(entry);
+            if (meta != null) Minecraft.getInstance().setScreen(new TransportFareScreen(this,
+                    meta.getCompound(TransportFare.KEY), fare -> {
+                this.entryLocal.computeIfAbsent(entry, key -> new CompoundTag()).put(TransportFare.KEY, fare);
+                this.applyLocal();
+                PacketDistributor.sendToServer(PacketTransportMetaSave.fare(this.npcId, entry, fare));
+                this.setHint(tr("cnpcplus.transporter.editor.hint.saving"));
+            }));
             return;
         }
         if (button.id < TransportLayout.BTN_ROW_ID_BASE

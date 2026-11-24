@@ -18,6 +18,11 @@ public abstract class MixinNpcFixAttackSelector {
 
     @Inject(method = "isEntityApplicable", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$cheapReject(LivingEntity entity, CallbackInfoReturnable<Boolean> cir) {
+        if (entity != null && (((top.cnpcplus.ai.NpcControlAccess)npc).cnpcplus$isDisengaging()
+                || top.cnpcplus.ai.PursuitLimit.outside(npc, entity))) {
+            cir.setReturnValue(false);
+            return;
+        }
         if (!NpcAiOptimizerAccess.enabled() || this.npc == null || entity == null
                 || entity == this.npc || !entity.isAlive()) return;
         int maxRange = NpcAiOptimizerAccess.maxAggroRange();

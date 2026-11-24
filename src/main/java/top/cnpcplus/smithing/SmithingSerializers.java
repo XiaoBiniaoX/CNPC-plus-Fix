@@ -22,6 +22,8 @@ public class SmithingSerializers {
 
     public static final DeferredHolder<RecipeSerializer<?>, CustomSmithingRecipe.Serializer> SMITHING_TRANSFORM =
             SERIALIZERS.register("smithing_transform", CustomSmithingRecipe.Serializer::new);
+    public static final DeferredHolder<RecipeSerializer<?>, top.cnpcplus.craftingview.CarpentrySerializer> CARPENTRY =
+            SERIALIZERS.register("carpentry", top.cnpcplus.craftingview.CarpentrySerializer::new);
 
     public static void register(IEventBus modBus) {
         SERIALIZERS.register(modBus);

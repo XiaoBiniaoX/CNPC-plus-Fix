@@ -27,6 +27,15 @@ public final class SmithingRecipeManager {
     /** 本 mod 动态注入配方的 id 前缀：reload 清理与注入都按它认亲（与熔炼前缀互不干扰）。 */
     private static final String PREFIX = "smithing/";
 
+    /** Save/delete updates one holder; full injection is reserved for startup/reload. */
+    public static void updateRecipe(MinecraftServer server, int recipeId) {
+        var id = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("cnpcplus", PREFIX + recipeId);
+        var data = SmithingRecipeRegistry.get(recipeId);
+        var holder = data == null ? null : SmithingRecipeParser.parse(data);
+        top.cnpcplus.craftingview.RecipeIndexUpdates.replace(server.getRecipeManager(), id, holder);
+        top.cnpcplus.craftingview.RecipeDeltaPacket.broadcast(server, id, holder);
+    }
+
     /**
      * 把 Registry 全部配方（重新）注入给定的 RecipeManager。reload 后也调用它。
      * 客户端的 RecipeManager 由服务端下发的配方包填充，不在这里注入（否则连服时会用上本地文件的配方，

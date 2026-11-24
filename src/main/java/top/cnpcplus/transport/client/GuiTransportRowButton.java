@@ -20,11 +20,25 @@ public class GuiTransportRowButton extends GuiButtonNop {
         super(gui, id, x, y, w, h, "");
     }
 
+    public boolean contains(int mouseX, int mouseY) {
+        return mouseX >= getX() && mouseX < getX() + getWidth()
+                && mouseY >= getY() && mouseY < getY() + getHeight();
+    }
+
     @Override
     public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (!this.shown || !this.visible) return;
         ITransportPanelUI panel = (ITransportPanelUI) this.gui;
         boolean selected = this.entryName != null && this.entryName.equals(panel.cnpcplus$getSelected());
+        if (!this.active) {
+            var font = net.minecraft.client.Minecraft.getInstance().font;
+            int x = getX(), y = getY(), w = getWidth(), h = getHeight();
+            graphics.fill(x, y, x + w, y + h, 0xFF5A5A5A);
+            graphics.fill(x + 1, y + 1, x + w - 1, y + h - 1, 0xFF303030);
+            graphics.drawString(font, font.plainSubstrByWidth(panel.cnpcplus$getDisplay(entryName), w - 12),
+                    x + 6, y + (h - font.lineHeight) / 2, 0xFFAAAAAA, false);
+            return;
+        }
         boolean hovered = mouseX >= this.getX() && mouseX < this.getX() + this.getWidth()
                 && mouseY >= this.getY() && mouseY < this.getY() + this.getHeight();
 

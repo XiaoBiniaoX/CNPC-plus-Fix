@@ -11,11 +11,21 @@ import net.minecraft.resources.ResourceLocation;
 public final class SoundArray {
     public final List<String> sounds = new ArrayList<>();
     public boolean randomPitch;
-    public String first() { return sounds.isEmpty() ? "" : sounds.get(0); }
+    public String first() { return playable().stream().findFirst().orElse(""); }
     public String choose() {
-        List<String> playable = sounds.stream().filter(s -> s != null && !s.isBlank()).map(ResourceLocation::tryParse)
-                .filter(java.util.Objects::nonNull).map(ResourceLocation::toString).toList();
+        List<String> playable = playable();
         return playable.isEmpty() ? "" : playable.get(ThreadLocalRandom.current().nextInt(playable.size()));
+    }
+    private List<String> playable() {
+        List<String> playable = new ArrayList<>();
+        for (String sound : sounds) {
+            if (sound == null || sound.isBlank()) continue;
+            String cleaned = sound.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_.\\-/:]", "");
+            if (cleaned.isEmpty()) continue;
+            ResourceLocation id = ResourceLocation.tryParse(cleaned);
+            if (id != null && !id.getPath().isEmpty()) playable.add(id.toString());
+        }
+        return playable;
     }
     public float pitch() {
         return randomPitch ? 1F + (ThreadLocalRandom.current().nextFloat()

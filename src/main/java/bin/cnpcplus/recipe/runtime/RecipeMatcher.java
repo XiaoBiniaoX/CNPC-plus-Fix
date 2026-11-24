@@ -36,6 +36,11 @@ public final class RecipeMatcher {
     }
 
     private static MatchResult matchOne(RecipeCarpentry recipe, CraftingContainer inv, int gridW, int gridH) {
+        if (((RecipeCarpentryOffsetAccessor)recipe).cnpcplus$isShapeless()) {
+            var actual = new java.util.ArrayList<ItemStack>();
+            for (int i = 0; i < inv.getContainerSize(); i++) if (!inv.getItem(i).isEmpty()) actual.add(inv.getItem(i));
+            return shapeless(recipe, actual) ? new MatchResult(recipe, 0, 0, false, 1) : MatchResult.MISS;
+        }
         int rw = Math.max(1, recipe.getWidth());
         int rh = Math.max(1, recipe.getHeight());
 
@@ -102,5 +107,13 @@ public final class RecipeMatcher {
         if (ingredient == null || ingredient.isEmpty()) return ItemStack.EMPTY;
         ItemStack[] items = ingredient.getItems();
         return items.length == 0 ? ItemStack.EMPTY : items[0];
+    }
+    public static boolean shapeless(RecipeCarpentry recipe, java.util.List<ItemStack> actual) {
+        var required = new java.util.ArrayList<java.util.function.Predicate<ItemStack>>();
+        for (Ingredient ingredient : recipe.getIngredients()) {
+            if (ingredient.isEmpty()) continue;
+            required.add(stack -> ingredient.test(stack) || RecipeServices.compareItems(firstItem(ingredient), stack, recipe.ignoreDamage, recipe.ignoreNBT));
+        }
+        return net.neoforged.neoforge.common.util.RecipeMatcher.findMatches(actual, required) != null;
     }
 }

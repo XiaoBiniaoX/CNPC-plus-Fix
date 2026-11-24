@@ -125,32 +125,7 @@ public final class RecipeStorage {
             root.putInt("LastId", Math.max(controller.nextId, RecipeIds.INSTANCE.peekNextSyncId()));
             root.putInt("Version", 1);
 
-            File fileNew = new File(saveDir, "recipes.dat_new");
-            File fileOld = new File(saveDir, "recipes.dat_old");
-            File file = new File(saveDir, "recipes.dat");
-            try (OutputStream out = new FileOutputStream(fileNew)) {
-                NbtIo.writeCompressed(root, out);
-                out.flush();
-            }
-            if (fileOld.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                fileOld.delete();
-            }
-            if (file.exists() && !file.renameTo(fileOld)) {
-                //noinspection ResultOfMethodCallIgnored
-                file.delete();
-            }
-            if (!fileNew.renameTo(file)) {
-                try (InputStream in = new FileInputStream(fileNew); OutputStream out = new FileOutputStream(file)) {
-                    in.transferTo(out);
-                }
-                //noinspection ResultOfMethodCallIgnored
-                fileNew.delete();
-            }
-            if (fileNew.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                fileNew.delete();
-            }
+            top.cnpcplus.craftingview.RecipeDiskWrites.save(new File(saveDir, "recipes.dat").toPath(), root, true);
         } catch (Exception e) {
             CnpcPlus.LOGGER.error("[RecipeStorage] save failed", e);
         }

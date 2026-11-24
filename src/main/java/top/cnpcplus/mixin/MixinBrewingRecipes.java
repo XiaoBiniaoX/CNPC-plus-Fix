@@ -25,14 +25,14 @@ public class MixinBrewingRecipes {
         boolean custom = StationRecipes.hasMatch(1, inputs);
         if (!custom && self.cnpcplus$recipe == -1) return;
         StationRecipe recipe = StationRecipes.find(1, inputs, StationOperator.player(block));
-        if (recipe != null) for (int i = 0; i < 3; i++) if (inputs[i].getCount() != recipe.inputs[i].getCount()) { recipe = null; break; }
         if (recipe == null) { self.brewTime = 0; self.cnpcplus$recipe = -1; }
         else {
             if (self.fuel <= 0 && self.items.get(4).is(Items.BLAZE_POWDER)) { self.items.get(4).shrink(1); self.fuel = 20; }
             if (self.cnpcplus$recipe != recipe.id) { self.brewTime = 0; self.cnpcplus$recipe = recipe.id; }
             if (self.brewTime > 0) {
                 if (--self.brewTime == 0) {
-                    for (int i = 0; i < 3; i++) self.items.set(i, recipe.outputs[i].copy());
+                    int[] slots = recipe.matchSlots(inputs);
+                    for (int i = 0; i < 3; i++) self.items.set(i, recipe.outputs[slots[i]].copy());
                     self.items.get(3).shrink(recipe.inputs[3].getCount());
                     self.cnpcplus$recipe = -1;
                     level.levelEvent(1035, pos, 0);

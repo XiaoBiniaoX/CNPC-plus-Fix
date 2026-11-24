@@ -98,4 +98,31 @@ public final class RecipeServices {
         }
         server.getRecipeManager().replaceRecipes(next);
     }
+
+    public static void updateGlobalRecipe(ResourceLocation key, RecipeCarpentry recipe) {
+        MinecraftServer server = CustomNpcs.Server;
+        if (server == null) return;
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath("customnpcs", "global/" + key.getPath());
+        RecipeHolder<?> holder = recipe != null && recipe.isGlobal && !recipe.getResult().isEmpty()
+                && !recipe.getIngredients().isEmpty() ? new RecipeHolder<>(id, recipe) : null;
+        top.cnpcplus.craftingview.RecipeIndexUpdates.replace(server.getRecipeManager(), id, holder);
+        top.cnpcplus.craftingview.RecipeDeltaPacket.broadcast(server, id, holder);
+    }
+
+    public static void updateSmeltingRecipe(MinecraftServer server, int recipeId) {
+        SmeltingRecipeData data = SmeltingRecipeRegistry.get(server.registryAccess(), recipeId);
+        Map<String, RecipeHolder<?>> replacements = new java.util.HashMap<>();
+        if (data != null) for (var recipe : SmeltingRecipeParser.parse(data)) {
+            String kind = recipe.getType() == net.minecraft.world.item.crafting.RecipeType.BLASTING ? "blasting/" :
+                    recipe.getType() == net.minecraft.world.item.crafting.RecipeType.SMOKING ? "smoking/" : "smelting/";
+            var id = ResourceLocation.fromNamespaceAndPath("cnpcplus", kind + recipeId);
+            replacements.put(kind, new RecipeHolder<>(id, recipe));
+        }
+        for (String kind : List.of("smelting/", "blasting/", "smoking/")) {
+            var id = ResourceLocation.fromNamespaceAndPath("cnpcplus", kind + recipeId);
+            var holder = replacements.get(kind);
+            top.cnpcplus.craftingview.RecipeIndexUpdates.replace(server.getRecipeManager(), id, holder);
+            top.cnpcplus.craftingview.RecipeDeltaPacket.broadcast(server, id, holder);
+        }
+    }
 }

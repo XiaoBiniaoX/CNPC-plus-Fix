@@ -79,6 +79,7 @@ public class PacketTransportMetaRequest implements CustomPacketPayload {
                 entries.put(en.getKey(), metaOf(en.getValue()));
             }
             out.put("Entries", entries);
+            out.putInt("NpcId", npc.getId());
             out.putString("Current", own.name);
             out.put("CurrentMeta", metaOf(own));
             CompoundTag panel = new CompoundTag();
@@ -95,6 +96,7 @@ public class PacketTransportMetaRequest implements CustomPacketPayload {
         CompoundTag t = new CompoundTag();
         TransportVisualMeta m = (TransportVisualMeta) (Object) loc;
         t.putInt("Id", loc.id);
+        t.put(top.cnpcplus.transport.TransportFare.KEY, m.cnpcplus$getFare().copy());
         t.putString(TransportKeys.NAME, loc.name);
         t.putString("Icon", m.cnpcplus$getIcon());
         t.putString("IconSel", m.cnpcplus$getIconSel());

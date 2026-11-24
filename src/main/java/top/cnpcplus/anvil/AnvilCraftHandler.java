@@ -59,7 +59,8 @@ public final class AnvilCraftHandler {
 
         for (AnvilRecipeData d : list) {
             if (d.result.isEmpty() || d.inputA.isEmpty() || d.inputB.isEmpty()) continue;
-            if (matchesSlot(d.inputA, left, d.nameOnly) && matchesSlot(d.inputB, right, d.nameOnly)) {
+            if (matchesSlot(d.inputA, left, d.nameOnly) && matchesSlot(d.inputB, right, d.nameOnly)
+                    || d.shapeless && matchesSlot(d.inputA, right, d.nameOnly) && matchesSlot(d.inputB, left, d.nameOnly)) {
                 if (!top.cnpcplus.craftingview.RecipeAvailability.allows(d.availability, player)) { event.setCanceled(true); return; }
                 event.setOutput(d.result.copy());
                 event.setCost(Math.max(EXP_MIN, Math.min(EXP_MAX, d.expCost)));

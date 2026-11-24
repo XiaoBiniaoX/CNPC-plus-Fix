@@ -55,7 +55,7 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
             if (packet.action == 2) {
                 if (packet.id >= 0 && SmeltingRecipeRegistry.remove(registries, packet.id)) {
                     if (player.containerMenu instanceof ContainerSmeltingRecipes menu && menu.selectedId == packet.id) menu.clearRecipe();
-                    SmeltingRecipeBootstrap.markReloadPending();
+                    bin.cnpcplus.recipe.services.RecipeServices.updateSmeltingRecipe(player.server, packet.id);
                 }
             }
             if (packet.action == 1 && player.containerMenu instanceof ContainerSmeltingRecipes menu) {
@@ -74,7 +74,7 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
                     } else {
                         return;
                     }
-                    SmeltingRecipeBootstrap.markReloadPending();
+                    bin.cnpcplus.recipe.services.RecipeServices.updateSmeltingRecipe(player.server, menu.selectedId);
                 }
             }
             sendList(player, player.containerMenu instanceof ContainerSmeltingRecipes menu ? menu.selectedId : -1);

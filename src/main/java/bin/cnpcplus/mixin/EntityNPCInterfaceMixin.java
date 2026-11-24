@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import top.cnpcplus.stats.HideDelayStore;
 
 import java.lang.reflect.Field;
 
@@ -52,11 +53,13 @@ public class EntityNPCInterfaceMixin {
         float speed = ((AiSpeedAccess) self.ais).cnpcplus$getWalkingSpeed();
         tag.putInt("Speed", Math.round(speed));
         tag.putFloat("CNPCPlusSpeed", speed);
+        tag.putInt("CNPCPlusHideDelay", HideDelayStore.get(self.stats));
     }
 
     @Inject(method = "readSpawnData(Lnet/minecraft/nbt/CompoundTag;)V", at = @At("TAIL"), remap = false)
     private void cnpcplus$readSpawnData(CompoundTag compound, CallbackInfo ci) {
         EntityNPCInterface self = (EntityNPCInterface)(Object)this;
+        HideDelayStore.read(self.stats, compound);
         if (compound.contains("Faction")) {
             self.getEntityData().set(getFactionData(), compound.getInt("Faction"));
         }

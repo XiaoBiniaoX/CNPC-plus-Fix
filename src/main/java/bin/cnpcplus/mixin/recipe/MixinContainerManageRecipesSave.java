@@ -134,6 +134,7 @@ public class MixinContainerManageRecipesSave {
         saved.ignoreNBT = keepIgnoreN;
         if (this.recipe != null) {
             saved.availability = this.recipe.availability;
+            ((RecipeCarpentryOffsetAccessor)saved).cnpcplus$setShapeless(((RecipeCarpentryOffsetAccessor)this.recipe).cnpcplus$isShapeless());
         }
         ((RecipeCarpentryOffsetAccessor) saved).cnpcplusSetOffset(firstCol, firstRow, true);
         this.recipe = saved;

@@ -18,6 +18,7 @@ import top.cnpcplus.transport.TransportPanelMeta;
 import top.cnpcplus.transport.TransportPanelStyle;
 import top.cnpcplus.transport.TransportVisualMeta;
 import top.cnpcplus.transport.TransportOrder;
+import top.cnpcplus.transport.TransportFare;
 
 /**
  * 客户端→服务端：保存传送面板编辑结果（面板样式 + 各传送点可视化键）。
@@ -44,6 +45,14 @@ public class PacketTransportMetaSave implements CustomPacketPayload {
         this.panel = panel == null ? new CompoundTag() : panel;
         this.entries = entries == null ? new CompoundTag() : entries;
         this.disk = disk;
+    }
+
+    public static PacketTransportMetaSave fare(int npcId, String entry, CompoundTag fare) {
+        var change = new CompoundTag();
+        change.put(TransportFare.KEY, fare.copy());
+        var entries = new CompoundTag();
+        entries.put(entry, change);
+        return new PacketTransportMetaSave(npcId, new CompoundTag(), entries, true);
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -118,6 +127,14 @@ public class PacketTransportMetaSave implements CustomPacketPayload {
                     continue;
                 }
                 TransportVisualMeta m = (TransportVisualMeta) (Object) target;
+                if (this.disk && t.size() == 1 && t.contains(TransportFare.KEY, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                    var fare = t.getCompound(TransportFare.KEY);
+                    var items = TransportFare.items(fare, player.registryAccess());
+                    items.stream().filter(stack -> !stack.isEmpty())
+                            .forEach(stack -> stack.setCount(Math.min(stack.getCount(), stack.getMaxStackSize())));
+                    m.cnpcplus$setFare(TransportFare.save(fare.getBoolean("Enabled"), items, player.registryAccess()));
+                    continue;
+                }
                 m.cnpcplus$setIcon(iconKey(t.getString(TransportKeys.ICON)));
                 m.cnpcplus$setIconSel(iconKey(t.getString(TransportKeys.ICON_SEL)));
                 m.cnpcplus$setImage(iconKey(t.getString(TransportKeys.IMAGE)));

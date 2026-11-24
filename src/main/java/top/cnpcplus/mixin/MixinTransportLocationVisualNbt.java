@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.transport.TransportKeys;
 import top.cnpcplus.transport.TransportVisualMeta;
 import top.cnpcplus.transport.TransportOwnership;
+import top.cnpcplus.transport.TransportFare;
 
 /**
  * 任务241：TransportLocation 增加 5 个可视化扩展键（Icon/IconSel/Image/ImageMode/Desc）。
@@ -19,6 +20,7 @@ import top.cnpcplus.transport.TransportOwnership;
  */
 @Mixin(value = TransportLocation.class, remap = false)
 public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
+    @Unique private CompoundTag cnpcplus$fare = new CompoundTag();
     @Unique private java.util.UUID cnpcplus$owner;
 
     @Unique private String cnpcplus$icon = "";
@@ -41,6 +43,7 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     @Inject(method = "readNBT", at = @At("TAIL"), remap = false)
     private void cnpcplus$readVisual(CompoundTag compound, CallbackInfo ci) {
         if (compound == null) return;
+        cnpcplus$fare = compound.getCompound(TransportFare.KEY).copy();
         cnpcplus$owner = compound.hasUUID(TransportOwnership.KEY) ? compound.getUUID(TransportOwnership.KEY) : null;
         if (compound.contains(TransportKeys.ICON)) this.cnpcplus$icon = compound.getString(TransportKeys.ICON);
         if (compound.contains(TransportKeys.ICON_SEL)) this.cnpcplus$iconSel = compound.getString(TransportKeys.ICON_SEL);
@@ -78,6 +81,7 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     private void cnpcplus$writeVisual(CallbackInfoReturnable<CompoundTag> cir) {
         CompoundTag out = cir.getReturnValue();
         if (out == null) return;
+        if (!cnpcplus$fare.isEmpty()) out.put(TransportFare.KEY, cnpcplus$fare.copy());
         if (cnpcplus$owner != null) out.putUUID(TransportOwnership.KEY, cnpcplus$owner);
         if (!this.cnpcplus$icon.isEmpty()) out.putString(TransportKeys.ICON, this.cnpcplus$icon);
         if (!this.cnpcplus$iconSel.isEmpty()) out.putString(TransportKeys.ICON_SEL, this.cnpcplus$iconSel);
@@ -102,6 +106,8 @@ public class MixinTransportLocationVisualNbt implements TransportVisualMeta {
     }
 
     @Override public String cnpcplus$getIcon() { return this.cnpcplus$icon; }
+    @Override public CompoundTag cnpcplus$getFare() { return cnpcplus$fare; }
+    @Override public void cnpcplus$setFare(CompoundTag fare) { cnpcplus$fare = fare; }
     @Override public java.util.UUID cnpcplus$getOwner() { return cnpcplus$owner; }
     @Override public void cnpcplus$setOwner(java.util.UUID owner) { cnpcplus$owner = owner; }
     @Override public void cnpcplus$setIcon(String v) { this.cnpcplus$icon = v == null ? "" : v; }

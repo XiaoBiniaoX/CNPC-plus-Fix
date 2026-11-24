@@ -63,6 +63,11 @@ public final class StationScreen extends GuiContainerNPCInterface2<StationMenu> 
         for (int i = 0; i < labels.length; i++) addButton(new GuiButtonNop(this, i + 10, guiLeft + 314, guiTop + 8 + 24 * i, 98, 20, labels[i]));
         addButton(new GuiIconToggleButton(this, 14, guiLeft + 54, guiTop + 91, 20, 20,
                 new ItemStack(Items.NAME_TAG), editing.nameOnly, Component.translatable("cnpcplus.nameonly")));
+        if (container.kind != 2) {
+            addButton(new GuiButtonNop(this, 15, guiLeft + 78, guiTop + 91, 90, 20,
+                    new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, editing.shapeless ? 1 : 0));
+            getButton(15).setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("cnpcplus.shapeless.tooltip")));
+        }
     }
     private void capture() {
         if (getTextField(30) != null) editing.name = getTextField(30).getValue();
@@ -77,6 +82,7 @@ public final class StationScreen extends GuiContainerNPCInterface2<StationMenu> 
         else if (button.id == 12) { notice = ""; PacketDistributor.sendToServer(new StationPacket(3, container.kind, editing.saveMetadata(minecraft.level.registryAccess()))); }
         else if (button.id == 13) setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(editing.availability));
         else if (button.id == 14) editing.nameOnly = button.getValue() == 1;
+        else if (button.id == 15) editing.shapeless = button.getValue() == 1;
     }
     @Override public void subGuiClosed(net.minecraft.client.gui.screens.Screen screen) { capture(); init(); }
     private void send(int operation, int id) { CompoundTag tag = new CompoundTag(); tag.putInt("Id", id); PacketDistributor.sendToServer(new StationPacket(operation, container.kind, tag)); }
@@ -115,13 +121,12 @@ public final class StationScreen extends GuiContainerNPCInterface2<StationMenu> 
         StationRecipes.CLIENT.put(kind, recipes);
         if (Minecraft.getInstance().screen instanceof StationScreen screen && screen.container.kind == kind) {
             screen.capture();
-            if (tag.contains("SelectedId")) screen.editing.id = tag.getInt("SelectedId");
-            if (tag.contains("Notice")) {
+            if (tag.contains("EditedId") && tag.getInt("EditedId") == screen.editing.id) {
                 screen.notice = tag.getString("Notice");
                 screen.result = tag.getInt("Result");
                 if (screen.result == 1) {
                     screen.displayedId = Integer.MIN_VALUE;
-                    for (StationRecipe recipe : recipes) if (recipe.id == screen.editing.id) screen.editing = recipe.copy();
+                    for (StationRecipe recipe : recipes) if (recipe.id == tag.getInt("SelectedId")) screen.editing = recipe.copy();
                 } else if (screen.result == 2) { screen.displayedId = Integer.MIN_VALUE; screen.editing = new StationRecipe(); }
             }
             screen.init();

@@ -65,6 +65,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     /** 230 仅名字检查：保存时随配方落盘（只校验物品id+物品名字，开关外观照抄熔炼）。 */
     private boolean nameOnly = false;
+    private boolean shapeless;
     private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public GuiNpcSmithingRecipes(ContainerSmithingRecipes container, Inventory inv, Component titleIn) {
@@ -116,6 +117,8 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
         this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
+        this.addButton(new GuiButtonNop(this, 91, bx, by + bs * 4, 84, 20,
+                new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, shapeless ? 1 : 0));
 
         // 230 「仅名字检查」开关：照抄熔炼外观（命名牌图标+红绿框+悬停显示「仅名字检查」），
         // 位置=三个输入槽的左边（坐标见 SmithingLayout.nameOnlyX/Y，避开锤子贴图）。
@@ -195,6 +198,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
     }
 
     private void loadRecipe(int index) {
+        shapeless = index >= 0 && index < recipes.size() && recipes.get(index).shapeless;
         if (index < 0 || index >= this.recipes.size()) {
             this.selectedId = -1;
             this.draft = false;
@@ -217,6 +221,8 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 91) { shapeless = button.getValue() == 1; return; }
+        if (button.id == BTN_NEW || button.id == BTN_REMOVE) shapeless = false;
         if (getTextField(30) != null) selectedName = getTextField(30).getValue();
         if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(availability)); return; }
         if (button.id == BTN_NEW) {
@@ -281,7 +287,7 @@ public class GuiNpcSmithingRecipes extends GuiContainerNPCInterface2<ContainerSm
         if (d.name.length() > 64) d.name = d.name.substring(0, 64);
         this.selectedName = d.name;
         this.pendingSave = true;
-        PacketDistributor.sendToServer(new PacketSmithingSave(d.id, d.name, d.nameOnly, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
+        PacketDistributor.sendToServer(new PacketSmithingSave(d.id, d.name, d.nameOnly, shapeless, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
     }
 
     @Override

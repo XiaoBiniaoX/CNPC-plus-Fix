@@ -30,20 +30,25 @@ public record StationPacket(int operation, int kind, CompoundTag data) implement
                     || packet.kind < 0 || packet.kind >= 3 || packet.data == null || packet.data.sizeInBytes() > 30000) return;
             int kind = packet.kind, operation = packet.operation;
             CompoundTag data = packet.data;
-            String notice = "";
-            int result = 0;
             if (operation == 0) {
                 player.openMenu(new SimpleMenuProvider((id, inv, p) -> new StationMenu(id, inv, kind),
                         Component.translatable("cnpcplus.station." + StationRecipes.KINDS[kind])), buf -> buf.writeVarInt(kind));
             } else if (player.containerMenu instanceof StationMenu menu && menu.kind == kind) {
-                if (operation == 2) menu.select(data.getInt("Id"), player);
+                if (operation == 2) { menu.select(data.getInt("Id"), player); return; }
                 else if (operation == 3 || operation == 4) {
+                    int edited = data.getInt("Id");
+                    if (StationRecipes.saving[kind]) {
+                        sync(player, kind, edited, menu.selected, "cnpcplus.station.saving", -1);
+                        return;
+                    }
                     var catalogue = StationRecipes.catalogue(kind);
-                    var before = new LinkedHashMap<>(catalogue);
-                    int previousId = menu.selected;
-                    if (operation == 4) catalogue.remove(data.getInt("Id"));
+                    var updated = new LinkedHashMap<>(catalogue);
+                    int selected;
+                    if (operation == 4) { updated.remove(edited); selected = -1; }
                     else {
                         StationRecipe recipe = StationRecipe.readMetadata(data, player.registryAccess());
+                        if (recipe.id != menu.selected) return;
+                        if (kind == 2) recipe.shapeless = false;
                         recipe.name = recipe.name.trim();
                         if (recipe.name.isEmpty()) recipe.name = "new";
                         for (int i = 0; i < 4; i++) recipe.inputs[i] = menu.recipe.getItem(i).copy();
@@ -56,35 +61,44 @@ public record StationPacket(int operation, int kind, CompoundTag data) implement
                             invalid |= recipe.inputs[3].isEmpty();
                             for (int i = 0; i < 3; i++) invalid |= recipe.inputs[i].getCount() > 1;
                         }
-                        if (invalid) { sync(player, kind, menu.selected, "cnpcplus.station.invalid." + StationRecipes.KINDS[kind], -1); return; }
+                        if (invalid) { sync(player, kind, edited, menu.selected, "cnpcplus.station.invalid." + StationRecipes.KINDS[kind], -1); return; }
                         if (recipe.id < 0) recipe.id = catalogue.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
-                        catalogue.put(recipe.id, recipe);
-                        menu.selected = recipe.id;
+                        updated.put(recipe.id, recipe);
+                        selected = recipe.id;
                     }
-                    try { StationRecipes.persist(kind); }
-                    catch (java.io.IOException e) {
-                        catalogue.clear(); catalogue.putAll(before); menu.selected = previousId;
-                        org.slf4j.LoggerFactory.getLogger("cnpcplus").error("Cannot save station recipes", e);
-                        sync(player, kind, menu.selected, "cnpcplus.station.save_failed", -1);
-                        return;
-                    }
-                    if (operation == 4) menu.select(-1, player);
-                    result = operation == 3 ? 1 : 2;
-                    notice = operation == 3 ? "cnpcplus.station.saved" : "cnpcplus.station.deleted";
+                    int result = operation == 3 ? 1 : 2;
+                    String notice = operation == 3 ? "cnpcplus.station.saved" : "cnpcplus.station.deleted";
+                    StationRecipes.saving[kind] = true;
+                    StationRecipes.persist(kind, updated.values()).whenComplete((done, error) -> player.server.execute(() -> {
+                        StationRecipes.saving[kind] = false;
+                        boolean sameMenu = player.containerMenu == menu;
+                        if (error != null) {
+                            if (sameMenu) sync(player, kind, edited, menu.selected, "cnpcplus.station.save_failed", -1);
+                            else player.sendSystemMessage(Component.translatable("cnpcplus.station.save_failed"));
+                            return;
+                        }
+                        catalogue.clear();
+                        catalogue.putAll(updated);
+                        if (sameMenu && menu.selected == edited) {
+                            if (operation == 4) menu.select(-1, player);
+                            else menu.selected = selected;
+                        }
+                        for (ServerPlayer recipient : player.server.getPlayerList().getPlayers()) {
+                            if (recipient == player && sameMenu) sync(recipient, kind, edited, selected, notice, result);
+                            else sync(recipient, kind);
+                        }
+                    }));
+                    return;
                 }
             } else return;
-            if (operation == 3 || operation == 4) {
-                for (ServerPlayer recipient : player.server.getPlayerList().getPlayers()) if (recipient != player) sync(recipient, kind);
-                sync(player, kind, ((StationMenu)player.containerMenu).selected, notice, result);
-            } else if (operation == 2) sync(player, kind, ((StationMenu)player.containerMenu).selected, "", 0);
-            else sync(player, kind);
+            sync(player, kind);
         });
     }
-    private static void sync(ServerPlayer player, int kind) { sync(player, kind, Integer.MIN_VALUE, "", 0); }
-    private static void sync(ServerPlayer player, int kind, int selected, String notice, int result) {
+    private static void sync(ServerPlayer player, int kind) { sync(player, kind, -1, -1, "", 0); }
+    private static void sync(ServerPlayer player, int kind, int edited, int selected, String notice, int result) {
         if (!NetworkRegistry.hasChannel(player.connection, Sync.TYPE.id())) return;
         CompoundTag tag = new CompoundTag();
-        if (selected != Integer.MIN_VALUE) { tag.putInt("SelectedId", selected); tag.putString("Notice", notice); tag.putInt("Result", result); }
+        if (result != 0) { tag.putInt("EditedId", edited); tag.putInt("SelectedId", selected); tag.putString("Notice", notice); tag.putInt("Result", result); }
         PacketDistributor.sendToPlayer(player, new Sync(kind, List.copyOf(StationRecipes.catalogue(kind).values()), tag));
     }
     @SubscribeEvent public static void login(PlayerEvent.PlayerLoggedInEvent event) {

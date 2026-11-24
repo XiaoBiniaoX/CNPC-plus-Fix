@@ -39,13 +39,6 @@ public final class RecipeControllerFacade {
         if (recipe.name == null || recipe.name.isEmpty()) {
             recipe.name = "unnamed";
         }
-        // Skip pure empty draft creates (no result, no ingredients) unless updating existing id
-        boolean emptyDraft = (recipe.getResult() == null || recipe.getResult().isEmpty())
-                && (recipe.getIngredients() == null || recipe.getIngredients().isEmpty());
-        if (emptyDraft && preferredSyncId <= 0) {
-            return recipe;
-        }
-
         // Resolve identity: preferred sync id > same object > exact name only if not a rename conflict
         Integer syncId = preferredSyncId > 0 ? preferredSyncId : null;
         if (syncId == null) {
@@ -97,7 +90,7 @@ public final class RecipeControllerFacade {
         if (CustomNpcs.Server != null) {
             RecipeStorage.INSTANCE.saveAll(CustomNpcs.Server.registryAccess(), controller);
         }
-        reloadGlobalRecipes(controller);
+        RecipeServices.updateGlobalRecipe(loc, recipe);
 
         return recipe;
     }
@@ -129,7 +122,7 @@ public final class RecipeControllerFacade {
         if (CustomNpcs.Server != null) {
             RecipeStorage.INSTANCE.saveAll(CustomNpcs.Server.registryAccess(), controller);
         }
-        reloadGlobalRecipes(controller);
+        if (loc != null) RecipeServices.updateGlobalRecipe(loc, null);
         return recipe;
     }
 

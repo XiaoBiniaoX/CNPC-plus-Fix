@@ -20,12 +20,6 @@ import java.util.concurrent.Executors;
 
 public final class SmeltingRecipeRegistry {
     private static final Object LOCK = new Object();
-    /** 单线程串行写盘：同一文件永不并发写，异步仅指 IO 不占服务端主线程。 */
-    private static final ExecutorService IO = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "cnpcplus-smelting-io");
-        t.setDaemon(true);
-        return t;
-    });
     private static Map<Integer, SmeltingRecipeData> entries;
     private static int nextId = 1;
     private SmeltingRecipeRegistry() {}
@@ -57,23 +51,13 @@ public final class SmeltingRecipeRegistry {
 
     /** 在锁内做 NBT 快照，文件 IO 丢给单线程，主线程不再等磁盘。 */
     private static void write(HolderLookup.Provider registries) {
-        List<SmeltingRecipeData> snapshot;
+        CompoundTag root = new CompoundTag();
         synchronized (LOCK) {
-            snapshot = new ArrayList<>(entries.values());
+            ListTag list = new ListTag();
+            for (SmeltingRecipeData data : entries.values()) list.add(data.save(registries));
+            root.put("Data", list);
         }
-        IO.execute(() -> {
-            try {
-                CompoundTag root = new CompoundTag();
-                ListTag list = new ListTag();
-                for (SmeltingRecipeData data : snapshot) list.add(data.save(registries));
-                root.put("Data", list);
-                File tmp = new File(file().getPath() + ".tmp");
-                try (FileOutputStream out = new FileOutputStream(tmp)) { NbtIo.writeCompressed(root, out); }
-                File target = file();
-                if (target.exists()) target.delete();
-                tmp.renameTo(target);
-            } catch (Exception ex) { CnpcPlus.LOGGER.error("Unable to write smelting recipes", ex); }
-        });
+        top.cnpcplus.craftingview.RecipeDiskWrites.save(file().toPath(), root, false);
     }
 
     public static void clear() { synchronized (LOCK) { entries = null; nextId = 1; } }

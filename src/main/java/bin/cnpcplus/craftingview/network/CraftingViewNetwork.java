@@ -55,6 +55,8 @@ public final class CraftingViewNetwork {
         // 标 optional 后，协商失败只会把这些频道降级为禁用（buildDisabledOptionalComponents），
         // 玩家仍可正常进服，只是用不到本模组的对应界面。
         PayloadRegistrar registrar = event.registrar(CnpcPlus.MODID).versioned("1").optional();
+        registrar.playToClient(top.cnpcplus.craftingview.RecipeDeltaPacket.TYPE,
+                top.cnpcplus.craftingview.RecipeDeltaPacket.STREAM_CODEC, top.cnpcplus.craftingview.RecipeDeltaPacket::handle);
         registrar.playToClient(top.cnpcplus.shader.ShaderPacket.TYPE, top.cnpcplus.shader.ShaderPacket.STREAM_CODEC, top.cnpcplus.shader.ShaderPacket::handle);
         registrar.playToServer(top.cnpcplus.shader.ShaderCatalogPacket.TYPE, top.cnpcplus.shader.ShaderCatalogPacket.STREAM_CODEC, top.cnpcplus.shader.ShaderCatalogPacket::handle);
         registrar.playToServer(top.cnpcplus.station.StationPacket.TYPE, top.cnpcplus.station.StationPacket.STREAM_CODEC, top.cnpcplus.station.StationPacket::handle);
@@ -63,6 +65,8 @@ public final class CraftingViewNetwork {
                 top.cnpcplus.wand.network.WandNpcPacket.STREAM_CODEC, top.cnpcplus.wand.network.WandNpcPacket::handle);
         registrar.playToClient(top.cnpcplus.wand.network.WandNpcPacket.Snapshot.TYPE,
                 top.cnpcplus.wand.network.WandNpcPacket.Snapshot.STREAM_CODEC, top.cnpcplus.wand.network.WandNpcPacket.Snapshot::handle);
+        registrar.playToClient(top.cnpcplus.wand.network.WandNpcPacket.FreezeState.TYPE,
+                top.cnpcplus.wand.network.WandNpcPacket.FreezeState.STREAM_CODEC, top.cnpcplus.wand.network.WandNpcPacket.FreezeState::handle);
         registrar.playToServer(top.cnpcplus.clone.ClonePreviewPacket.TYPE,
                 top.cnpcplus.clone.ClonePreviewPacket.STREAM_CODEC, top.cnpcplus.clone.ClonePreviewPacket::handle);
         registrar.playToClient(top.cnpcplus.clone.ClonePreviewPacket.Snapshot.TYPE,
@@ -125,6 +129,9 @@ public final class CraftingViewNetwork {
         registrar.playToServer(PacketTransportMetaRequest.TYPE, PacketTransportMetaRequest.STREAM_CODEC, (packet, context) -> packet.handle(context));
         registrar.playToClient(PacketTransportMetaResponse.TYPE, PacketTransportMetaResponse.STREAM_CODEC, (packet, context) -> packet.handle(context));
         registrar.playToServer(PacketTransportMetaSave.TYPE, PacketTransportMetaSave.STREAM_CODEC, (packet, context) -> packet.handle(context));
+        registrar.playToServer(top.cnpcplus.transport.network.PacketTransportTravel.TYPE,
+                top.cnpcplus.transport.network.PacketTransportTravel.STREAM_CODEC,
+                top.cnpcplus.transport.network.PacketTransportTravel::handle);
         registrar.playToServer(PacketTransportImageRequest.TYPE, PacketTransportImageRequest.STREAM_CODEC, (packet, context) -> packet.handle(context));
         registrar.playToClient(PacketTransportImageResponse.TYPE, PacketTransportImageResponse.STREAM_CODEC, (packet, context) -> packet.handle(context));
         registrar.playToServer(PacketTransportImageUpload.TYPE, PacketTransportImageUpload.STREAM_CODEC, (packet, context) -> packet.handle(context));

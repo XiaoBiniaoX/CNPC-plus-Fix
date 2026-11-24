@@ -6,6 +6,8 @@ package top.cnpcplus.transport;
  * 禁止 mixin class 互转。
  */
 public interface TransportVisualMeta {
+    net.minecraft.nbt.CompoundTag cnpcplus$getFare();
+    void cnpcplus$setFare(net.minecraft.nbt.CompoundTag fare);
     java.util.UUID cnpcplus$getOwner();
     void cnpcplus$setOwner(java.util.UUID owner);
     String cnpcplus$getIcon();

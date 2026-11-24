@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 public class SmithingRecipeData {
     public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
     public int id = -1;
+    public boolean shapeless;
     public String name = "";
     public ItemStack template = ItemStack.EMPTY;  // 模板（如模具/纹饰）
     public ItemStack base = ItemStack.EMPTY;      // 基座（被升级物）
@@ -27,6 +28,7 @@ public class SmithingRecipeData {
         t.putInt("Id", this.id);
         t.putString("Name", this.name == null ? "" : this.name);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.putBoolean("CNPCPlusShapeless", shapeless);
         t.put("Availability", availability.save(registries, new CompoundTag()));
         t.put("Template", this.template.saveOptional(registries));
         t.put("Base", this.base.saveOptional(registries));
@@ -39,6 +41,7 @@ public class SmithingRecipeData {
         SmithingRecipeData d = new SmithingRecipeData();
         if (t == null) return d;
         d.id = t.getInt("Id");
+        d.shapeless = t.getBoolean("CNPCPlusShapeless");
         d.name = t.getString("Name");
         d.nameOnly = t.getBoolean("NameOnly"); // 旧配方无此键 → 默认 false，兼容
         if (t.contains("Availability")) d.availability.load(registries, t.getCompound("Availability"));
@@ -54,6 +57,7 @@ public class SmithingRecipeData {
         d.id = this.id;
         d.name = this.name;
         d.nameOnly = this.nameOnly;
+        d.shapeless = shapeless;
         d.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(availability);
         d.template = this.template.copy();
         d.base = this.base.copy();

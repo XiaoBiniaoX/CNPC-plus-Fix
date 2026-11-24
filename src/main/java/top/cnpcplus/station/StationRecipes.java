@@ -16,6 +16,7 @@ public final class StationRecipes {
     public static final String[] KINDS = {"grindstone", "brewing", "campfire"};
     private static final Map<Integer, LinkedHashMap<Integer, StationRecipe>> SERVER = new HashMap<>();
     public static final Map<Integer, List<StationRecipe>> CLIENT = new HashMap<>();
+    public static final boolean[] saving = new boolean[3];
     private StationRecipes() {}
     public static Map<Integer, StationRecipe> catalogue(int kind) {
         return SERVER.computeIfAbsent(kind, key -> {
@@ -32,18 +33,13 @@ public final class StationRecipes {
         });
     }
     private static File file(int kind) { return new File(noppes.npcs.CustomNpcs.getLevelSaveDirectory(), "data/cnpcplus/recipes/" + KINDS[kind] + "/recipes.dat"); }
-    public static void persist(int kind) throws IOException {
-        File target = file(kind), dir = target.getParentFile();
-        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
+    public static java.util.concurrent.CompletableFuture<Void> persist(int kind, Collection<StationRecipe> recipes) {
         CompoundTag tag = new CompoundTag();
         ListTag list = new ListTag();
         var registries = ServerLifecycleHooks.getCurrentServer().registryAccess();
-        for (StationRecipe recipe : catalogue(kind).values()) list.add(recipe.save(registries));
+        for (StationRecipe recipe : recipes) list.add(recipe.save(registries));
         tag.put("Recipes", list);
-        File temp = new File(dir, "recipes.tmp");
-        try (var output = new FileOutputStream(temp)) { NbtIo.writeCompressed(tag, output); }
-        try { java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
-        catch (java.nio.file.AtomicMoveNotSupportedException e) { java.nio.file.Files.move(temp.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
+        return top.cnpcplus.craftingview.RecipeDiskWrites.save(file(kind).toPath(), tag, false);
     }
     public static StationRecipe find(int kind, ItemStack[] inputs, Player player) {
         for (StationRecipe r : list(kind, player != null && player.level().isClientSide)) {
@@ -55,11 +51,18 @@ public final class StationRecipes {
     public static Collection<StationRecipe> list(int kind, boolean client) {
         return client ? CLIENT.getOrDefault(kind, List.of()) : catalogue(kind).values();
     }
-    @SubscribeEvent public static void stopped(ServerStoppedEvent event) { SERVER.clear(); }
+    @SubscribeEvent public static void stopped(ServerStoppedEvent event) { SERVER.clear(); Arrays.fill(saving, false); }
     public static boolean hasMatch(int kind, ItemStack[] inputs) { return catalogue(kind).values().stream().anyMatch(r -> r.matchesInputs(inputs)); }
     public static boolean accepts(int kind, int slot, ItemStack stack, boolean output) {
         var recipes = list(kind, net.neoforged.fml.util.thread.SidedThreadGroups.SERVER != Thread.currentThread().getThreadGroup());
         for (StationRecipe recipe : recipes) {
+            if (recipe.shapeless && (kind == 0 || kind == 1 && slot < 3)) {
+                int count = kind == 0 ? 2 : 3;
+                for (int i = 0; i < count; i++) {
+                    if (!recipe.inputs[i].isEmpty() && stack.is(recipe.inputs[i].getItem())) return true;
+                    if (output && !recipe.outputs[i].isEmpty() && stack.is(recipe.outputs[i].getItem())) return true;
+                }
+            }
             if (!recipe.inputs[slot].isEmpty() && stack.is(recipe.inputs[slot].getItem())) return true;
             if (output && slot < 3 && !recipe.outputs[slot].isEmpty() && stack.is(recipe.outputs[slot].getItem())) return true;
         }

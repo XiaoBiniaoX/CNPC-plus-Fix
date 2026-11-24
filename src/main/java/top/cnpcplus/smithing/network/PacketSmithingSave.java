@@ -17,7 +17,7 @@ import top.cnpcplus.smithing.SmithingRecipeRegistry;
  * 物品槽位以服务端容器（当前打开的 ContainerSmithingRecipes）为准，客户端 NBT 只带 id/name。
  * 保存后立即注入 RecipeManager 并广播 = 热添加（原版锻造台下一次操作即可用）。
  */
-public record PacketSmithingSave(int id, String name, boolean nameOnly, net.minecraft.nbt.CompoundTag availability) implements CustomPacketPayload {
+public record PacketSmithingSave(int id, String name, boolean nameOnly, boolean shapeless, net.minecraft.nbt.CompoundTag availability) implements CustomPacketPayload {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("cnpcplus");
 
     public static final Type<PacketSmithingSave> TYPE = new Type<>(
@@ -27,8 +27,9 @@ public record PacketSmithingSave(int id, String name, boolean nameOnly, net.mine
                 buf.writeVarInt(packet.id);
                 buf.writeUtf(packet.name == null ? "" : packet.name, 64);
                 buf.writeBoolean(packet.nameOnly);
+                buf.writeBoolean(packet.shapeless);
                 buf.writeNbt(packet.availability);
-            }, buf -> new PacketSmithingSave(buf.readVarInt(), buf.readUtf(64), buf.readBoolean(), buf.readNbt()));
+            }, buf -> new PacketSmithingSave(buf.readVarInt(), buf.readUtf(64), buf.readBoolean(), buf.readBoolean(), buf.readNbt()));
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
     public static void handle(PacketSmithingSave packet, IPayloadContext context) {
@@ -42,6 +43,7 @@ public record PacketSmithingSave(int id, String name, boolean nameOnly, net.mine
             d.id = packet.id;
             d.name = packet.name == null ? "" : packet.name;
             d.nameOnly = packet.nameOnly;
+            d.shapeless = packet.shapeless;
             d.availability.load(sender.registryAccess(), packet.availability);
             // 物品槽位一律以服务端当前打开的编辑容器为准（权威）。
             // 没有打开编辑容器就直接拒绝——否则会退化成信任客户端发来的 ItemStack（可伪造任意 NBT）。
@@ -67,10 +69,8 @@ public record PacketSmithingSave(int id, String name, boolean nameOnly, net.mine
                 LOGGER.debug("[smithing] Save拒绝: Registry写入失败 id={}", d.id);
                 return;
             }
-            SmithingRecipeManager.injectAll(sender.server.getRecipeManager());
+            SmithingRecipeManager.updateRecipe(sender.server, d.id);
             SmithingRecipeManager.syncToPlayers(sender.server);
-            // 228 用户要求：一人修改，全部玩家立即可合成（原版配方表全员群发）
-            SmithingRecipeManager.resendVanillaRecipes(sender.server);
         });
     }
 }

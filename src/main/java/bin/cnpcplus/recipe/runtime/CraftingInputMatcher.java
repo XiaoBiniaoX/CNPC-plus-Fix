@@ -24,6 +24,11 @@ public final class CraftingInputMatcher {
         if (recipe.getResult() == null || recipe.getResult().isEmpty()) return MatchResult.MISS;
         var ings = recipe.getIngredients();
         if (ings == null || ings.isEmpty()) return MatchResult.MISS;
+        if (((RecipeCarpentryOffsetAccessor)recipe).cnpcplus$isShapeless()) {
+            var actual = new java.util.ArrayList<ItemStack>();
+            for (int i = 0; i < input.size(); i++) if (!input.getItem(i).isEmpty()) actual.add(input.getItem(i));
+            return RecipeMatcher.shapeless(recipe, actual) ? new MatchResult(recipe, 0, 0, false, 1) : MatchResult.MISS;
+        }
 
         int gridW = Math.max(1, input.width());
         int gridH = Math.max(1, input.height());

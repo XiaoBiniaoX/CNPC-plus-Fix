@@ -46,7 +46,6 @@ public abstract class MixinDataAdvancedArrays {
         NpcSoundArrays value = NpcSoundArrays.peek((DataAdvanced) (Object) this);
         if (value != null && type >= 0 && type < 5) {
             String first = value.slots[type].first();
-            if (first.isEmpty()) first = value.slots[type].sounds.stream().filter(s -> s != null && !s.isBlank()).findFirst().orElse("");
             cir.setReturnValue(first.isEmpty() ? null : first);
         }
     }
@@ -57,7 +56,7 @@ public abstract class MixinDataAdvancedArrays {
     }
     @Redirect(method = "playSound", at = @At(value = "INVOKE", target = "Lnoppes/npcs/entity/data/DataAdvanced;getSound(I)Ljava/lang/String;"))
     private String cnpcplus$chooseSound(DataAdvanced advanced, int type) {
-        if (type < 0 || type >= 5) return null;
+        if (type < 0 || type >= 5) return advanced.getSound(type);
         String sound = NpcSoundArrays.get(advanced).slots[type].choose();
         return sound.isEmpty() ? null : sound;
     }

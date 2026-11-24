@@ -34,6 +34,7 @@ public class CnpcPlus {
         modContainer.registerConfig(ModConfig.Type.COMMON, CnpcPlusConfig.SPEC);
         modContainer.registerConfig(ModConfig.Type.COMMON, top.cnpcplus.config.NpcAiOptimizerConfig.SPEC, "cnpcplus-ai.toml");
         CraftingViewNetwork.register(modEventBus);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, top.cnpcplus.ai.PursuitLimit::filterTarget);
         modEventBus.addListener(SmeltingMenus::register);
         modEventBus.addListener(AnvilMenus::register);
         modEventBus.addListener(SmithingMenus::register);

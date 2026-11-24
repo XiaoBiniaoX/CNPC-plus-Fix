@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import top.cnpcplus.script.tools.ScriptApiRegistry;
 
 /** Conservative lexical lint, not a JavaScript validator. Never evaluates scripts or events. */
 public final class ScriptStaticCheck {
@@ -61,6 +62,16 @@ public final class ScriptStaticCheck {
             if (!token.identifier() || token.binding || KEYWORDS.contains(token.text)) continue;
             String before = at(tokens, i - 1), after = at(tokens, i + 1);
             if (before.equals(".") || before.equals("?.")) continue;
+            if (ScriptApiRegistry.roots().containsKey(token.text) && after.equals(".")) {
+                StringBuilder path = new StringBuilder(token.text);
+                int end = i + 1;
+                while (at(tokens, end).equals(".") && end + 1 < tokens.size() && tokens.get(end + 1).identifier()) {
+                    path.append('.').append(tokens.get(end + 1).text);
+                    end += 2;
+                }
+                if (at(tokens, end).equals("(") && ScriptApiRegistry.isClientOnly(path.toString()))
+                    return hint(script, token, "client_only");
+            }
             if (after.equals(":") && (before.equals("{") || before.equals(",") || before.equals(";") || i == 0)) continue;
             if (before.equals("break") || before.equals("continue")) continue;
             if (!bindings.declared(token.text, i)) return hint(script, token, "undeclared");
@@ -101,6 +112,7 @@ public final class ScriptStaticCheck {
             this.tokens = tokens;
             global = new Scope(0, tokens.size()); global.function = true;
             global.names.addAll(GLOBALS); global.names.addAll(globals); scopes.add(global);
+            global.names.addAll(ScriptApiRegistry.roots().keySet());
             for (int i = 0; i < tokens.size(); i++)
                 if (at(tokens, i).equals("{")) scopes.add(new Scope(i, tokens.get(i).pair));
         }

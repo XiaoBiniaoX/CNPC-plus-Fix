@@ -4,9 +4,8 @@
   "uniforms":[
     {"name":"ProjMat","type":"matrix4x4","count":16,"values":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
     {"name":"InverseWorldViewProjection","type":"matrix4x4","count":16,"values":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},
-    {"name":"CameraPosition","type":"float","count":3,"values":[0,0,0]},
     {"name":"OutSize","type":"float","count":2,"values":[1,1]},
-    {"name":"WorldPosition","type":"float","count":3,"values":[0,64,0]},
+    {"name":"CameraRelativeWorldPosition","type":"float","count":3,"values":[0,0,0]},
     {"name":"PlaneNormal","type":"float","count":3,"values":[0,1,0]},
     {"name":"Color","type":"float","count":3,"values":[1,0.08,0.12]},
     {"name":"Radius","type":"float","count":1,"values":[3.6]},

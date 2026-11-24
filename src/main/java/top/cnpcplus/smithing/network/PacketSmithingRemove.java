@@ -33,10 +33,8 @@ public record PacketSmithingRemove(int id) implements CustomPacketPayload {
                 LOGGER.debug("[smithing] Remove终止: Registry无此id={}", packet.id);
                 return;
             }
-            SmithingRecipeManager.injectAll(sender.server.getRecipeManager());
+            SmithingRecipeManager.updateRecipe(sender.server, packet.id);
             SmithingRecipeManager.syncToPlayers(sender.server);
-            // 228 用户要求：一人删除，全部玩家立即失效（原版配方表全员群发）
-            SmithingRecipeManager.resendVanillaRecipes(sender.server);
         });
     }
 }

@@ -3,8 +3,7 @@
 uniform sampler2D DiffuseSampler;
 uniform sampler2D DepthSampler;
 uniform mat4 InverseWorldViewProjection;
-uniform vec3 CameraPosition;
-uniform vec3 WorldPosition;
+uniform vec3 CameraRelativeWorldPosition;
 uniform vec3 PlaneNormal;
 uniform vec3 Color;
 uniform float Radius;
@@ -72,7 +71,7 @@ void main() {
     float sceneDistance = length(unproject(texCoord, texture(DepthSampler, texCoord).r));
     // Thick segmented hardware around each seal, visible edge-on and from below.
     if(Shape>0) {
-        vec3 origin=CameraPosition-WorldPosition;
+        vec3 origin=-CameraRelativeWorldPosition;
         vec3 ro=vec3(dot(origin,axis),dot(origin,normal),dot(origin,cross(normal,axis)))/Radius;
         vec3 rd=vec3(dot(ray,axis),dot(ray,normal),dot(ray,cross(normal,axis)));
         float b=dot(ro,rd),h=b*b-dot(ro,ro)+1.18*1.18;
@@ -98,9 +97,9 @@ void main() {
     }
     float denominator = dot(ray, normal);
     if (abs(denominator) < 0.0001) return;
-    float t = dot(WorldPosition - CameraPosition, normal) / denominator;
+    float t = dot(CameraRelativeWorldPosition, normal) / denominator;
     if (t <= 0.0 || t > sceneDistance) return;
-    vec3 hit = ray * t - (WorldPosition - CameraPosition);
+    vec3 hit = ray * t - CameraRelativeWorldPosition;
     vec2 p = vec2(dot(hit, axis), dot(hit, cross(normal, axis))) / Radius;
     p = turn(p, Rotation + Time * RotationSpeed);
     float r = length(p);

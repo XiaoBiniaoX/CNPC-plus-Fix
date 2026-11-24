@@ -5,6 +5,9 @@ import top.cnpcplus.wand.network.WandNpcPacket;
 
 public final class WandPreviewReceiver {
     private WandPreviewReceiver() {}
+    public static void freezeState(boolean global, boolean allowed, int[] ids) {
+        if (Minecraft.getInstance().screen instanceof GuiWandNpcList screen) screen.acceptFreezeState(global, allowed, ids);
+    }
     public static void accept(WandNpcPacket.Snapshot packet) {
         if (Minecraft.getInstance().screen instanceof GuiWandNpcList screen) {
             if (packet.copying()) screen.acceptCopy(packet.request(), packet.data());

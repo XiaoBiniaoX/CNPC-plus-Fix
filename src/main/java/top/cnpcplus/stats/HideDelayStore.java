@@ -1,5 +1,7 @@
 package top.cnpcplus.stats;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import noppes.npcs.entity.data.DataStats;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -26,5 +28,10 @@ public final class HideDelayStore {
     public static void clear(DataStats stats) {
         if (stats == null) return;
         synchronized (LOCK) { DELAYS.remove(stats); }
+    }
+
+    public static void read(DataStats stats, CompoundTag tag) {
+        put(stats, tag.contains("CNPCPlusHideDelay", Tag.TAG_ANY_NUMERIC)
+                ? tag.getInt("CNPCPlusHideDelay") : DEFAULT_DELAY);
     }
 }

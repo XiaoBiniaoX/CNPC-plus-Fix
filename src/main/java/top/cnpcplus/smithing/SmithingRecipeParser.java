@@ -30,6 +30,7 @@ public final class SmithingRecipeParser {
                 data.result.copy(),
                 data.nameOnly);
         recipe.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(data.availability);
+        recipe.shapeless = data.shapeless;
         return new RecipeHolder<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "smithing/" + data.id), recipe);
     }
 }

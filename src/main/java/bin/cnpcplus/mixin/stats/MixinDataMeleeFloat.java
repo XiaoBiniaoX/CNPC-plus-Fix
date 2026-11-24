@@ -19,60 +19,67 @@ public class MixinDataMeleeFloat implements MeleeFloatAccess {
     @Shadow
     private EntityNPCInterface npc;
 
-    @Unique
-    private float cnpcplus$attackStrength = 5.0f;
-    @Unique
-    private float cnpcplus$attackSpeed = 20.0f;
+    @Shadow private int attackStrength;
+    @Shadow private int attackSpeed;
 
-    @Inject(method = "load", at = @At("HEAD"))
+    @Unique
+    private float cnpcplus$attackStrength = -1.0f;
+    @Unique
+    private float cnpcplus$attackSpeed = -1.0f;
+
+    @Inject(method = "load", at = @At("RETURN"), require = 1)
     private void cnpcplus$loadMeleeFloat(CompoundTag compound, CallbackInfo ci) {
         if (compound.contains("CNPCPlusAttackStrength", 99)) {
-            this.cnpcplus$attackStrength = compound.getFloat("CNPCPlusAttackStrength");
+            cnpcplus$setStrength(compound.getFloat("CNPCPlusAttackStrength"));
         } else {
-            this.cnpcplus$attackStrength = compound.getInt("AttackStrenght");
+            this.cnpcplus$attackStrength = -1.0f;
         }
         if (compound.contains("CNPCPlusAttackSpeed", 99)) {
-            this.cnpcplus$attackSpeed = compound.getFloat("CNPCPlusAttackSpeed");
+            cnpcplus$setDelay(compound.getFloat("CNPCPlusAttackSpeed"));
         } else {
-            this.cnpcplus$attackSpeed = compound.getInt("AttackSpeed");
+            this.cnpcplus$attackSpeed = -1.0f;
         }
     }
 
-    @Inject(method = "setStrength", at = @At("RETURN"))
+    @Inject(method = "setStrength", at = @At("RETURN"), require = 1)
     private void cnpcplus$syncIntMeleeFloat(int strength, CallbackInfo ci) {
-        // 脚本API调用 setStrength(int) 时同步影子值和 attribute，避免残留旧浮点值
-        this.cnpcplus$attackStrength = strength;
-        this.npc.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(strength);
+        this.cnpcplus$attackStrength = Math.max(0, strength);
     }
 
-    @Inject(method = "save", at = @At("HEAD"))
+    @Inject(method = "setDelay", at = @At("RETURN"), require = 1)
+    private void cnpcplus$syncIntDelay(int speed, CallbackInfo ci) {
+        this.cnpcplus$attackSpeed = Math.max(1, speed);
+    }
+
+    @Inject(method = "save", at = @At("RETURN"), require = 1)
     private void cnpcplus$saveMeleeFloat(CompoundTag compound, CallbackInfoReturnable<CompoundTag> cir) {
-        compound.putFloat("CNPCPlusAttackStrength", this.cnpcplus$attackStrength);
-        compound.putFloat("CNPCPlusAttackSpeed", this.cnpcplus$attackSpeed);
+        compound = cir.getReturnValue();
+        if (this.cnpcplus$attackStrength >= 0.0f) compound.putFloat("CNPCPlusAttackStrength", this.cnpcplus$attackStrength);
+        if (this.cnpcplus$attackSpeed >= 0.0f) compound.putFloat("CNPCPlusAttackSpeed", this.cnpcplus$attackSpeed);
     }
 
     @Override
     public float cnpcplus$getStrength() {
-        return this.cnpcplus$attackStrength;
+        return this.cnpcplus$attackStrength < 0.0f ? attackStrength : this.cnpcplus$attackStrength;
     }
 
     @Override
     public void cnpcplus$setStrength(float strength) {
-        if (strength < 0.0f) strength = 0.0f;
-        ((DataMelee)(Object)this).setStrength(Math.round(strength));
+        if (!Float.isFinite(strength) || strength < 0.0f) strength = 0.0f;
         this.cnpcplus$attackStrength = strength;
+        attackStrength = Math.round(strength);
         this.npc.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(strength);
     }
 
     @Override
     public float cnpcplus$getDelay() {
-        return this.cnpcplus$attackSpeed;
+        return this.cnpcplus$attackSpeed < 0.0f ? attackSpeed : this.cnpcplus$attackSpeed;
     }
 
     @Override
     public void cnpcplus$setDelay(float speed) {
-        if (speed < 0.01f) speed = 1.0f;
-        ((DataMelee)(Object)this).setDelay(Math.round(speed));
+        if (!Float.isFinite(speed) || speed <= 0.0f) speed = 1.0f;
         this.cnpcplus$attackSpeed = speed;
+        attackSpeed = Math.max(1, Math.round(speed));
     }
 }

@@ -26,6 +26,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import top.cnpcplus.transport.TransportKeys;
+import top.cnpcplus.transport.TransportFare;
+import top.cnpcplus.transport.client.TransportFareConfirmation;
+import top.cnpcplus.transport.network.PacketTransportTravel;
+import net.minecraft.network.chat.Component;
+import net.neoforged.neoforge.network.PacketDistributor;
 import top.cnpcplus.transport.TransportOrder;
 import top.cnpcplus.transport.client.GuiTransportRowButton;
 import top.cnpcplus.transport.client.ITransportPanelUI;
@@ -64,6 +69,11 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
     @Unique private boolean cnpcplus$dragging;
     @Unique private int cnpcplus$dragStartMouseY;
     @Unique private int cnpcplus$dragStartOffset;
+    @Unique private CompoundTag cnpcplus$fare = new CompoundTag();
+    @Unique private List<net.minecraft.world.item.ItemStack> cnpcplus$costs = List.of();
+    @Unique private boolean cnpcplus$fareReady;
+    @Unique private boolean cnpcplus$paid;
+    @Unique private boolean cnpcplus$canTravel;
 
     @Unique
     private void cnpcplus$layout() {
@@ -140,7 +150,17 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         }
 
         this.cnpcplus$applyFilter();
-        TransportClientCache.setMetaListener(this::cnpcplus$applyFilter);
+        TransportClientCache.setMetaListener(() -> {
+            var data = TransportClientCache.playerRoot();
+            if (self.npc != null && data != null && data.contains("NpcId") && data.getInt("NpcId") == self.npc.getId()) {
+                this.cnpcplus$fareReady = true;
+                this.cnpcplus$fare = data.getCompound("CurrentMeta").getCompound(TransportFare.KEY);
+                this.cnpcplus$paid = this.cnpcplus$fare.getBoolean("Enabled");
+                this.cnpcplus$costs = this.cnpcplus$paid
+                        ? TransportFare.items(this.cnpcplus$fare, Minecraft.getInstance().level.registryAccess()) : List.of();
+            }
+            this.cnpcplus$applyFilter();
+        });
         if (self.npc != null) TransportClientCache.requestMeta(self.npc.getId());
     }
 
@@ -243,15 +263,28 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
 
         pose.popPose();
 
+        this.cnpcplus$canTravel = self.npc == null || this.cnpcplus$fareReady
+                && (!this.cnpcplus$paid || TransportFare.pay(Minecraft.getInstance().player.getInventory(), this.cnpcplus$costs, false));
+        boolean hoverBlockedRow = false;
         for (int i = 0; i < TransportLayout.ROW_VISIBLE; i++) {
             GuiButtonNop btn = self.getButton(TransportLayout.BTN_ROW_ID_BASE + i);
-            if (btn != null && btn.visible && btn.shown) {
-                btn.render(graphics, mouseX, mouseY, partialTick);
+            if (btn instanceof GuiTransportRowButton row && row.visible && row.shown) {
+                row.active = this.cnpcplus$canTravel;
+                row.render(graphics, mouseX, mouseY, partialTick);
+                hoverBlockedRow |= this.cnpcplus$paid && !row.active && row.contains(mouseX, mouseY);
             }
         }
         GuiTextFieldNop tf = self.getTextField(TransportLayout.BTN_SEARCH_ID);
         if (tf != null) {
             tf.render(graphics, mouseX, mouseY, partialTick);
+        }
+        if (this.cnpcplus$paid && !this.cnpcplus$canTravel) {
+            var requirements = TransportFare.requirements(Minecraft.getInstance().player.getInventory(), this.cnpcplus$costs);
+            boolean hoverItem = TransportFareConfirmation.drawCosts(graphics, this.font, requirements, false, this.width,
+                    this.cnpcplus$sx(TransportLayout.INTRO_X + TransportLayout.INTRO_W / 2),
+                    Math.min(this.height - 88, this.cnpcplus$sy(TransportLayout.INTRO_Y)), mouseX, mouseY);
+            if (hoverBlockedRow && !hoverItem) graphics.renderTooltip(this.font,
+                    Component.translatable("cnpcplus.transporter.fare.missing"), mouseX, mouseY);
         }
     }
 
@@ -481,7 +514,7 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
             return;
         }
         ci.cancel();
-        if (!(button instanceof GuiTransportRowButton row)) return;
+        if (!(button instanceof GuiTransportRowButton row) || !this.cnpcplus$canTravel) return;
         String name = row.entryName;
         if (name == null || name.isEmpty()) return;
 
@@ -489,8 +522,19 @@ public abstract class MixinGuiTransportSelection extends GuiNPCInterface
         if (name.equals(this.cnpcplus$selected)
                 && now - this.cnpcplus$lastClickMs <= TransportLayout.CLICK_MS
                 && name.equals(this.cnpcplus$lastClick)) {
-            Packets.sendServer(new SPacketPlayerTransport(name));
-            ((GuiTransportSelection) (Object) this).close();
+            var self = (GuiTransportSelection) (Object) this;
+            if (!this.cnpcplus$paid) {
+                Packets.sendServer(new SPacketPlayerTransport(name));
+                self.close();
+                return;
+            }
+            CompoundTag target = TransportClientCache.meta(name);
+            if (target == null) return;
+            var packet = new PacketTransportTravel(self.npc.getId(), target.getInt("Id"), this.cnpcplus$fare.copy());
+            Minecraft.getInstance().setScreen(new TransportFareConfirmation(self, name, this.cnpcplus$costs, () -> {
+                PacketDistributor.sendToServer(packet);
+                self.close();
+            }));
             return;
         }
         this.cnpcplus$selected = name;

@@ -17,10 +17,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(RecipeCarpentry.class)
 public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor {
+    public net.minecraft.world.item.crafting.RecipeSerializer<?> getSerializer() {
+        return top.cnpcplus.smithing.SmithingSerializers.CARPENTRY.get();
+    }
 
     @Unique private int cnpcplusOffsetX;
     @Unique private int cnpcplusOffsetY;
     @Unique private boolean cnpcplusHasOffset;
+    @Unique private boolean cnpcplus$shapeless;
+    @Override public boolean cnpcplus$isShapeless() { return cnpcplus$shapeless; }
+    @Override public void cnpcplus$setShapeless(boolean value) { cnpcplus$shapeless = value; }
 
     @Override
     public int cnpcplusGetOffsetX() { return cnpcplusOffsetX; }
@@ -42,6 +48,7 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
     private static void cnpcplusReadOffset(CompoundTag compound, HolderLookup.Provider provider, CallbackInfoReturnable<RecipeCarpentry> cir) {
         RecipeCarpentry recipe = cir.getReturnValue();
         if (recipe == null || compound == null) return;
+        ((RecipeCarpentryOffsetAccessor)recipe).cnpcplus$setShapeless(compound.getBoolean("CNPCPlusShapeless"));
         if (!compound.contains("cnpcplus_offsetX") && !compound.contains("cnpcplus_offsetY")) return;
         ((RecipeCarpentryOffsetAccessor) recipe).cnpcplusSetOffset(
                 compound.getInt("cnpcplus_offsetX"),
@@ -52,9 +59,10 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
 
     @Inject(method = "writeNBT", at = @At("RETURN"), remap = false)
     private void cnpcplusWriteOffset(HolderLookup.Provider provider, CallbackInfoReturnable<CompoundTag> cir) {
-        if (!this.cnpcplusHasOffset) return;
         CompoundTag tag = cir.getReturnValue();
         if (tag == null) return;
+        tag.putBoolean("CNPCPlusShapeless", cnpcplus$shapeless);
+        if (!this.cnpcplusHasOffset) return;
         tag.putInt("cnpcplus_offsetX", this.cnpcplusOffsetX);
         tag.putInt("cnpcplus_offsetY", this.cnpcplusOffsetY);
     }
@@ -62,6 +70,7 @@ public class MixinRecipeCarpentryOffset implements RecipeCarpentryOffsetAccessor
     @Inject(method = "copy", at = @At("RETURN"), remap = false)
     private void cnpcplusCopyOffset(RecipeCarpentry from, CallbackInfo ci) {
         RecipeCarpentryOffsetAccessor src = (RecipeCarpentryOffsetAccessor) from;
+        cnpcplus$shapeless = src.cnpcplus$isShapeless();
         this.cnpcplusSetOffset(src.cnpcplusGetOffsetX(), src.cnpcplusGetOffsetY(), src.cnpcplusHasSavedOffset());
         // also preserve name - official copy() skips name
         RecipeCarpentry self = (RecipeCarpentry) (Object) this;

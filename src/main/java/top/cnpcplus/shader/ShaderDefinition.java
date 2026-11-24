@@ -3,6 +3,7 @@ package top.cnpcplus.shader;
 import com.google.gson.*;
 import java.util.*;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 
 /** CPU-only definition: safe to inspect and validate on a dedicated server. */
 public final class ShaderDefinition {
@@ -13,6 +14,7 @@ public final class ShaderDefinition {
     public final Map<String, Parameter> uniforms = new LinkedHashMap<>();
     public final Map<String, String> samplers = new LinkedHashMap<>();
     public final JsonObject json;
+    final Vec3 defaultWorldPosition;
     public ShaderDefinition(String id, JsonObject json) {
         this.id = resource(id);
         this.json = json.deepCopy();
@@ -26,6 +28,7 @@ public final class ShaderDefinition {
         duration = json.has("defaultDuration") ? json.get("defaultDuration").getAsInt() : 200;
         priority = json.has("priority") ? json.get("priority").getAsInt() : 0;
         if (duration != -1 && (duration < 1 || duration > 1000000) || Math.abs((long)priority) > 1000000) throw new IllegalArgumentException("Invalid duration/priority");
+        Vec3 worldPosition = null;
         if (json.has("uniforms")) for (JsonElement element : json.getAsJsonArray("uniforms")) {
             JsonObject value = element.getAsJsonObject();
             String name = value.get("name").getAsString(), kind = value.get("type").getAsString();
@@ -35,6 +38,10 @@ public final class ShaderDefinition {
             if (defaults.isJsonArray()) {
                 if (defaults.getAsJsonArray().size() != length) throw new IllegalArgumentException("Wrong default length: " + name);
                 for (int i = 0; i < length; i++) data[i] = defaults.getAsJsonArray().get(i).getAsFloat();
+                if (name.equals("WorldPosition") && kind.equals("vec3")) {
+                    JsonArray xyz = defaults.getAsJsonArray();
+                    worldPosition = new Vec3(xyz.get(0).getAsDouble(), xyz.get(1).getAsDouble(), xyz.get(2).getAsDouble());
+                }
             } else {
                 if (length != 1) throw new IllegalArgumentException("Vector default required: " + name);
                 data[0] = kind.equals("bool") ? (defaults.getAsBoolean() ? 1 : 0) : defaults.getAsFloat();
@@ -45,6 +52,7 @@ public final class ShaderDefinition {
             uniforms.put(name, new Parameter(kind, data, min, max));
             validate(name, data);
         }
+        defaultWorldPosition = worldPosition;
         if (uniforms.size() > 64) throw new IllegalArgumentException("At most 64 uniforms");
         if (json.has("samplers")) for (JsonElement element : json.getAsJsonArray("samplers")) {
             JsonObject value = element.getAsJsonObject();

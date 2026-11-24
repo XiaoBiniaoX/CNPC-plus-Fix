@@ -107,7 +107,7 @@ final class ShaderSkill {
             if (age%30 == 0 && age <= 120) layer(age/30);
             if (age != 180) return;
             effects.add(controller.playBuiltin("cnpcplus:post/arcane_beam", Map.of("replace", false, "duration", 16, "fadeIn", 0, "fadeOut", 4, "priority", 90,
-                    "uniforms", Map.of("WorldPosition", new float[]{(float)origin.x,(float)origin.y,(float)origin.z}, "Radius", 2.5f, "Height", 27, "Downward", 1, "Intensity", 1.3f))));
+                    "uniforms", Map.of("WorldPosition", new double[]{origin.x,origin.y,origin.z}, "Radius", 2.5f, "Height", 27, "Downward", 1, "Intensity", 1.3f))));
             for (Entity entity : caster.level().getEntities((Entity)null, new AABB(origin.x-3,origin.y-2,origin.z-3,origin.x+3,origin.y+27,origin.z+3))) {
                 if (canHurt(entity) && Math.abs(entity.getX()-origin.x) <= 2.5 && Math.abs(entity.getZ()-origin.z) <= 2.5 && entity.getY() >= origin.y && entity.getY() <= origin.y+24)
                     NpcAPI.Instance().getIEntity(entity).damage(damage, NpcAPI.Instance().getIEntity(caster));
@@ -118,7 +118,7 @@ final class ShaderSkill {
         String[] ids = {"hexagram", "strange_pattern", "super_strike", "hexagram", "strange_pattern"};
         float[] heights = {24,24.65f,25.3f,26.1f,27}, radii = {3.6f,3.2f,2.8f,2.4f,2}, speeds = {.35f,-.7f,1.1f,-1.4f,.2f};
         ShaderInstance effect = controller.playBuiltin("cnpcplus:post/"+ids[index], Map.of("replace", false, "duration", 210-age, "fadeIn", 15, "fadeOut", 8, "priority", 60+index,
-                "uniforms", Map.of("WorldPosition", new float[]{(float)origin.x,(float)origin.y+heights[index],(float)origin.z}, "PlaneNormal", new float[]{0,1,0},
+                "uniforms", Map.of("WorldPosition", new double[]{origin.x,origin.y+heights[index],origin.z}, "PlaneNormal", new float[]{0,1,0},
                         "Radius", radii[index], "Color", new float[]{.4f,.72f,1}, "RotationSpeed", speeds[index])));
         effects.add(effect);
         effect.animateUniform("Radius", .1f, radii[index], 25, "easeOut");

@@ -21,6 +21,7 @@ import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -51,6 +52,8 @@ public class MixinGuiNpcManageRecipesSaveButton {
     @Shadow(remap = false)
     private ContainerManageRecipes container;
 
+    @Unique private int cnpcplus$pendingRecipe;
+
     @Inject(method = "init", at = @At("RETURN"), remap = false)
     private void cnpcplusAddSaveButton(CallbackInfo ci) {
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
@@ -59,7 +62,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
         }
         // 9 = 对话/任务条件
         if (self.getButton(9) == null) {
-            self.addButton(new GuiButtonNop((IGuiInterface) self, 9, self.guiLeft + 306, self.guiTop + 170, 84, 20, I18n.get("cnpcplus.recipes.condition")));
+            self.addButton(new GuiButtonNop((IGuiInterface) self, 9, self.guiLeft + 306, self.guiTop + 128, 84, 20, "availability.options"));
         }
         cnpcplusRefresh(self);
     }
@@ -70,6 +73,12 @@ public class MixinGuiNpcManageRecipesSaveButton {
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
 
         // Save
+        if (button.id == 10) {
+            if (cnpcplus$pendingRecipe == 0) ((bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor)container.recipe).cnpcplus$setShapeless(button.getValue() == 1);
+            ci.cancel();
+            return;
+        }
+
         if (button.id == 2) {
             try {
                 cnpcplusSaveCurrent(self, true);
@@ -84,6 +93,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
         if (button.id == 9) {
             try {
                 if (this.container != null && this.container.recipe != null) {
+                    GuiTextFieldNop.unfocus();
                     RecipeCarpentry cr = this.container.recipe;
                     self.setSubGui(new SubGuiNpcAvailability(cr.availability));
                 }
@@ -106,6 +116,11 @@ public class MixinGuiNpcManageRecipesSaveButton {
                 CnpcPlus.LOGGER.error("[GUI] add button failed", t);
             }
             ci.cancel();
+        }
+        if (button.id == 4 && this.data.containsKey(this.scroll.getSelected())) {
+            this.selected = null;
+            cnpcplus$pendingRecipe = 0;
+            cnpcplusRefresh(self);
         }
     }
 
@@ -141,6 +156,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
         RecipeCarpentry recipe = new RecipeCarpentry(name);
         recipe.isGlobal = this.container != null && this.container.width == 3;
         this.selected = name;
+        cnpcplus$pendingRecipe = -1;
         this.data.put(name, -1);
         if (this.scroll != null) {
             try {
@@ -157,7 +173,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
     }
 
     private void cnpcplusSaveCurrent(GuiNpcManageRecipes self, boolean forceUnfocus) {
-        if (this.container == null) return;
+        if (this.container == null || cnpcplus$pendingRecipe != 0 || cnpcplusCurrentSyncId() <= 0) return;
         if (forceUnfocus && self.getTextField(0) != null) {
             try {
                 self.getTextField(0).unFocused();
@@ -267,7 +283,7 @@ public class MixinGuiNpcManageRecipesSaveButton {
     /** Fix official unFocused: capture syncId BEFORE remove(oldName). */
     @Inject(method = "unFocused", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplusUnFocused(GuiTextFieldNop field, CallbackInfo ci) {
-        if (this.container == null || this.container.recipe == null || field == null) {
+        if (cnpcplus$pendingRecipe != 0 || this.container == null || this.container.recipe == null || field == null) {
             ci.cancel();
             return;
         }
@@ -324,13 +340,12 @@ public class MixinGuiNpcManageRecipesSaveButton {
     @Inject(method = "scrollClicked", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplusScrollClicked(double i, double j, int k, GuiCustomScrollNop scroll, CallbackInfo ci) {
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
-        this.selected = scroll.getSelected();
-        if (this.selected != null && this.data != null && this.data.get(this.selected) instanceof Integer) {
-            int id = (Integer) this.data.get(this.selected);
-            if (id > 0) {
-                Packets.sendServer(new SPacketRecipeGet(id));
-            }
-        }
+        String next = scroll.getSelected();
+        if (!(this.data.get(next) instanceof Integer id) || id <= 0 || id == cnpcplus$pendingRecipe
+                || (cnpcplus$pendingRecipe == 0 && next.equals(this.selected))) { ci.cancel(); return; }
+        cnpcplusSaveCurrent(self, true);
+        cnpcplus$pendingRecipe = id;
+        Packets.sendServer(new SPacketRecipeGet(id));
         cnpcplusRefresh(self);
         ci.cancel();
     }
@@ -378,8 +393,16 @@ public class MixinGuiNpcManageRecipesSaveButton {
         cnpcplusRefresh(self);
     }
 
+    @Inject(method = "setGuiData", at = @At("HEAD"), cancellable = true, remap = false)
+    private void cnpcplus$ignorePreviousRecipe(CompoundTag compound, CallbackInfo ci) {
+        int expected = cnpcplus$pendingRecipe > 0 ? cnpcplus$pendingRecipe : cnpcplusCurrentSyncId();
+        if (cnpcplus$pendingRecipe == -1 ? !compound.getString("Name").equals(this.selected)
+                : this.selected == null && cnpcplus$pendingRecipe == 0 || expected <= 0 || compound.getInt(RecipeNbtKeys.SYNC_ID) != expected) ci.cancel();
+    }
+
     @Inject(method = "setGuiData", at = @At("RETURN"), remap = false)
     private void cnpcplusOnSetGuiData(CompoundTag compound, CallbackInfo ci) {
+        cnpcplus$pendingRecipe = 0;
         GuiNpcManageRecipes self = (GuiNpcManageRecipes) (Object) this;
         if (compound != null && compound.contains("Name")) {
             String name = compound.getString("Name");
@@ -399,8 +422,12 @@ public class MixinGuiNpcManageRecipesSaveButton {
     }
 
     private void cnpcplusRefresh(GuiNpcManageRecipes self) {
+        if (container != null && container.recipe != null) self.addButton(new GuiButtonNop(self, 10,
+                self.guiLeft + 306, self.guiTop + 150, 84, 20,
+                new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"},
+                ((bin.cnpcplus.recipe.RecipeCarpentryOffsetAccessor)container.recipe).cnpcplus$isShapeless() ? 1 : 0));
         try {
-            boolean hasSel = this.selected != null && !this.selected.isEmpty();
+            boolean hasSel = cnpcplus$pendingRecipe == 0 && this.selected != null && !this.selected.isEmpty();
             int syncId = cnpcplusCurrentSyncId();
             GuiButtonNop save = self.getButton(2);
             if (save != null) {
@@ -408,13 +435,18 @@ public class MixinGuiNpcManageRecipesSaveButton {
             }
             GuiButtonNop add = self.getButton(3);
             if (add != null) {
-                add.setEnabled(true);
+                add.setEnabled(cnpcplus$pendingRecipe == 0);
             }
             boolean canPersist = hasSel && syncId > 0;
             GuiButtonNop condition = self.getButton(9);
             if (condition != null) {
                 condition.setEnabled(canPersist);
             }
+            self.getButton(10).setEnabled(canPersist);
+            self.getButton(10).setTooltip(net.minecraft.client.gui.components.Tooltip.create(net.minecraft.network.chat.Component.translatable("cnpcplus.shapeless.tooltip")));
+            self.getTextField(0).enabled = canPersist;
+            self.getButton(5).setEnabled(canPersist);
+            self.getButton(6).setEnabled(canPersist);
         } catch (Throwable ignored) {
         }
     }

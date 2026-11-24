@@ -72,6 +72,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     /** 230 仅名字检查（铁砧同款）：保存时随配方落盘。 */
     private boolean nameOnly = false;
+    private boolean shapeless;
     private noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     /** 敲打一次消耗经验（-32767..32767，负数=给锻造者；新配方默认1），来自经验输入框/选中配方。 */
@@ -130,6 +131,8 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_REMOVE, bx, by + bs, 84, 20, "gui.remove"));
         this.addButton(new GuiButtonNop((IGuiInterface) this, BTN_SAVE, bx, by + bs * 2, 84, 20, "gui.save"));
         this.addButton(new GuiButtonNop(this, 90, bx, by + bs * 3, 84, 20, "availability.options"));
+        this.addButton(new GuiButtonNop(this, 91, bx, by + bs * 4, 84, 20,
+                new String[]{"cnpcplus.shapeless.off", "cnpcplus.shapeless.on"}, shapeless ? 1 : 0));
 
         // 经验输入框 + 仅名字检查开关：与槽位同生命周期（选中配方或草稿态都显示）
         if (this.draft || this.selectedId >= 0) {
@@ -227,6 +230,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
     }
 
     private void loadRecipe(int index) {
+        shapeless = index >= 0 && index < recipes.size() && recipes.get(index).shapeless;
         if (index < 0 || index >= this.recipes.size()) {
             this.selectedId = -1;
             this.draft = false;
@@ -252,6 +256,8 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
 
     @Override
     public void buttonEvent(GuiButtonNop button) {
+        if (button.id == 91) { shapeless = button.getValue() == 1; return; }
+        if (button.id == BTN_NEW || button.id == BTN_REMOVE) shapeless = false;
         if (getTextField(30) != null) selectedName = getTextField(30).getValue();
         if (getTextField(FIELD_EXP) != null && getTextField(FIELD_EXP).isFloat()) expCost = (int)getTextField(FIELD_EXP).getFloat();
         if (button.id == 90) { GuiTextFieldNop.unfocus(); this.setSubGui(new noppes.npcs.client.gui.SubGuiNpcAvailability(availability)); return; }
@@ -327,7 +333,7 @@ public class GuiNpcAnvilRecipes extends GuiContainerNPCInterface2<ContainerAnvil
         // 客户端发过去的会被直接丢弃（C→S 32767 上限，潜影盒大 NBT 会撞线）。
         this.selectedName = d.name;
         this.pendingSave = true;
-        PacketDistributor.sendToServer(new PacketAnvilSave(d.id, d.name, d.expCost, d.nameOnly, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
+        PacketDistributor.sendToServer(new PacketAnvilSave(d.id, d.name, d.expCost, d.nameOnly, shapeless, availability.save(minecraft.level.registryAccess(), new net.minecraft.nbt.CompoundTag())));
     }
 
     @Override

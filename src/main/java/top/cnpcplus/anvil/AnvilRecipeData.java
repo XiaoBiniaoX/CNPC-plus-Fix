@@ -26,6 +26,7 @@ public class AnvilRecipeData {
     public int expCost = 1;
     /** 仅名字检查（只校验物品id+物品名字，附魔/耐久/其余NBT不参与，=CNPC NoppesUtilPlayer 同链）。 */
     public boolean nameOnly = false;
+    public boolean shapeless;
 
     public CompoundTag save(HolderLookup.Provider registries) {
         CompoundTag t = new CompoundTag();
@@ -33,6 +34,7 @@ public class AnvilRecipeData {
         t.putString("Name", this.name == null ? "" : this.name);
         t.putInt("ExpCost", this.expCost);
         t.putBoolean("NameOnly", this.nameOnly);
+        t.putBoolean("CNPCPlusShapeless", shapeless);
         t.put("Availability", availability.save(registries, new CompoundTag()));
         t.put("InputA", this.inputA.saveOptional(registries));
         t.put("InputB", this.inputB.saveOptional(registries));
@@ -50,6 +52,7 @@ public class AnvilRecipeData {
         if (d.expCost < -32767) d.expCost = -32767;
         if (d.expCost > 32767) d.expCost = 32767;
         d.nameOnly = t.getBoolean("NameOnly");
+        d.shapeless = t.getBoolean("CNPCPlusShapeless");
         if (t.contains("Availability")) d.availability.load(registries, t.getCompound("Availability"));
         d.inputA = boundedStack(ItemStack.parse(registries, t.getCompound("InputA")).orElse(ItemStack.EMPTY));
         d.inputB = boundedStack(ItemStack.parse(registries, t.getCompound("InputB")).orElse(ItemStack.EMPTY));
@@ -66,6 +69,7 @@ public class AnvilRecipeData {
         copy.result = this.result.copy();
         copy.expCost = this.expCost;
         copy.nameOnly = this.nameOnly;
+        copy.shapeless = shapeless;
         copy.availability = top.cnpcplus.craftingview.RecipeAvailability.copy(availability);
         return copy;
     }

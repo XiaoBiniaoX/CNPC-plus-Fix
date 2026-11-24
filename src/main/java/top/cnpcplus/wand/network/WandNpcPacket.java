@@ -17,13 +17,14 @@ import noppes.npcs.controllers.data.PlayerData;
 import noppes.npcs.entity.EntityNPCInterface;
 
 /** Server captures an authorized, loaded NPC. No client NBT, entity creation or file path accepted. */
-public record WandNpcPacket(int entityId, long request, boolean copying) implements CustomPacketPayload {
+public record WandNpcPacket(int entityId, long request, boolean copying, boolean toggleFreeze) implements CustomPacketPayload {
     public static final Type<WandNpcPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "wand"));
     public static final StreamCodec<RegistryFriendlyByteBuf, WandNpcPacket> STREAM_CODEC = StreamCodec.of(
-            (buf, p) -> { buf.writeInt(p.entityId); buf.writeLong(p.request); buf.writeBoolean(p.copying); },
-            buf -> new WandNpcPacket(buf.readInt(), buf.readLong(), buf.readBoolean()));
+            (buf, p) -> { buf.writeInt(p.entityId); buf.writeLong(p.request); buf.writeBoolean(p.copying); buf.writeBoolean(p.toggleFreeze); },
+            buf -> new WandNpcPacket(buf.readInt(), buf.readLong(), buf.readBoolean(), buf.readBoolean()));
     @Override public Type<WandNpcPacket> type() { return TYPE; }
-    public static void send(int id, long nonce, boolean copying) { PacketDistributor.sendToServer(new WandNpcPacket(id, nonce, copying)); }
+    public static void send(int id, long nonce, boolean copying) { PacketDistributor.sendToServer(new WandNpcPacket(id, nonce, copying, false)); }
+    public static void toggleFreeze(int id, long nonce) { PacketDistributor.sendToServer(new WandNpcPacket(id, nonce, false, true)); }
     public static void handle(WandNpcPacket p, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
@@ -40,6 +41,13 @@ public record WandNpcPacket(int entityId, long request, boolean copying) impleme
                     ServerCloneController.Instance.cleanTags(captured);
                     PlayerData.get(player).cloned = captured.copy(); snapshot = captured;
                 } else {
+                    if (p.toggleFreeze) {
+                        if (CustomNpcs.FreezeNPCs || tool != CustomItems.wand
+                                || !CustomNpcsPermissions.hasPermission(player, CustomNpcsPermissions.NPC_FREEZE)) return;
+                        var control = (top.cnpcplus.ai.NpcControlAccess)npc;
+                        control.cnpcplus$setFrozen(!control.cnpcplus$isFrozen());
+                        player.serverLevel().players().forEach(WandNpcPacket::sendFreezeState);
+                    }
                     snapshot = npc.writeSpawnData().copy();
                     snapshot.putString("CNPCPlusPreviewType", net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(npc.getType()).toString());
                 }
@@ -49,6 +57,28 @@ public record WandNpcPacket(int entityId, long request, boolean copying) impleme
                     PacketDistributor.sendToPlayer(player, new Snapshot(p.entityId, p.request, p.copying, snapshot));
             }
         });
+    }
+    public static void sendFreezeState(ServerPlayer player) {
+        if (player.getMainHandItem().getItem() != CustomItems.wand
+                || !CustomNpcsPermissions.hasPermission(player, CustomNpcsPermissions.NPC_GUI)
+                || !NetworkRegistry.hasChannel(player.connection, FreezeState.TYPE.id())) return;
+        var ids = new it.unimi.dsi.fastutil.ints.IntArrayList();
+        for (var entity : player.serverLevel().getAllEntities()) {
+            if (entity instanceof EntityNPCInterface npc && !npc.isRemoved()
+                    && ((top.cnpcplus.ai.NpcControlAccess)npc).cnpcplus$isFrozen()) ids.add(npc.getId());
+        }
+        PacketDistributor.sendToPlayer(player, new FreezeState(CustomNpcs.FreezeNPCs,
+                CustomNpcsPermissions.hasPermission(player, CustomNpcsPermissions.NPC_FREEZE), ids.toIntArray()));
+    }
+    public record FreezeState(boolean global, boolean allowed, int[] ids) implements CustomPacketPayload {
+        public static final Type<FreezeState> TYPE = new Type<>(ResourceLocation.parse("cnpcplus:wand_freeze"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, FreezeState> STREAM_CODEC = StreamCodec.of(
+                (buf, p) -> { buf.writeBoolean(p.global); buf.writeBoolean(p.allowed); buf.writeVarIntArray(p.ids); },
+                buf -> new FreezeState(buf.readBoolean(), buf.readBoolean(), buf.readVarIntArray()));
+        @Override public Type<FreezeState> type() { return TYPE; }
+        public static void handle(FreezeState p, IPayloadContext context) {
+            context.enqueueWork(() -> top.cnpcplus.wand.client.WandPreviewReceiver.freezeState(p.global, p.allowed, p.ids));
+        }
     }
     public record Snapshot(int entityId, long request, boolean copying, CompoundTag data) implements CustomPacketPayload {
         public static final Type<Snapshot> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("cnpcplus", "wand_snapshot"));

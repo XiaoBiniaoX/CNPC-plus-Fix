@@ -37,6 +37,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
     /** 父类的 result 字段是 net.minecraft 包私有（跨包读不到），网络序列化用本份引用。 */
     private final ItemStack exactResult;
     private final boolean nameOnly;
+    boolean shapeless;
     public noppes.npcs.controllers.data.Availability availability = new noppes.npcs.controllers.data.Availability();
 
     public CustomSmithingRecipe(ItemStack template, ItemStack base,
@@ -59,6 +60,12 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
      */
     @Override
     public boolean matches(SmithingRecipeInput input, Level level) {
+        if (shapeless) {
+            var required = new java.util.ArrayList<java.util.function.Predicate<ItemStack>>();
+            for (ItemStack want : java.util.List.of(exactTemplate, exactBase, exactAddition))
+                required.add(stack -> nameOnly ? nameMatch(stack, want) : ItemStack.isSameItemSameComponents(stack, want));
+            return net.neoforged.neoforge.common.util.RecipeMatcher.findMatches(java.util.List.of(input.template(), input.base(), input.addition()), required) != null;
+        }
         if (this.nameOnly) {
             return nameMatch(input.template(), this.exactTemplate)
                     && nameMatch(input.base(), this.exactBase)
@@ -97,6 +104,15 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
     public boolean isIncomplete() {
         return false;
     }
+    @Override public boolean isTemplateIngredient(ItemStack stack) {
+        return super.isTemplateIngredient(stack) || shapeless && (super.isBaseIngredient(stack) || super.isAdditionIngredient(stack));
+    }
+    @Override public boolean isBaseIngredient(ItemStack stack) {
+        return super.isBaseIngredient(stack) || shapeless && (super.isTemplateIngredient(stack) || super.isAdditionIngredient(stack));
+    }
+    @Override public boolean isAdditionIngredient(ItemStack stack) {
+        return super.isAdditionIngredient(stack) || shapeless && (super.isTemplateIngredient(stack) || super.isBaseIngredient(stack));
+    }
 
     @Override
     public RecipeSerializer<?> getSerializer() {
@@ -129,6 +145,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             ItemStack result = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
             boolean nameOnly = buf.readBoolean();
             CustomSmithingRecipe recipe = new CustomSmithingRecipe(template, base, addition, result, nameOnly);
+            recipe.shapeless = buf.readBoolean();
             recipe.availability.load(buf.registryAccess(), buf.readNbt());
             return recipe;
         }
@@ -139,6 +156,7 @@ public class CustomSmithingRecipe extends SmithingTransformRecipe {
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactAddition);
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, recipe.exactResult);
             buf.writeBoolean(recipe.nameOnly);
+            buf.writeBoolean(recipe.shapeless);
             buf.writeNbt(recipe.availability.save(buf.registryAccess(), new net.minecraft.nbt.CompoundTag()));
         }
     }
