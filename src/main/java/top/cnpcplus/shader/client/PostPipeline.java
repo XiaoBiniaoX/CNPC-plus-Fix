@@ -11,15 +11,17 @@ import static org.lwjgl.opengl.GL33C.*;
 /**
  * Private script surface, scene/depth snapshots and per-instance history.
  * Only captureDepth/captureScene/present cross the game-pipeline boundary.
- * Call GPU operations inside PostRenderState; no game target is retained here.
+ * Rendering/allocation use PostRenderState; depth-only copies own a smaller guard.
  */
 final class PostPipeline implements AutoCloseable {
     private TextureTarget scene, target;
     private final Map<UUID, TextureTarget[]> histories = new HashMap<>();
     private boolean depthReady;
     private int depthFormat;
+    private int[] drawBuffers;
 
     boolean isAllocated() { return target != null; }
+    boolean isScriptTarget(RenderTarget destination) { return destination == target; }
     void beginFrame() { depthReady = false; }
 
     RenderTarget target(int width, int height) {
@@ -38,7 +40,17 @@ final class PostPipeline implements AutoCloseable {
 
     /** WORLD_COMPLETE: read the world depth before vanilla post passes clear it. */
     void captureDepth(RenderTarget source) {
-        target(source.width, source.height);
+        if (target == null || target.width != source.width || target.height != source.height) {
+            // Allocation can touch programs/textures/viewport; pay the full guard
+            // only on creation/resize, never for an ordinary depth-copy frame.
+            try (PostRenderState state = new PostRenderState(source)) { target(source.width, source.height); }
+        }
+        try (PostCopyState state = new PostCopyState(source)) {
+            copyDepth(source);
+        }
+    }
+
+    private void copyDepth(RenderTarget source) {
         GlStateManager._glBindFramebuffer(GL_READ_FRAMEBUFFER, source.frameBufferId);
         if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             throw new IllegalStateException("Incomplete world depth source framebuffer: " + source.frameBufferId);
@@ -127,7 +139,7 @@ final class PostPipeline implements AutoCloseable {
         GlStateManager._glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination.frameBufferId);
         if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             throw new IllegalStateException("Incomplete scene destination framebuffer: " + destination.frameBufferId);
-        int[] drawBuffers = new int[glGetInteger(GL_MAX_DRAW_BUFFERS)];
+        if (drawBuffers == null) drawBuffers = new int[glGetInteger(GL_MAX_DRAW_BUFFERS)];
         for (int i = 0; i < drawBuffers.length; i++) drawBuffers[i] = glGetInteger(GL_DRAW_BUFFER0 + i);
         glDrawBuffer(GL_COLOR_ATTACHMENT0);
         try { blit(target, destination, GL_COLOR_BUFFER_BIT); }

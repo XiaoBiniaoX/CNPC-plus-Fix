@@ -222,6 +222,7 @@
     "MixinShaderPostPass",
     "MixinShaderGameRenderer",
     "ShaderEffectInstanceAccess",
+    "MixinShaderRenderTarget",
     "ShaderBlendModeAccess",
     "MixinShaderEntityRenderer",
     "MixinShaderBlockRenderer",

@@ -28,7 +28,9 @@ public final class ClientShaders {
     public static ShaderManager MANAGER = new ShaderManager();
     public static final ShaderController CONTROLLER = ShaderController.localController();
     private static final Map<String, Gpu> LOADED = new LinkedHashMap<>();
+    private static final ShaderLoadFailureCache FAILED = new ShaderLoadFailureCache();
     private static final Map<String, ShaderController> OBJECTS = new HashMap<>();
+    private static final Map<String, ResourceLocation> SAMPLER_RESOURCES = new HashMap<>();
     private static final PostPipeline POST_PIPELINE = new PostPipeline();
     private static final List<Gpu> RETIRED = new ArrayList<>();
     private static boolean resetPostResources;
@@ -51,6 +53,7 @@ public final class ClientShaders {
     public static boolean load(String id) {
         RenderSystem.assertOnRenderThread();
         if (isLoaded(id)) return true;
+        if (FAILED.contains(id)) return false;
         ShaderDefinition definition = MANAGER.get(id);
         Minecraft mc = Minecraft.getInstance();
         Gpu gpu = new Gpu();
@@ -83,29 +86,23 @@ public final class ClientShaders {
                         if (bytes > 268435456L) throw new IllegalArgumentException("Shader targets exceed 256 MiB");
                     }
                     RenderTarget scriptTarget = POST_PIPELINE.target(mc.getMainRenderTarget().width, mc.getMainRenderTarget().height);
-                    gpu.post = new PostChain(mc.getTextureManager(), mc.getResourceManager(), scriptTarget, new ResourceLocation(definition.shaderResource));
+                    gpu.post = new PostChain(mc.getTextureManager(), new ScriptShaderResources(mc.getResourceManager()),
+                            scriptTarget, new ResourceLocation(definition.shaderResource));
                     gpu.width = mc.getMainRenderTarget().width; gpu.height = mc.getMainRenderTarget().height;
                     gpu.post.resize(gpu.width, gpu.height);
                     for (PostPass pass : ((ShaderPostChainAccess)gpu.post).cnpcplus$passes()) {
                         if (pass.inTarget.getColorTextureId() == pass.outTarget.getColorTextureId())
                             throw new IllegalArgumentException("Post pass reads and writes the same color texture: " + pass.getName());
                     }
-                    for (String name : definition.uniforms.keySet()) {
-                        if (((ShaderPostChainAccess)gpu.post).cnpcplus$passes().stream().noneMatch(p -> p.getEffect().getUniform(name) != null
-                                || name.equals("WorldPosition") && definition.uniforms.get(name).type().equals("vec3")
-                                && p.getEffect().getUniform("CameraRelativeWorldPosition") != null))
-                            throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
-                    }
                 } else {
                     gpu.render.put(DefaultVertexFormat.NEW_ENTITY, new net.minecraft.client.renderer.ShaderInstance(mc.getResourceManager(), new ResourceLocation(definition.shaderResource), DefaultVertexFormat.NEW_ENTITY));
                     if (definition.json.has("blockShaderResource")) gpu.render.put(DefaultVertexFormat.BLOCK,
                             new net.minecraft.client.renderer.ShaderInstance(mc.getResourceManager(), new ResourceLocation(definition.json.get("blockShaderResource").getAsString()), DefaultVertexFormat.BLOCK));
-                    for (var shader : gpu.render.values()) for (String name : definition.uniforms.keySet()) if (shader.getUniform(name) == null)
-                        throw new IllegalArgumentException(id + ": GPU uniform missing: " + name);
                 }
                 LOADED.put(id, gpu);
                 return true;
             } catch (IOException | RuntimeException e) {
+                FAILED.add(id);
                 gpu.close();
                 org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] load {}", id, e);
                 return false;
@@ -117,10 +114,10 @@ public final class ClientShaders {
         Gpu gpu = LOADED.remove(id); if (gpu == null) return false; RETIRED.add(gpu); return true;
     }
     public static boolean reload(String id) {
-        Gpu gpu = LOADED.remove(id); if (gpu != null) RETIRED.add(gpu); return load(id);
+        Gpu gpu = LOADED.remove(id); if (gpu != null) RETIRED.add(gpu); FAILED.remove(id); return load(id);
     }
     public static void reloadAll() {
-        clear(); MANAGER = new ShaderManager(); MANAGER.reloadDefinitions(Minecraft.getInstance().getResourceManager());
+        clear(); FAILED.clear(); MANAGER = new ShaderManager(); MANAGER.reloadDefinitions(Minecraft.getInstance().getResourceManager());
         syncCatalog();
     }
     public static void syncCatalog() {
@@ -157,6 +154,7 @@ public final class ClientShaders {
     }
     public static void clear() {
         CONTROLLER.instances.clear(); OBJECTS.clear(); RETIRED.addAll(LOADED.values()); LOADED.clear();
+        SAMPLER_RESOURCES.clear();
         resetPostResources = true; currentPost = null; world = null;
     }
     @SubscribeEvent public static void tick(TickEvent.ClientTickEvent event) {
@@ -186,13 +184,29 @@ public final class ClientShaders {
         if (resetPostResources) { POST_PIPELINE.close(); resetPostResources = false; }
     }
 
+    private static List<ShaderInstance> postInstances() {
+        List<ShaderInstance> instances = null;
+        for (ShaderInstance instance : CONTROLLER.instances.values()) {
+            if (!instance.isActive()) continue;
+            if (FAILED.contains(instance.getId())) {
+                // A new script/network instance must not allocate targets for a failed ID.
+                fail(instance, "GPU resource loading failed");
+            } else {
+                if (instances == null) instances = new ArrayList<>(CONTROLLER.instances.size());
+                instances.add(instance);
+            }
+        }
+        return instances == null ? List.of() : instances;
+    }
+
     /** WORLD_COMPLETE: read-only depth handoff, before vanilla post passes and GUI. */
     public static void capturePostDepth() {
-        if (CONTROLLER.getAllInstances().length == 0) return;
-        try (PostRenderState state = new PostRenderState(Minecraft.getInstance().getMainRenderTarget())) {
+        List<ShaderInstance> instances = postInstances();
+        if (instances.isEmpty()) return;
+        try {
             POST_PIPELINE.captureDepth(Minecraft.getInstance().getMainRenderTarget());
         } catch (RuntimeException e) {
-            for (ShaderInstance instance : CONTROLLER.getAllInstances()) fail(instance, "World depth capture failed: " + e);
+            for (ShaderInstance instance : instances) fail(instance, "World depth capture failed: " + e);
         }
     }
 
@@ -201,8 +215,8 @@ public final class ClientShaders {
     }
     public static void renderPost(float framePartial, Matrix4f view, Matrix4f projection, Vec3 camera) {
         Minecraft mc = Minecraft.getInstance();
-        ShaderInstance[] instances = CONTROLLER.getAllInstances();
-        if (mc.level == null || instances.length == 0) return;
+        List<ShaderInstance> instances = postInstances();
+        if (mc.level == null || instances.isEmpty()) return;
         partial = mc.isPaused() ? 0 : framePartial;
         CameraRelative.viewProjection(view, projection, worldViewProjection, inverseWorldViewProjection);
         RenderTarget main = mc.getMainRenderTarget();
@@ -212,14 +226,20 @@ public final class ClientShaders {
         }
         try (PostRenderState state = new PostRenderState(main)) {
             postState = state;
+            List<ShaderInstance> ready = new ArrayList<>(instances.size());
+            for (ShaderInstance instance : instances) {
+                if (load(instance.getId())) ready.add(instance);
+                else fail(instance, "GPU resource loading failed");
+            }
+            if (ready.isEmpty()) return;
             postCamera = new CameraRelative(camera);
             // AFTER_GAME_POST -> SCRIPT_EFFECTS -> BEFORE_GUI. The game target is
             // only read here and receives one color copy after all private passes.
             POST_PIPELINE.captureScene(main);
             POST_PIPELINE.retainHistories(CONTROLLER.instances.keySet());
-            for (ShaderInstance instance : Arrays.stream(instances).sorted(Comparator.comparingInt(ShaderInstance::getPriority)).toList()) {
+            ready.sort(Comparator.comparingInt(ShaderInstance::getPriority));
+            for (ShaderInstance instance : ready) {
                 currentPost = instance;
-                if (!load(instance.getId())) { fail(instance, "GPU resource loading failed"); continue; }
                 Gpu gpu = LOADED.get(instance.getId());
                 if (gpu.width != main.width || gpu.height != main.height) { gpu.post.resize(main.width, main.height); gpu.width = main.width; gpu.height = main.height; }
                 POST_PIPELINE.beginEffect(instance.token, instance.textures.values().stream().anyMatch(id -> id.startsWith("cnpcplus:history")));
@@ -240,8 +260,16 @@ public final class ClientShaders {
         }
     }
     private static void fail(ShaderInstance instance, String message) {
+        boolean duplicate = instance.state.equals("ERROR") && instance.error.equals(message);
         instance.error = message; instance.state = "ERROR";
-        org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] {} {}", instance.getId(), message);
+        if (!duplicate && !FAILED.contains(instance.getId()))
+            org.slf4j.LoggerFactory.getLogger("cnpcplus").error("[shader] {} {}", instance.getId(), message);
+    }
+    public static int postClearMask(RenderTarget target, int mask) {
+        // Only our private main has unused depth: all reads of that attachment
+        // are redirected to sceneDepth(). Temporary targets keep vanilla clears.
+        return currentPost != null && POST_PIPELINE.isScriptTarget(target)
+                ? mask & ~org.lwjgl.opengl.GL33C.GL_DEPTH_BUFFER_BIT : mask;
     }
     /** Prepare the pass while keeping bindPost(EffectInstance) available to addon mixins. */
     public static void preparePost(PostPass pass) {
@@ -262,7 +290,12 @@ public final class ClientShaders {
     }
     /** A script blit copies processed color even when the source alpha is zero. */
     public static void preparePostDraw(PostPass pass) {
-        if (currentPost != null && pass.getName().equals("blit")) RenderSystem.disableBlend();
+        if (currentPost == null) return;
+        postState.beforeDraw();
+        if (pass.getName().equals("blit") || pass.getName().equals("minecraft:blit")) {
+            RenderSystem.disableBlend();
+            org.lwjgl.opengl.GL33C.glDisable(org.lwjgl.opengl.GL33C.GL_BLEND);
+        }
     }
     /** Called before EffectInstance.apply; addons inject here after our uniforms are set. */
     public static void bindPost(EffectInstance effect) {
@@ -304,25 +337,37 @@ public final class ClientShaders {
         if (id.equals("cnpcplus:history") || id.equals("cnpcplus:history_2") || id.equals("cnpcplus:history_3")) {
             return POST_PIPELINE.history(currentPost.token, id.equals("cnpcplus:history") ? 0 : id.equals("cnpcplus:history_2") ? 1 : 2);
         }
-        ResourceLocation resource = new ResourceLocation(id);
-        if (mc.getResourceManager().getResource(resource).isEmpty()) throw new IllegalArgumentException("Missing sampler texture " + id);
+        ResourceLocation resource = SAMPLER_RESOURCES.get(id);
+        if (resource == null) {
+            resource = new ResourceLocation(id);
+            if (mc.getResourceManager().getResource(resource).isEmpty()) throw new IllegalArgumentException("Missing sampler texture " + id);
+            // Dynamic scripts may cycle texture IDs indefinitely. Bound the CPU
+            // cache; texture objects/GL IDs still come from TextureManager each use.
+            if (SAMPLER_RESOURCES.size() >= 256) SAMPLER_RESOURCES.clear();
+            SAMPLER_RESOURCES.put(id, resource);
+        }
         return mc.getTextureManager().getTexture(resource).getId();
     }
     private static void bindUniforms(ShaderInstance instance, Function<String, Uniform> lookup, float framePartial) {
         float now = instance.time + (instance.isPaused() ? 0 : framePartial * instance.speed);
         instance.uniforms.forEach((name, value) -> {
-            Uniform uniform = lookup.apply(name); if (uniform == null) return; // Parameters may belong to a different pass.
+            Uniform uniform = lookup.apply(name); if (uniform == null) return; // Optional in this pass or optimized out by the driver.
             float[] data = instance.animations.containsKey(name) ? instance.animations.get(name).value(now) : value;
-            if (name.equals("Time")) data = new float[]{data[0] + now / 20};
-            if (name.equals("Opacity")) data = new float[]{data[0] * instance.opacity(framePartial)};
-            if (uniform.getCount() != data.length) throw new IllegalArgumentException("GPU uniform length mismatch: " + name);
-            if (uniform.getType() <= 3) uniform.set((int)data[0]); else uniform.set(data);
+            boolean time = name.equals("Time"), opacity = name.equals("Opacity");
+            int count = time || opacity ? 1 : data.length;
+            if (uniform.getCount() != count) throw new IllegalArgumentException("GPU uniform length mismatch: " + name);
+            if (count == 1) {
+                float scalar = time ? data[0] + now / 20 : opacity ? data[0] * instance.opacity(framePartial) : data[0];
+                if (uniform.getType() <= 3) uniform.set((int)scalar); else uniform.set(scalar);
+            } else if (uniform.getType() <= 3) uniform.set((int)data[0]); else uniform.set(data);
         });
     }
     public static MultiBufferSource wrap(String target, MultiBufferSource source, float framePartial) {
         ShaderController controller = OBJECTS.get(target);
         if (controller == null) return source;
-        ShaderInstance instance = Arrays.stream(controller.getAllInstances()).max(Comparator.comparingInt(ShaderInstance::getPriority)).orElse(null);
+        ShaderInstance instance = null;
+        for (ShaderInstance candidate : controller.instances.values())
+            if (candidate.isActive() && (instance == null || candidate.getPriority() > instance.getPriority())) instance = candidate;
         if (instance == null) return source;
         if (!load(instance.getId())) { fail(instance, "GPU resource loading failed"); return source; }
         return new ObjectBuffers(source, instance, Minecraft.getInstance().isPaused() ? 0 : framePartial);

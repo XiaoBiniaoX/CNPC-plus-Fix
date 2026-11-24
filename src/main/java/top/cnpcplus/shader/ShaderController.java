@@ -122,7 +122,11 @@ public final class ShaderController {
     public void clear() { for (ShaderInstance instance : instances.values()) { instance.fadeOut = 0; instance.stop(); } }
     public boolean pause(String id) { boolean result = false; for (ShaderInstance instance : getInstances(id)) result |= instance.pause(); return result; }
     public boolean resume(String id) { boolean result = false; for (ShaderInstance instance : getInstances(id)) result |= instance.resume(); return result; }
-    public boolean isActive(String id) { return Arrays.stream(getInstances(id)).anyMatch(ShaderInstance::isActive); }
+    public boolean isActive(String id) {
+        for (ShaderInstance instance : instances.values())
+            if (instance.getId().equals(id) && instance.isActive()) return true;
+        return false;
+    }
     public ShaderInstance getInstance(String id) { ShaderInstance result = null; for (ShaderInstance instance : getInstances(id)) result = instance; return result; }
     public ShaderInstance[] getInstances(String id) { return instances.values().stream().filter(i -> i.getId().equals(id) && i.isActive()).toArray(ShaderInstance[]::new); }
     public ShaderInstance[] getAllInstances() { return instances.values().stream().filter(ShaderInstance::isActive).toArray(ShaderInstance[]::new); }
