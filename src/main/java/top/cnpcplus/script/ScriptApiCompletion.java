@@ -229,10 +229,12 @@ public final class ScriptApiCompletion {
         return cached;
     }
 
-    /** CNPC's implementation naming only; addon method names are never hard-coded. */
+    /** CNPC wrapper/native implementation mapping only; addon method names are never hard-coded. */
     public static Class<?> runtimeWrapper(Class<?> owner) {
         if (owner == null) return null;
         if (owner.getName().equals(API + "NpcAPI")) return load(API + "wrapper.WrapperNpcAPI");
+        if (owner.getName().equals(API + "entity.data.role.IJobPuppet")) return load("noppes.npcs.roles.JobPuppet");
+        if (owner.getName().equals(API + "entity.data.role.IJobPuppet$IJobPuppetPart")) return load("noppes.npcs.roles.JobPuppet$PartConfig");
         if (!owner.isInterface() || !owner.getName().startsWith(API)) return null;
         String simple = owner.getSimpleName();
         if (!simple.startsWith("I")) return null;

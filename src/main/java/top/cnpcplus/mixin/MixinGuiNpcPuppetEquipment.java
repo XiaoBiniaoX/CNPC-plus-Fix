@@ -29,7 +29,10 @@ public abstract class MixinGuiNpcPuppetEquipment extends GuiNPCInterface impleme
     @Shadow(remap = false) public HashMap<String, JobPuppet.PartConfig> data;
 
     @Unique
-    private static final String[] CNPCPLUS_EQUIP_PARTS = {"主手物品", "副手物品", "头盔", "甲胄", "护腿", "靴子"};
+    private static final String[] CNPCPLUS_EQUIP_PARTS = {
+            "cnpcplus.equip.mainhand", "cnpcplus.equip.offhand", "cnpcplus.equip.helmet",
+            "cnpcplus.equip.chestplate", "cnpcplus.equip.leggings", "cnpcplus.equip.boots"
+    };
 
     @Redirect(method = "m_7856_", at = @At(value = "FIELD", target = "Lnoppes/npcs/roles/JobPuppet;animationSpeed:I"), remap = false)
     private int cnpcplus$unusedSpeedButtonIndex(JobPuppet puppet) {

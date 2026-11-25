@@ -2,6 +2,7 @@ package top.cnpcplus.mixin;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.util.Mth;
+import noppes.npcs.api.entity.data.role.IJobPuppet.IJobPuppetPart;
 import noppes.npcs.entity.EntityNPCInterface;
 import noppes.npcs.roles.JobPuppet;
 import org.spongepowered.asm.mixin.Mixin;
@@ -105,7 +106,7 @@ public abstract class MixinJobPuppetEquipment implements JobPuppetAccessor {
     }
 
     @Inject(method = "getPart", at = @At("HEAD"), cancellable = true)
-    private void cnpcplus$getEquipmentPart(int part, CallbackInfoReturnable<JobPuppet.PartConfig> cir) {
+    private void cnpcplus$getEquipmentPart(int part, CallbackInfoReturnable<IJobPuppetPart> cir) {
         switch (part) {
             case 12 -> cir.setReturnValue(this.cnpcplus$mainhand);
             case 13 -> cir.setReturnValue(this.cnpcplus$offhand);
