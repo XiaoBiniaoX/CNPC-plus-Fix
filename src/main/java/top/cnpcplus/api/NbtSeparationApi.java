@@ -7,7 +7,13 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import noppes.npcs.entity.EntityNPCInterface;
 import top.cnpcplus.persist.NpcDataExternalStore;
 
-/** Public Java entry point for addon-owned NPC NBT. Client-side calls do not access files. */
+/**
+ * Public Java API for registering and storing addon-owned NPC NBT outside the NPC save tag.
+ * Keep IDs and selected top-level keys stable across addon releases. This is an addon Java API,
+ * not a CustomNPCs script global.
+ *
+ * @since 4.1.0
+ */
 public final class NbtSeparationApi {
     private final NpcDataExternalStore store;
 
@@ -22,6 +28,7 @@ public final class NbtSeparationApi {
      *
      * @throws IllegalArgumentException for unsafe IDs, empty keys or key conflicts
      * @throws IllegalStateException if the ID is already registered
+     * @since 4.1.0
      */
     public static NbtSeparationApi register(ResourceLocation id, String... keys) {
         return new NbtSeparationApi(NpcDataExternalStore.registerAddon(id, Set.of(keys)));

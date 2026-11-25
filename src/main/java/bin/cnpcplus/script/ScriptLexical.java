@@ -4,9 +4,13 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Offset-preserving lexical masking, shared by completion and the non-executing simple check. */
 public final class ScriptLexical {
+    public record Issue(int offset, int length, String kind, String subject) {}
+    private final List<Issue> issues = new ArrayList<>();
     private static final Set<String> PREFIX = Set.of("return", "throw", "case", "delete", "typeof",
             "void", "new", "yield", "else", "do", "in", "of", "instanceof", "await");
     private static final Set<String> CONTROL = Set.of("if", "while", "for", "switch", "catch", "with");
@@ -28,6 +32,12 @@ public final class ScriptLexical {
         return new String(lexer.out);
     }
 
+    public static List<Issue> issues(String text) {
+        ScriptLexical lexer = new ScriptLexical(text);
+        lexer.code(false);
+        return List.copyOf(lexer.issues);
+    }
+
     private void code(boolean interpolation) {
         boolean regex = true;
         String previous = "";
@@ -42,15 +52,24 @@ public final class ScriptLexical {
                 continue;
             }
             if (c == '/' && next == '*') {
+                int start = cursor;
                 int end = text.indexOf("*/", cursor + 2);
+                if (end < 0) issues.add(new Issue(start, 2, "unclosed_comment", "/*"));
                 cursor = end < 0 ? text.length() : end + 2;
                 continue;
             }
             if (c == '\'' || c == '"') {
-                out[cursor] = '0'; quoted(c); regex = false; previous = "literal"; continue;
+                int start = cursor;
+                out[cursor] = '0';
+                if (!quoted(c)) issues.add(new Issue(start, 1, "unclosed_string", String.valueOf(c)));
+                regex = false; previous = "literal"; continue;
             }
             if (c == '`') {
-                out[cursor++] = '0'; template(); regex = false; previous = "literal"; continue;
+                int start = cursor;
+                out[cursor++] = '0';
+                if (!template()) issues.add(new Issue(start, 1, "unclosed_string", "`"));
+                else issues.add(new Issue(start, 1, "template_literal", "`"));
+                regex = false; previous = "literal"; continue;
             }
             if (c == '/' && regex) {
                 out[cursor++] = '0';
@@ -98,21 +117,24 @@ public final class ScriptLexical {
         }
     }
 
-    private void quoted(char quote) {
+    private boolean quoted(char quote) {
         cursor++;
         while (cursor < text.length()) {
             char c = text.charAt(cursor++);
             if (c == '\\') cursor = Math.min(text.length(), cursor + 1);
-            else if (c == quote || c == '\n' || c == '\r') return;
+            else if (c == quote) return true;
+            else if (c == '\n' || c == '\r') return false;
         }
+        return false;
     }
 
-    private void template() {
+    private boolean template() {
         while (cursor < text.length()) {
             char c = text.charAt(cursor++);
             if (c == '\\') cursor = Math.min(text.length(), cursor + 1);
-            else if (c == '`') return;
+            else if (c == '`') return true;
             else if (c == '$' && cursor < text.length() && text.charAt(cursor) == '{') { out[cursor++] = '{'; code(true); }
         }
+        return false;
     }
 }

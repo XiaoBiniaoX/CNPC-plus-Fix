@@ -15,6 +15,6 @@ public class MixinGuiNpcDisplaySize {
 
     @ModifyArg(method = "init", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/gui/components/GuiLabel;<init>(ILjava/lang/String;II)V"), index = 1)
     private String cnpcplus$fixSizeLabel(String label) {
-        return "(1-100)";
+        return "(1-30)".equals(label) ? "(1-100)" : label;
     }
 }

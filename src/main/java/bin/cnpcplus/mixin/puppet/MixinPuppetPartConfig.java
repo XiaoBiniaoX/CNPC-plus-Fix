@@ -2,7 +2,9 @@ package bin.cnpcplus.mixin.puppet;
 
 import net.minecraft.nbt.CompoundTag;
 import noppes.npcs.roles.JobPuppet;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,6 +14,8 @@ import bin.cnpcplus.puppet.PartConfigAccessor;
 
 @Mixin(JobPuppet.PartConfig.class)
 public abstract class MixinPuppetPartConfig implements PartConfigAccessor {
+    @Shadow(remap = false) @Final private JobPuppet this$0;
+    @Shadow(remap = false) public boolean disabled;
     @Unique private float cnpcplus$puppetOffsetX;
     @Unique private float cnpcplus$puppetOffsetY;
     @Unique private float cnpcplus$puppetOffsetZ;
@@ -31,6 +35,27 @@ public abstract class MixinPuppetPartConfig implements PartConfigAccessor {
     @Override public void cnpcplus$setScaleX(float x) { this.cnpcplus$puppetScaleX = cnpcplus$clampScale(x); }
     @Override public void cnpcplus$setScaleY(float y) { this.cnpcplus$puppetScaleY = cnpcplus$clampScale(y); }
     @Override public void cnpcplus$setScaleZ(float z) { this.cnpcplus$puppetScaleZ = cnpcplus$clampScale(z); }
+
+    // Public methods on the same object returned by IJobPuppet.getPart(int).
+    @Unique public float getOffsetX() { return this.cnpcplus$puppetOffsetX; }
+    @Unique public float getOffsetY() { return this.cnpcplus$puppetOffsetY; }
+    @Unique public float getOffsetZ() { return this.cnpcplus$puppetOffsetZ; }
+
+    @Unique public void setOffset(float x, float y, float z) {
+        if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z))
+            throw new IllegalArgumentException("Puppet offsets must be finite numbers");
+        cnpcplus$setOffsetX(x);
+        cnpcplus$setOffsetY(y);
+        cnpcplus$setOffsetZ(z);
+        this.this$0.npc.updateClient = true;
+    }
+
+    @Unique public boolean isEnabled() { return !this.disabled; }
+
+    @Unique public void setEnabled(boolean enabled) {
+        this.disabled = !enabled;
+        this.this$0.npc.updateClient = true;
+    }
 
     @Unique
     private static float cnpcplus$clampOffset(float v) {

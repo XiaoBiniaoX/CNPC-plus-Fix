@@ -5,6 +5,9 @@
   "compatibilityLevel": "JAVA_21",
   "plugin": "top.cnpcplus.script.ScriptTypesPlugin",
   "mixins": [
+    "MixinDataInventoryDrop",
+    "MixinMovingPathImmediateSync",
+    "MixinProjectileWallStick",
     "MixinScriptTypes",
     "MixinMpmPartTransform",
     "MixinScriptTaskScope",
@@ -108,6 +111,10 @@
     "MixinTransportLocationVisualNbt"
   ],
   "client": [
+    "MixinNpcEditorSelections",
+    "MixinSubGuiNpcMovementChoices",
+    "MixinTextureSelectionDefaults",
+    "MixinNpcLootModeSelect",
     "MixinGuiPartTransform",
     "GuiCreationPartsAccess",
     "GuiPartPreviewAccess",

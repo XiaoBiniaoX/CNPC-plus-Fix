@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.HashMap;
 import java.util.Map;
+import net.minecraft.client.gui.GuiGraphics;
 
 @Mixin(value = GuiNPCInv.class, remap = false)
 public class MixinGuiNPCInv {
@@ -36,6 +37,22 @@ public class MixinGuiNPCInv {
 
     private EntityNPCInterface cnpcplus$npc() {
         return ((GuiContainerNPCInterface) (Object) this).npc;
+    }
+
+    @Inject(method = "renderBg", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/client/gui/util/GuiContainerNPCInterface2;renderBg(Lnet/minecraft/client/gui/GuiGraphics;FII)V",
+            shift = At.Shift.AFTER), cancellable = true, require = 1)
+    private void cnpcplus$skipSlotHighlightsWithSubGui(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY,
+                                                       CallbackInfo ci) {
+        if (((IGuiInterface)(Object)this).hasSubGui()) ci.cancel();
+    }
+
+    @Inject(method = "render", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/client/gui/util/GuiContainerNPCInterface2;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
+            shift = At.Shift.AFTER), cancellable = true, require = 1)
+    private void cnpcplus$skipNpcPreviewWithSubGui(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks,
+                                                 CallbackInfo ci) {
+        if (((IGuiInterface)(Object)this).hasSubGui()) ci.cancel();
     }
 
     @Inject(method = "init", at = @At("TAIL"))
