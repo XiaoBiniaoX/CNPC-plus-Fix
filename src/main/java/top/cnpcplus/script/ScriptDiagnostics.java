@@ -34,12 +34,10 @@ public final class ScriptDiagnostics {
     public static List<ScriptDiagnostic> checkStaticAll(ScriptContainer owner, String script, String language,
                                                          Set<String> hooks) {
         if (owner == null) return List.of();
-        String name = language == null ? "" : language.toLowerCase(java.util.Locale.ROOT);
-        boolean javascript = name.contains("ecma") || name.contains("javascript") || name.contains("nashorn") || name.equals("js");
         Set<String> globals = new HashSet<>(ScriptContainer.Data.keySet());
         globals.addAll(top.cnpcplus.script.tools.ScriptApiRegistry.roots().keySet());
         globals.addAll(top.cnpcplus.api.script.ScriptCheckApi.registeredGlobals());
-        List<ScriptDiagnostic> findings = new java.util.ArrayList<>(javascript
+        List<ScriptDiagnostic> findings = new java.util.ArrayList<>(top.cnpcplus.api.script.ScriptCompletionApi.usesBuiltinChecks(language)
                 ? ScriptStaticCheck.checkAll(script, globals, owner.scripts.isEmpty(), hooks) : List.of());
         var source = new top.cnpcplus.api.script.ScriptCheckApi.Source(
                 script == null ? "" : script, language, Set.copyOf(globals));

@@ -9,13 +9,13 @@ import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,7 +25,7 @@ public final class ScriptApiCompletion {
     private static final Pattern ASSIGN = Pattern.compile("\\b(?:var|let|const)\\s+([\\w$]+)\\s*=\\s*([^;\\n]+)");
     private static final Pattern NAMED_FUNCTION = Pattern.compile("\\bfunction\\s+([$_\\p{L}][$_\\p{L}\\p{N}\\p{M}]*)\\s*\\(");
     private static final Pattern HOOK_NAME = Pattern.compile("[$_\\p{L}][$_\\p{L}\\p{N}\\p{M}]*");
-    private static final Map<Class<?>, List<Entry>> CACHE = new HashMap<>();
+    private static final Map<Class<?>, List<Entry>> CACHE = new ConcurrentHashMap<>();
     private static final String API = "noppes.npcs.api.";
 
     private ScriptApiCompletion() {}

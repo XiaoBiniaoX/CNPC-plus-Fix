@@ -4,7 +4,6 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -19,8 +18,8 @@ import noppes.npcs.controllers.ScriptContainer;
 import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import noppes.npcs.shared.client.gui.components.TextContainer;
 import org.lwjgl.glfw.GLFW;
+import top.cnpcplus.api.script.ScriptCompletionApi;
 import top.cnpcplus.mixin.IGuiTextAreaScriptAccess;
-import top.cnpcplus.script.ScriptApiCompletion;
 import top.cnpcplus.script.ScriptDiagnostic;
 import top.cnpcplus.script.ScriptDiagnostics;
 
@@ -34,11 +33,11 @@ public final class ScriptTextArea extends GuiTextArea {
     private final ScriptContainer owner;
     private final String context;
     private final String language;
-    private final boolean javascript;
     private final List<String> hooks;
     private String checkedText;
     private String dismissedText;
     private int checkedCursor = -1;
+    private long checkedRevision = -1;
     private int dismissedCursor = -1;
     private int selected;
     private int firstVisible;
@@ -46,8 +45,8 @@ public final class ScriptTextArea extends GuiTextArea {
     private int popupY;
     private int popupWidth;
     private int popupRows;
-    private ScriptApiCompletion.Result result;
-    private List<ScriptApiCompletion.Entry> hints = Collections.emptyList();
+    private ScriptCompletionApi.Result result;
+    private List<String> hints = Collections.emptyList();
     private TextContainer marked;
     private ScriptDiagnostic markedRuntime;
     private List<ScriptDiagnostic> markedWarnings = Collections.emptyList();
@@ -68,10 +67,7 @@ public final class ScriptTextArea extends GuiTextArea {
         this.owner = owner;
         this.context = context;
         this.hooks = hooks == null ? Collections.emptyList() : new ArrayList<>(hooks);
-        String name = language == null ? "" : language.toLowerCase(Locale.ROOT);
         this.language = language == null ? "" : language;
-        this.javascript = name.contains("ecma") || name.contains("javascript")
-                || name.contains("nashorn") || name.equals("js");
     }
 
     private IGuiTextAreaScriptAccess access() {
@@ -83,26 +79,21 @@ public final class ScriptTextArea extends GuiTextArea {
     }
 
     public boolean hasPopup() {
-        return this.active && this.result != null && !this.result.entries.isEmpty();
+        return this.active && this.result != null && !this.result.suggestions().isEmpty();
     }
 
     private void refresh(boolean force) {
         int cursor = access().cnpcplus$cursor();
-        if (!force && cursor == this.checkedCursor && getText().equals(this.checkedText)) return;
+        long revision = ScriptCompletionApi.revision();
+        if (!force && revision == this.checkedRevision && cursor == this.checkedCursor && getText().equals(this.checkedText)) return;
+        this.checkedRevision = revision;
         this.checkedCursor = cursor;
         this.checkedText = getText();
         this.selected = 0;
         this.firstVisible = 0;
-        this.hints = this.javascript
-                ? ScriptApiCompletion.hint(this.checkedText, cursor, this.context)
-                : Collections.emptyList();
-        this.result = this.javascript
-                ? ScriptApiCompletion.complete(this.checkedText, cursor, this.context, this.hooks)
-                : null;
-        if (!force && this.result != null && this.result.start == cursor
-                && (cursor == 0 || this.checkedText.charAt(cursor - 1) != '.')) {
-            this.result = null;
-        }
+        this.result = ScriptCompletionApi.complete(new ScriptCompletionApi.Request(
+                this.checkedText, cursor, this.language, this.context, this.hooks, force));
+        this.hints = this.result.signatures();
         if (!force && cursor == this.dismissedCursor && this.checkedText.equals(this.dismissedText)) {
             this.result = null;
         }
@@ -115,13 +106,13 @@ public final class ScriptTextArea extends GuiTextArea {
             jumpToError();
             return true;
         }
-        if (this.javascript && keyCode == GLFW.GLFW_KEY_SPACE && Screen.hasControlDown()) {
+        if (ScriptCompletionApi.supports(this.language) && keyCode == GLFW.GLFW_KEY_SPACE && Screen.hasControlDown()) {
             refresh(true);
             return true;
         }
 
         refresh(false);
-        if (this.result != null && !this.result.entries.isEmpty()) {
+        if (this.result != null && !this.result.suggestions().isEmpty()) {
             if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN) {
                 moveSelection(keyCode == GLFW.GLFW_KEY_UP ? -1 : 1);
                 return true;
@@ -144,7 +135,7 @@ public final class ScriptTextArea extends GuiTextArea {
     @Override
     public boolean m_5534_(char character, int modifiers) {
         // GLFW delivers Ctrl+Space as a separate character event after keyPressed.
-        if (this.active && this.javascript && character == ' ' && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0) return true;
+        if (this.active && ScriptCompletionApi.supports(this.language) && character == ' ' && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0) return true;
         boolean handled = super.m_5534_(character, modifiers);
         refresh(false);
         return handled;
@@ -159,7 +150,7 @@ public final class ScriptTextArea extends GuiTextArea {
     }
 
     private void moveSelection(int direction) {
-        int size = this.result.entries.size();
+        int size = this.result.suggestions().size();
         this.selected = Math.floorMod(this.selected + direction, size);
         if (this.selected < this.firstVisible) this.firstVisible = this.selected;
         int rows = Math.max(1, this.popupRows);
@@ -176,16 +167,15 @@ public final class ScriptTextArea extends GuiTextArea {
     }
 
     private void accept() {
-        if (this.result == null || this.result.entries.isEmpty()) return;
-        ScriptApiCompletion.Entry entry = this.result.entries.get(this.selected);
+        if (this.result == null || this.result.suggestions().isEmpty()) return;
+        ScriptCompletionApi.Suggestion entry = this.result.suggestions().get(this.selected);
         IGuiTextAreaScriptAccess access = access();
-        int end = access.cnpcplus$cursor();
-        while (end < getText().length() && Character.isJavaIdentifierPart(getText().charAt(end))) end++;
-        access.cnpcplus$cursor(this.result.start, false);
-        access.cnpcplus$cursor(end, true);
-        String insertion = entry.insert;
-        if (end < getText().length() && getText().charAt(end) == '(' && entry.method) insertion = entry.name;
-        addText(insertion);
+        access.cnpcplus$cursor(entry.start(), false);
+        // Native setCursor does not clear an existing selection when the position is unchanged.
+        access.cnpcplus$selectionStart(entry.start());
+        access.cnpcplus$selectionEnd(entry.end());
+        addText(entry.insertText());
+        access.cnpcplus$cursor(entry.start() + entry.caret(), false);
         this.clicked = false;
         this.checkedCursor = -1;
         refresh(false);
@@ -198,7 +188,7 @@ public final class ScriptTextArea extends GuiTextArea {
                 && mouseX >= this.popupX && mouseX < this.popupX + this.popupWidth
                 && mouseY >= this.popupY && mouseY < this.popupY + this.popupRows * POPUP_ROW_HEIGHT) {
             this.selected = Math.min(this.firstVisible + (int) (mouseY - this.popupY) / POPUP_ROW_HEIGHT,
-                    this.result.entries.size() - 1);
+                    this.result.suggestions().size() - 1);
             accept();
             return true;
         }
@@ -222,7 +212,7 @@ public final class ScriptTextArea extends GuiTextArea {
         long warnings = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.WARN).count();
         long infos = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.INFO).count();
         this.checkStatus = this.owner == null ? I18n.get("cnpcplus.script.check_skipped")
-                : !this.javascript && this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_skipped")
+                : !ScriptCompletionApi.usesBuiltinChecks(this.language) && this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_skipped")
                 : this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_clear")
                 : I18n.get("cnpcplus.script.check_summary", errors, warnings, infos);
         this.statusColor = errors > 0 ? 0xFFFF6666 : warnings > 0 ? 0xFFFFD45A : infos > 0 ? 0xFF70B8FF : 0xFFA0BBC6;
@@ -318,22 +308,31 @@ public final class ScriptTextArea extends GuiTextArea {
         refresh(false);
 
         Font font = font();
-        String help = I18n.get(this.javascript
-                ? "cnpcplus.script.completion_help" : "cnpcplus.script.completion_js");
+        String help = completionHelp();
         String firstLine = this.status.isEmpty() ? help : this.status;
         int statusWidth = this.width;
         graphics.drawString(font, font.plainSubstrByWidth(firstLine, statusWidth),
                 this.x, this.y + this.height + 3, this.status.isEmpty() ? 0xFF202020 : this.statusColor, false);
-        String detail = this.hints.isEmpty() ? (this.status.isEmpty() ? "" : help) : this.hints.get(0).signature;
+        String detail = this.result != null && !this.result.error().isEmpty() ? this.result.error()
+                : this.hints.isEmpty() ? (this.status.isEmpty() ? "" : help) : this.hints.get(0);
         graphics.drawString(font, font.plainSubstrByWidth(detail, statusWidth),
                 this.x, this.y + this.height + 14, 0xFF202020, false);
 
         this.popupRows = 0;
         this.referenceHovered = false;
-        if (this.active && this.result != null && !this.result.entries.isEmpty()) {
+        if (this.active && this.result != null && !this.result.suggestions().isEmpty()) {
             drawPopup(graphics, mouseX, mouseY);
         }
         drawStatusTooltip(graphics, mouseX, mouseY);
+    }
+
+    private String completionHelp() {
+        var profile = ScriptCompletionApi.language(this.language);
+        if (profile != null && !profile.helpText().isEmpty()) {
+            String text = profile.helpText();
+            return I18n.exists(text) ? I18n.get(text) : text;
+        }
+        return I18n.get(profile == null ? "cnpcplus.script.completion_js" : "cnpcplus.script.completion_help");
     }
 
     private void drawStatusTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -346,11 +345,10 @@ public final class ScriptTextArea extends GuiTextArea {
             if (diagnostic != null && diagnostic != this.staticDiagnostic) lines.add(diagnostic.message);
             for (ScriptDiagnostic item : this.staticDiagnostics) lines.add(warning(item));
         } else {
-            lines.add(I18n.get(this.javascript ? "cnpcplus.script.completion_help" : "cnpcplus.script.completion_js"));
+            lines.add(completionHelp());
+            if (this.result != null && !this.result.error().isEmpty()) lines.add(this.result.error());
             if (!this.checkStatus.isEmpty()) lines.add(this.checkStatus);
-            for (ScriptApiCompletion.Entry hint : this.hints) {
-                lines.add(hint.signature);
-            }
+            lines.addAll(this.hints);
         }
         if (!lines.isEmpty()) drawContainedTooltip(graphics, String.join("\n", lines), this.y + this.height - 4);
     }
@@ -367,8 +365,8 @@ public final class ScriptTextArea extends GuiTextArea {
     private void drawPopup(GuiGraphics graphics, int mouseX, int mouseY) {
         int maxRows = Math.max(1, Math.min(POPUP_ROWS, (this.height - 36) / POPUP_ROW_HEIGHT));
         this.firstVisible = Math.max(0, Math.min(this.firstVisible,
-                Math.max(0, this.result.entries.size() - maxRows)));
-        this.popupRows = Math.min(maxRows, this.result.entries.size() - this.firstVisible);
+                Math.max(0, this.result.suggestions().size() - maxRows)));
+        this.popupRows = Math.min(maxRows, this.result.suggestions().size() - this.firstVisible);
         this.popupWidth = Math.min(this.width - 4, 330);
         this.popupX = this.x + this.width - this.popupWidth - 2;
         this.popupY = this.y + this.height - this.popupRows * POPUP_ROW_HEIGHT - 2;
@@ -382,15 +380,16 @@ public final class ScriptTextArea extends GuiTextArea {
                 graphics.fill(this.popupX, this.popupY + row * POPUP_ROW_HEIGHT,
                         this.popupX + this.popupWidth, this.popupY + (row + 1) * POPUP_ROW_HEIGHT, 0xFF304B5B);
             }
-            ScriptApiCompletion.Entry entry = this.result.entries.get(index);
-            graphics.drawString(font(), font().plainSubstrByWidth(entry.signature, this.popupWidth - 6),
+            ScriptCompletionApi.Suggestion entry = this.result.suggestions().get(index);
+            graphics.drawString(font(), font().plainSubstrByWidth(entry.label(), this.popupWidth - 6),
                     this.popupX + 3, this.popupY + row * POPUP_ROW_HEIGHT + 2,
-                    entry.method ? 0xFFFFE1A0 : 0xFF88DEFF, false);
+                    0xFFFFE1A0, false);
         }
         if (mouseX >= this.popupX && mouseX < this.popupX + this.popupWidth
                 && mouseY >= this.popupY && mouseY < this.popupY + this.popupRows * POPUP_ROW_HEIGHT) {
             int index = this.firstVisible + (mouseY - this.popupY) / POPUP_ROW_HEIGHT;
-            drawContainedTooltip(graphics, this.result.entries.get(index).signature, this.popupY - 3);
+            var entry = this.result.suggestions().get(index);
+            drawContainedTooltip(graphics, entry.detail().isEmpty() ? entry.label() : entry.detail(), this.popupY - 3);
         }
     }
 

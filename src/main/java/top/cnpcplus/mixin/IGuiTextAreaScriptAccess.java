@@ -25,4 +25,10 @@ public interface IGuiTextAreaScriptAccess {
 
     @Invoker("setCursor")
     void cnpcplus$cursor(int index, boolean select);
+
+    @Accessor("startSelection")
+    void cnpcplus$selectionStart(int index);
+
+    @Accessor("endSelection")
+    void cnpcplus$selectionEnd(int index);
 }
