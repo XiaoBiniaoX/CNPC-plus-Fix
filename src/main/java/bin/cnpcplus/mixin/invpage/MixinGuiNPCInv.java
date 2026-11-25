@@ -91,5 +91,9 @@ public class MixinGuiNPCInv {
         for (Map.Entry<Integer, Float> e : ((GuiNPCInv) (Object) this).npc.inventory.dropchance.entrySet()) {
             this.chances.putIfAbsent(e.getKey(), e.getValue());
         }
+
+        // CNPC saves before GuiBasicContainer.onClose() unfocuses the active field.
+        // Commit it now so validation and the normal unFocused callback run before serialization.
+        GuiTextFieldNop.unfocus();
     }
 }
