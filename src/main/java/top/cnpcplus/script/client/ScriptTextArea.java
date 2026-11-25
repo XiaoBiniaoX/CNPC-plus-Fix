@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -32,6 +33,7 @@ public final class ScriptTextArea extends GuiTextArea {
 
     private final ScriptContainer owner;
     private final String context;
+    private final String language;
     private final boolean javascript;
     private final List<String> hooks;
     private String checkedText;
@@ -48,12 +50,13 @@ public final class ScriptTextArea extends GuiTextArea {
     private List<ScriptApiCompletion.Entry> hints = Collections.emptyList();
     private TextContainer marked;
     private ScriptDiagnostic markedRuntime;
-    private ScriptDiagnostic markedWarning;
+    private List<ScriptDiagnostic> markedWarnings = Collections.emptyList();
     private boolean jumped;
     private String status = "";
     private int statusColor = 0xFFA0BBC6;
     private String staticText;
     private ScriptDiagnostic staticDiagnostic;
+    private List<ScriptDiagnostic> staticDiagnostics = Collections.emptyList();
     private String checkStatus = "";
     private String referenceText = "";
     private int referenceScroll, referenceRows;
@@ -66,6 +69,7 @@ public final class ScriptTextArea extends GuiTextArea {
         this.context = context;
         this.hooks = hooks == null ? Collections.emptyList() : new ArrayList<>(hooks);
         String name = language == null ? "" : language.toLowerCase(Locale.ROOT);
+        this.language = language == null ? "" : language;
         this.javascript = name.contains("ecma") || name.contains("javascript")
                 || name.contains("nashorn") || name.equals("js");
     }
@@ -211,12 +215,17 @@ public final class ScriptTextArea extends GuiTextArea {
     /** Button-only lint. No writes to the container, executor, console or diagnostic NBT. */
     public void simpleCheck() {
         this.staticText = getText();
-        this.staticDiagnostic = ScriptDiagnostics.checkStatic(this.owner, this.staticText, this.javascript ? "js" : "");
-        this.checkStatus = !this.javascript || this.owner == null
-                ? I18n.get("cnpcplus.script.check_skipped")
-                : this.staticDiagnostic != null ? warning(this.staticDiagnostic)
-                : !this.owner.scripts.isEmpty() ? I18n.get("cnpcplus.script.check_brackets_only")
-                : I18n.get("cnpcplus.script.check_clear");
+        this.staticDiagnostics = ScriptDiagnostics.checkStaticAll(this.owner, this.staticText, this.language,
+                Set.copyOf(this.hooks));
+        this.staticDiagnostic = this.staticDiagnostics.isEmpty() ? null : this.staticDiagnostics.get(0);
+        long errors = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.ERROR).count();
+        long warnings = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.WARN).count();
+        long infos = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.INFO).count();
+        this.checkStatus = this.owner == null ? I18n.get("cnpcplus.script.check_skipped")
+                : !this.javascript && this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_skipped")
+                : this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_clear")
+                : I18n.get("cnpcplus.script.check_summary", errors, warnings, infos);
+        this.statusColor = errors > 0 ? 0xFFFF6666 : warnings > 0 ? 0xFFFFD45A : infos > 0 ? 0xFF70B8FF : 0xFFA0BBC6;
         this.marked = null;
     }
 
@@ -224,25 +233,35 @@ public final class ScriptTextArea extends GuiTextArea {
         if (this.staticText != null && !getText().equals(this.staticText)) {
             this.staticText = null;
             this.staticDiagnostic = null;
+            this.staticDiagnostics = Collections.emptyList();
             this.checkStatus = "";
             this.marked = null;
         }
         ScriptDiagnostic runtime = ScriptDiagnostics.get(this.owner);
         TextContainer container = access().cnpcplus$container();
-        if (container == this.marked && runtime == this.markedRuntime && this.staticDiagnostic == this.markedWarning) return;
+        if (container == this.marked && runtime == this.markedRuntime && this.staticDiagnostics == this.markedWarnings) return;
         this.marked = container;
         this.markedRuntime = runtime;
-        this.markedWarning = this.staticDiagnostic;
+        this.markedWarnings = this.staticDiagnostics;
         container.makeup.clear();
         container.formatCodeText();
         this.status = this.checkStatus;
-        this.statusColor = 0xFF202020;
-        if (this.staticDiagnostic != null) {
-            int[] range = ScriptDiagnostic.range(getText(), this.staticDiagnostic.line);
+        for (ScriptDiagnostic diagnostic : this.staticDiagnostics) {
+            int[] range = ScriptDiagnostic.range(getText(), diagnostic.line);
             if (range[0] >= 0) {
-                int start = Math.min(range[1], range[0] + Math.max(0, this.staticDiagnostic.column - 1));
-                int end = Math.min(range[1], start + this.staticDiagnostic.length);
-                if (end > start) container.addMakeUp(start, end, 'e', 90);
+                int start = Math.min(range[1], range[0] + Math.max(0, diagnostic.column - 1));
+                int end = Math.min(range[1], start + diagnostic.length);
+                char color = switch (diagnostic.severity) {
+                    case ERROR -> 'c';
+                    case WARN -> 'e';
+                    case INFO -> 'b';
+                };
+                int priority = switch (diagnostic.severity) {
+                    case ERROR -> 100;
+                    case WARN -> 90;
+                    case INFO -> 80;
+                };
+                if (end > start) container.addMakeUp(start, end, color, priority);
             }
         }
         if (runtime == null) return;
@@ -324,10 +343,8 @@ public final class ScriptTextArea extends GuiTextArea {
         ScriptDiagnostic diagnostic = diagnostic();
         if (diagnostic != null && mouseY < this.y + this.height + 12) {
             if (!this.status.isEmpty()) lines.add(this.status);
-            lines.add(diagnostic == this.staticDiagnostic ? warning(diagnostic) : diagnostic.message);
-            if (this.staticDiagnostic != null && diagnostic != this.staticDiagnostic) {
-                lines.add(warning(this.staticDiagnostic));
-            }
+            if (diagnostic != null && diagnostic != this.staticDiagnostic) lines.add(diagnostic.message);
+            for (ScriptDiagnostic item : this.staticDiagnostics) lines.add(warning(item));
         } else {
             lines.add(I18n.get(this.javascript ? "cnpcplus.script.completion_help" : "cnpcplus.script.completion_js"));
             if (!this.checkStatus.isEmpty()) lines.add(this.checkStatus);
@@ -339,7 +356,12 @@ public final class ScriptTextArea extends GuiTextArea {
     }
 
     private static String warning(ScriptDiagnostic diagnostic) {
-        return I18n.get(diagnostic.hintKey, diagnostic.line, diagnostic.subject);
+        String severity = switch (diagnostic.severity) {
+            case ERROR -> I18n.get("cnpcplus.script.severity.error");
+            case WARN -> I18n.get("cnpcplus.script.severity.warn");
+            case INFO -> I18n.get("cnpcplus.script.severity.info");
+        };
+        return severity + ": " + I18n.get(diagnostic.hintKey, diagnostic.line, diagnostic.subject);
     }
 
     private void drawPopup(GuiGraphics graphics, int mouseX, int mouseY) {

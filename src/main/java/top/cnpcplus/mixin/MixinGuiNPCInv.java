@@ -8,6 +8,7 @@ import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiLabel;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
 import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
+import net.minecraft.client.gui.GuiGraphics;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -34,6 +35,23 @@ public class MixinGuiNPCInv {
 
     private EntityNPCInterface cnpcplus$npc() {
         return ((GuiContainerNPCInterface) (Object) this).npc;
+    }
+
+    @Inject(method = "m_7286_", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/client/gui/util/GuiContainerNPCInterface2;m_7286_(Lnet/minecraft/client/gui/GuiGraphics;FII)V",
+            shift = At.Shift.AFTER), cancellable = true, remap = false, require = 1)
+    private void cnpcplus$skipSlotHighlightsWithSubGui(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY,
+                                                        CallbackInfo ci) {
+        if (((IGuiInterface) (Object) this).hasSubGui()) ci.cancel();
+    }
+
+    @Inject(method = "m_88315_", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/client/gui/util/GuiContainerNPCInterface2;m_88315_(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
+            shift = At.Shift.AFTER), cancellable = true, remap = false, require = 1)
+    private void cnpcplus$skipNpcPreviewWithSubGui(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks,
+                                                  CallbackInfo ci) {
+        // The parent call has already rendered the child screen; do not paint the NPC over it.
+        if (((IGuiInterface) (Object) this).hasSubGui()) ci.cancel();
     }
 
     @Inject(method = "<init>", at = @At("RETURN"))

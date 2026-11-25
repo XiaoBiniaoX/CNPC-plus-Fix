@@ -35,7 +35,7 @@ public final class NpcEditorRegression {
     public static void main(String[] args) throws Exception {
         int sites = 0;
         for (String name : List.of("MixinProjectileWallStick", "MixinMovingPathImmediateSync", "MixinNpcEditorSelections",
-                "MixinSubGuiNpcMovementChoices", "MixinNpcLootModeSelect", "MixinTextureSelectionDefaults", "MixinRenderCustomNpcLayers")) {
+                "MixinSubGuiNpcMovementChoices", "MixinNpcLootModeSelect", "MixinGuiNPCInv", "MixinTextureSelectionDefaults", "MixinRenderCustomNpcLayers")) {
             ClassNode mixin = read(PREFIX + name);
             AnnotationNode spec = annotations(mixin.visibleAnnotations, mixin.invisibleAnnotations).stream()
                     .filter(a -> a.desc.endsWith("/Mixin;")).findFirst().orElseThrow();
@@ -80,6 +80,7 @@ public final class NpcEditorRegression {
         }
         projectileHandlers();
         pickerConfirmation();
+        inventorySubGuiRenderGuard();
         visualControls();
         pathOverlay();
         System.out.println("NPC_EDITOR_REGRESSION=PASS (" + sites + " native injection sites; editor controls and route geometry/pixel verification; no Minecraft launch)");
@@ -180,6 +181,70 @@ public final class NpcEditorRegression {
             check(type.getField("closed").getBoolean(picker), "picker did not close");
         }
         check(calls[0] == 1, "confirmation not applied exactly once");
+    }
+
+    private static void inventorySubGuiRenderGuard() throws Exception {
+        ClassNode mixin = read(PREFIX + "MixinGuiNPCInv");
+        Map<String, String> guards = Map.of("cnpcplus$skipSlotHighlightsWithSubGui", "m_7286_",
+                "cnpcplus$skipNpcPreviewWithSubGui", "m_88315_");
+        for (var guard : guards.entrySet()) {
+            MethodNode handler = mixin.methods.stream().filter(m -> m.name.equals(guard.getKey())).findFirst().orElseThrow();
+            AnnotationNode inject = annotations(handler.visibleAnnotations, handler.invisibleAnnotations).stream()
+                    .filter(a -> a.desc.endsWith("/Inject;")).findFirst().orElseThrow();
+            @SuppressWarnings("unchecked") List<String> method = (List<String>) value(inject, "method");
+            Object atValue = value(inject, "at");
+            AnnotationNode at = atValue instanceof AnnotationNode node ? node : (AnnotationNode) ((List<?>) atValue).get(0);
+            String[] shift = (String[]) value(at, "shift");
+            String descriptor = guard.getValue().equals("m_7286_") ? "FII" : "IIF";
+            check(method.contains(guard.getValue()) && "INVOKE".equals(value(at, "value"))
+                            && ("Lnoppes/npcs/client/gui/util/GuiContainerNPCInterface2;" + guard.getValue()
+                                + "(Lnet/minecraft/client/gui/GuiGraphics;" + descriptor + ")V").equals(value(at, "target"))
+                            && shift[1].equals("AFTER") && Boolean.TRUE.equals(value(inject, "cancellable")),
+                    "inventory guard must preserve the parent/child rendering before skipping " + guard.getKey());
+        }
+
+        MethodNode nativeRender = read("noppes/npcs/client/gui/mainmenu/GuiNPCInv").methods.stream()
+                .filter(m -> m.name.equals("m_88315_")).findFirst().orElseThrow();
+        List<String> nativeCalls = Arrays.stream(nativeRender.instructions.toArray()).filter(i -> i instanceof MethodInsnNode)
+                .map(i -> ((MethodInsnNode)i).name).toList();
+        check(nativeCalls.equals(List.of("m_88315_", "getShowName", "setShowName", "drawNpc", "setShowName")),
+                "native preview suffix changed; cancellation may skip non-preview work or name restoration");
+
+        mixin.methods.removeIf(m -> !guards.containsKey(m.name));
+        mixin.fields.clear();
+        ClassNode probe = new ClassNode();
+        mixin.accept(new ClassRemapper(probe, new SimpleRemapper(Map.of(mixin.name, "top/cnpcplus/NpcInventoryRenderProbe",
+                GUI, Type.getInternalName(InventoryRenderShell.class), "net/minecraft/client/gui/GuiGraphics", "java/lang/Object"))));
+        probe.superName = Type.getInternalName(InventoryRenderShell.class);
+        MethodNode init = new MethodNode(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        init.instructions.add(new VarInsnNode(Opcodes.ALOAD, 0));
+        init.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, probe.superName, "<init>", "()V", false));
+        init.instructions.add(new InsnNode(Opcodes.RETURN)); probe.methods.add(init);
+        for (MethodNode handler : probe.methods) for (var instruction : handler.instructions)
+            if (instruction instanceof MethodInsnNode call && call.name.equals("hasSubGui")) {
+                call.setOpcode(Opcodes.INVOKEVIRTUAL); call.itf = false;
+            }
+        Class<?> type = define(probe);
+        InventoryRenderShell self = (InventoryRenderShell)type.getConstructor().newInstance();
+        for (String name : guards.keySet()) {
+            boolean slots = guards.get(name).equals("m_7286_");
+            Method handler = type.getDeclaredMethod(name, Object.class, slots ? float.class : int.class,
+                    int.class, slots ? int.class : float.class, CallbackInfo.class);
+            handler.setAccessible(true);
+            for (boolean open : new boolean[]{false, true, true, false}) {
+                self.subGui = open;
+                CallbackInfo callback = new CallbackInfo(guards.get(name), true);
+                if (slots) handler.invoke(self, null, 0f, 0, 0, callback);
+                else handler.invoke(self, null, 0, 0, 0f, callback);
+                check(callback.isCancelled() == open, "inventory decorations/preview did not follow child screen visibility: " + name);
+            }
+        }
+        System.out.println("INVENTORY_SUBGUI_REGRESSION=PASS (slot/preview guards; open/reopen/close; native render order)");
+    }
+
+    public static class InventoryRenderShell {
+        public boolean subGui;
+        public boolean hasSubGui() { return subGui; }
     }
 
     private static void visualControls() throws Exception {

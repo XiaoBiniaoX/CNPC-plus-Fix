@@ -5,6 +5,7 @@ import java.util.Set;
 import javax.script.ScriptException;
 import net.minecraft.nbt.CompoundTag;
 import noppes.npcs.constants.EnumScriptType;
+import top.cnpcplus.api.script.ScriptCheckApi;
 import top.cnpcplus.script.ScriptApiCompletion;
 import top.cnpcplus.script.ScriptDiagnostic;
 import top.cnpcplus.script.ScriptDiagnostics;
@@ -126,14 +127,15 @@ public final class ScriptEditorRegression {
                 "function damaged(哈哈哈){\n哈哈哈\n}",
                 "function damaged(e){ var 哈哈哈 = 1;\n哈哈哈\n}",
                 "var a = 1, 哈哈哈;\nfunction damaged(e){\n哈哈哈\n}",
-                "var source = {}; var {哈哈哈} = source;\nfunction damaged(e){\n哈哈哈\n}",
-                "var f = (哈哈哈) => {\n哈哈哈\n};",
                 "function damaged(e){\n'哈哈哈'; // 哈哈哈\n/* 哈哈哈 */\n}",
                 "function damaged(e){ if (e) { return; }\nelse\n{ debugger; } }",
                 "function damaged(e){\nMath;\nAnimationType\n}",
                 "function damaged(e){ load('globals.js');\n哈哈哈\n}",
                 "function damaged(e){ var regex = /{哈哈哈}/;\nregex\n}")) {
-            check(ScriptStaticCheck.check(valid, Set.of()) == null, "false static alarm: " + valid);
+            var unexpected = ScriptStaticCheck.checkAll(valid, Set.of(), true, Set.of());
+            check(unexpected.stream().noneMatch(item -> item.severity != ScriptDiagnostic.Severity.INFO),
+                    "false static alarm: " + valid + " -> " + unexpected.stream()
+                            .map(item -> item.severity + "/" + item.hintKey + "/" + item.subject).toList());
         }
         CompoundTag saved = new CompoundTag();
         ScriptDiagnostics.write(diagnostic, script, saved);
@@ -174,23 +176,99 @@ public final class ScriptEditorRegression {
                 "function damaged(e) { var n=1, m=n+1; return m; }",
                 "function damaged(e) { var n = /[{}()\\[\\]]+/g; return n.test('}'); }",
                 "function damaged(e) { if(e) /[)]/.test('a'); }",
-                "function damaged(e) { return `${e.npc.name} ${({key: e}).key}`; }",
                 "function damaged(e) { var good = {} / 2; return good; }",
-                "function damaged(e) { return `literal } ) [ ${`nested ${e.damage}`}`; }",
-                "function damaged(e) { var source={}; var {key: value=1, ...rest}=source; return value+rest.key; }",
-                "function damaged(e) { var source=[1,2]; var [x,y]=source; return x+y; }",
-                "function damaged(e) { try {} catch(err) { log(err); } }",
-                "function damaged(e) { var f = x => x+1; return f(2); }",
-                "function damaged(e) { var f = (x,y=x) => y+1; return f(2); }",
-                "function damaged(e, x=e.damage) { return x; }",
-                "function damaged(e) { for(let i=0; i<3; i++) { log(i); } }",
-                "function damaged(e) { for(const x of [1,2]) { log(x); } }",
+                "function damaged(e) { try { log('ok'); } catch(err) { log(err); } }",
+                "function damaged(e) { for(var i=0; i<3; i++) { log(i); } }",
                 "function damaged(e) { { var visible=1; } return visible; }",
-                "function damaged(e) { var obj={key:1, method(x) { return x; }}; return obj.key; }",
+                "function damaged(e) { var obj={key:1}; return obj.key; }",
                 "function damaged(e) { outer: for(var i=0; i<3;i++) { break outer; } }",
                 "var fun = function privateName(e) {return privateName(e)}; fun(1);",
-                "function damaged(e) { var key='x'; var {[key]: value}={}; return value; }")) {
-            check(ScriptStaticCheck.check(valid, Set.of()) == null, "false reference/bracket alarm: " + valid);
+                "function damaged(e) { var key='x'; var value={}; return value[key]; }")) {
+            var unexpected = ScriptStaticCheck.checkAll(valid, Set.of(), true, Set.of());
+            check(unexpected.stream().noneMatch(item -> item.severity != ScriptDiagnostic.Severity.INFO),
+                    "false reference/bracket alarm: " + valid + " -> " + unexpected.stream()
+                            .map(item -> item.severity + "/" + item.hintKey + "/" + item.subject).toList());
+        }
+        List<ScriptDiagnostic> unsupported = ScriptStaticCheck.checkAll(
+                "function damaged(e, x=e.damage) { return x; }", Set.of(), true, Set.of());
+        check(unsupported.stream().anyMatch(item -> item.hintKey.endsWith("unsupported_syntax")),
+                "Nashorn-incompatible default parameter was not identified");
+        unsupported = ScriptStaticCheck.checkAll("function damaged(e) { for(let i=0; i<3; i++) log(i); }",
+                Set.of(), true, Set.of());
+        check(unsupported.stream().anyMatch(item -> item.hintKey.endsWith("unsupported_syntax")),
+                "Nashorn-incompatible let declaration was not identified");
+        List<ScriptDiagnostic> distinctCases = ScriptStaticCheck.checkAll(
+                "function damaged(e) { switch(e) { case 'a b': break; case 'ab': break; } }",
+                Set.of(), true, Set.of());
+        check(distinctCases.stream().noneMatch(item -> item.hintKey.endsWith("duplicate_case")),
+                "different string switch cases were treated as duplicates");
+        List<ScriptDiagnostic> distinctConditions = ScriptStaticCheck.checkAll(
+                "function damaged(e) { if(e.name === 'a b') {} else if(e.name === 'ab') {} }",
+                Set.of(), true, Set.of());
+        check(distinctConditions.stream().noneMatch(item -> item.hintKey.endsWith("duplicate_condition")),
+                "different string conditions were treated as duplicates");
+        List<ScriptDiagnostic> incompleteLoop = ScriptStaticCheck.checkAll(
+                "function damaged(e) { while(true) {", Set.of(), true, Set.of());
+        check(incompleteLoop.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_bracket")),
+                "incomplete loop did not retain bracket recovery");
+        try {
+            for (String sample : List.of(
+                    "游戏验收脚本/14-脚本简单自检/01-Error-多项词法错误.js",
+                    "游戏验收脚本/14-脚本简单自检/02-Warn-可疑代码.js",
+                    "游戏验收脚本/14-脚本简单自检/03-Info-改进建议.js",
+                    "游戏验收脚本/14-脚本简单自检/04-Error-Nashorn不兼容语法.js",
+                    "游戏验收脚本/14-脚本简单自检/05-Error-注释未闭合.js",
+                    "游戏验收脚本/14-脚本简单自检/06-Error-括号错配.js",
+                    "游戏验收脚本/14-脚本简单自检/07-Warn-空分支.js",
+                    "游戏验收脚本/14-脚本简单自检/08-Warn-循环风险.js",
+                    "游戏验收脚本/14-脚本简单自检/09-Info-多项未使用.js",
+                    "游戏验收脚本/14-脚本简单自检/10-Info-throw后不可达.js")) {
+                String source = java.nio.file.Files.readString(java.nio.file.Path.of(sample));
+                List<ScriptDiagnostic> result = ScriptStaticCheck.checkAll(source, Set.of(), true,
+                        Set.of("interact"));
+                if (sample.contains("01-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_string"))
+                                    && result.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_bracket")),
+                            "Error acceptance sample did not report both lexical issues");
+                } else if (sample.contains("02-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("undeclared"))
+                                    && result.stream().anyMatch(item -> item.hintKey.endsWith("duplicate_condition"))
+                                    && result.stream().anyMatch(item -> item.hintKey.endsWith("duplicate_case")),
+                            "Warn acceptance sample did not report all issues");
+                } else if (sample.contains("03-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("unused_function"))
+                                    && result.stream().anyMatch(item -> item.hintKey.endsWith("unused_variable"))
+                                    && result.stream().anyMatch(item -> item.hintKey.endsWith("unreachable"))
+                                    && result.stream().noneMatch(item -> item.subject.equals("interact")
+                                            && item.hintKey.endsWith("unused_function")),
+                            "Info acceptance sample did not report expected suggestions");
+                } else if (sample.contains("04-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("unsupported_syntax")),
+                            "Nashorn compatibility sample did not report unsupported syntax");
+                } else if (sample.contains("05-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_comment")),
+                            "unclosed comment sample was not reported");
+                } else if (sample.contains("06-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_bracket")
+                                    || item.hintKey.endsWith("unexpected_bracket")),
+                            "mismatched bracket sample was not reported");
+                } else if (sample.contains("07-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("empty_block")),
+                            "empty block sample was not reported");
+                } else if (sample.contains("08-")) {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("possible_infinite_loop")),
+                            "non-terminating loop sample was not reported");
+                } else if (sample.contains("09-")) {
+                    check(result.stream().filter(item -> item.hintKey.endsWith("unused_function")).count() >= 2
+                                    && result.stream().filter(item -> item.hintKey.endsWith("unused_variable")).count() >= 2,
+                            "multiple unused declarations were not all reported");
+                } else {
+                    check(result.stream().anyMatch(item -> item.hintKey.endsWith("unreachable")),
+                            "throw/unreachable sample was not reported");
+                }
+            }
+        } catch (java.io.IOException error) {
+            throw new AssertionError("could not read game acceptance samples", error);
         }
         for (String broken : List.of("function damaged(e) {\n e.npc.say('x');",
                 "function damaged(e) { e.npc.say(1; }", "var x = [1,2;", "var x = (1];", "}")) {
@@ -204,5 +282,39 @@ public final class ScriptEditorRegression {
         check(ScriptStaticCheck.check("missing;", Set.of(), false) == null, "external bindings accused");
         check(ScriptStaticCheck.check("function f(e) {", Set.of(), false) != null, "external bracket check skipped");
         System.out.println("PASS: expression/assignment references, lexical scope, bracket pairing, regex/templates and dynamic guards");
+
+        List<ScriptDiagnostic> multiple = ScriptStaticCheck.checkAll(
+                "function damaged(e) { var unused = 1; while (true) {} return; after(); }", Set.of(), true, Set.of());
+        check(multiple.stream().anyMatch(item -> item.hintKey.endsWith("possible_infinite_loop")
+                        && item.severity == ScriptDiagnostic.Severity.WARN), "possible infinite loop was not reported");
+        check(multiple.stream().anyMatch(item -> item.hintKey.endsWith("unused_variable")
+                        && item.severity == ScriptDiagnostic.Severity.INFO), "unused variable suggestion was not reported");
+        check(multiple.stream().anyMatch(item -> item.hintKey.endsWith("unreachable")
+                        && item.severity == ScriptDiagnostic.Severity.INFO), "code after return was not reported");
+
+        List<ScriptDiagnostic> broken = ScriptStaticCheck.checkAll("function damaged(e) { e.npc.say('open;\n}", Set.of(), true, Set.of());
+        check(broken.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_string"))
+                        && broken.stream().anyMatch(item -> item.hintKey.endsWith("unclosed_bracket")),
+                "multiple recoverable lexical errors were not retained");
+
+        ScriptCheckApi.registerGlobal("addonGlobal");
+        try {
+            check(ScriptStaticCheck.checkAll("addonGlobal;", ScriptCheckApi.registeredGlobals(), true, Set.of()).stream()
+                    .noneMatch(item -> item.hintKey.endsWith("undeclared")), "registered addon global was diagnosed");
+        } finally {
+            ScriptCheckApi.unregisterGlobal("addonGlobal");
+        }
+        ScriptCheckApi.register("test:language", (source, report) -> {
+            if (source.language().equals("ExampleLanguage"))
+                report.report(ScriptCheckApi.Severity.ERROR, 0, 1, "test.example.error", "custom grammar");
+        });
+        try {
+            var addon = ScriptCheckApi.check(new ScriptCheckApi.Source("x", "ExampleLanguage", Set.of()));
+            check(addon.size() == 1 && addon.get(0).severity() == ScriptCheckApi.Severity.ERROR
+                            && addon.get(0).offset() == 0, "custom-language addon checker was not invoked");
+        } finally {
+            ScriptCheckApi.unregister("test:language");
+        }
+        System.out.println("PASS: multiple severities, recovery, addon globals and custom-language checker API");
     }
 }

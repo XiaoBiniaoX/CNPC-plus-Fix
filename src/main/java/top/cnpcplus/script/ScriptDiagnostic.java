@@ -15,6 +15,8 @@ public final class ScriptDiagnostic {
             "(?:<eval>|<Unknown source>|<script>|Script|script|Unknown Source):(\\d+)(?::(\\d+))?"
                     + "|(?:line number|line|行号)\\s*[:=]?\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
 
+    public enum Severity { ERROR, WARN, INFO }
+
     public final int line;
     public final int column;
     public final String hash;
@@ -22,6 +24,7 @@ public final class ScriptDiagnostic {
     public final String hintKey;
     public final String subject;
     public final int length;
+    public final Severity severity;
 
     public ScriptDiagnostic(int line, int column, String hash, String message) {
         this(line, column, hash, message, "", "", 0);
@@ -29,14 +32,20 @@ public final class ScriptDiagnostic {
 
     public ScriptDiagnostic(int line, int column, String hash, String message,
                             String hintKey, String subject, int length) {
+        this(line, column, hash, message, hintKey, subject, length, Severity.ERROR);
+    }
+
+    public ScriptDiagnostic(int line, int column, String hash, String message,
+                            String hintKey, String subject, int length, Severity severity) {
         this.line = Math.max(0, line);
         this.column = Math.max(0, column);
         this.hash = hash == null ? "" : hash;
         String safeMessage = message == null ? "" : message;
         this.message = safeMessage.length() > 2048 ? safeMessage.substring(0, 2048) : safeMessage;
-        this.hintKey = hintKey;
-        this.subject = subject;
+        this.hintKey = hintKey == null ? "" : hintKey;
+        this.subject = subject == null ? "" : subject;
         this.length = length;
+        this.severity = severity == null ? Severity.ERROR : severity;
     }
 
     public static ScriptDiagnostic capture(Throwable error, String script) {
@@ -68,6 +77,10 @@ public final class ScriptDiagnostic {
 
     public boolean matches(String text) {
         return hash.equals(hash(text));
+    }
+
+    public boolean isStaticCheck() {
+        return !hintKey.isEmpty() || message.startsWith("Static check:") || message.startsWith("Addon self-check:");
     }
 
     public static String hash(String text) {

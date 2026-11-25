@@ -49,7 +49,10 @@ public final class UnifiedScriptRegression {
         ScriptEventsRegression.main(args);
         List<Path> scripts;
         try (var files = Files.walk(Path.of("游戏验收脚本"))) {
-            scripts = files.filter(path -> path.toString().endsWith(".js")).sorted().toList();
+            scripts = files.filter(path -> path.toString().endsWith(".js"))
+                    // These deliberately contain invalid/unreachable code and are linted without execution elsewhere.
+                    .filter(path -> !path.getParent().getFileName().toString().equals("14-脚本简单自检"))
+                    .sorted().toList();
         }
         check(scripts.size() >= 47, "categorized acceptance scripts missing");
         var examples = Map.of(
