@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import noppes.npcs.mixin.LivingRenderer2Mixin;
 
 /**
  * 优化 #8：替代实体模型 NPC 每帧 {@code new LayerGlow}。
@@ -78,17 +81,19 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * 替代模型的图层。这是可见的视觉 bug，而收益只是省几次 {@code ArrayList.clear()}
  * （几个引用写，纳秒级）。风险收益比不成立，所以只做 {@code new LayerGlow} 这一项。
  *
- * <p>顺带记录一个发现（<b>刻意不修</b>）：{@code npclayers}（第 109 行
- * {@code Lists.newArrayList()}）在整个类里<b>从未被填充过</b> ——
- * 构造函数只调 {@code addLayer}（写的是父类的 {@code layers}）。
- * 于是 179-181 / 212-213 行的 {@code layers.clear(); layers.addAll(npclayers)}
- * 实际效果是<b>清空所有图层</b>。这是 CNPC 自己的 bug，
- * 修它会让原本消失的披风/发光/装备重新出现 —— 那是行为变更，不是性能优化，
- * 不在本 mod 的职责范围内。
+ * <p>编辑器材质修复：构造结束时保存原生图层，避免替代实体模型切回普通NPC时
+ * 从空npclayers恢复，永久丢失披风/发光/装备层。RenderType本身已有正确的发光分支。
  */
 @OnlyIn(Dist.CLIENT)
 @Mixin(value = RenderCustomNpc.class, remap = false)
 public abstract class MixinRenderCustomNpcLayers {
+
+    @Inject(method = "<init>", at = @At("RETURN"), require = 1)
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void cnpcplus$rememberNativeLayers(CallbackInfo ci) {
+        RenderCustomNpc self = (RenderCustomNpc)(Object)this;
+        self.npclayers.addAll(((LivingRenderer2Mixin)self).layers());
+    }
 
     /**
      * 复用的发光图层实例。

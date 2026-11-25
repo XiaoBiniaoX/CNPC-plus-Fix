@@ -23,24 +23,25 @@ public final class SubGuiRoleJobSelect extends GuiBasic implements ICustomScroll
         this.parent = parent;
         this.buttonId = buttonId;
         options = ((GuiButtonOptionsAccess)parent.getButton(buttonId)).cnpcplus$options().clone();
-        imageWidth = 280;
         imageHeight = 220;
         setBackground("menubg.png");
     }
 
     @Override public void m_7856_() {
+        imageWidth = Math.min(224, width - 12);
         super.m_7856_();
-        addTextField(new NativeSearchField(0, this, guiLeft + 12, guiTop + 28, 256, search));
+        int contentWidth = imageWidth - 24, buttonWidth = (contentWidth - 6) / 2;
+        addTextField(new NativeSearchField(0, this, guiLeft + 12, guiTop + 28, contentWidth, search));
         addWidget(getTextField(0));
         getTextField(0).setResponder(value -> { search = value; filter(); });
         list = new GuiCustomScrollNop(this, 0);
         list.disabledSearch();
-        list.setSize(256, 136);
+        list.setSize(contentWidth, 136);
         list.guiLeft = guiLeft + 12;
         list.guiTop = guiTop + 52;
         addScroll(list);
-        addButton(new GuiButtonNop(this, 0, guiLeft + 12, guiTop + 194, 122, 20, "gui.select"));
-        addButton(new GuiButtonNop(this, 1, guiLeft + 146, guiTop + 194, 122, 20, "gui.cancel"));
+        addButton(new GuiButtonNop(this, 0, guiLeft + 12, guiTop + 194, buttonWidth, 20, "gui.select"));
+        addButton(new GuiButtonNop(this, 1, guiLeft + imageWidth - 12 - buttonWidth, guiTop + 194, buttonWidth, 20, "gui.cancel"));
         filter();
     }
 

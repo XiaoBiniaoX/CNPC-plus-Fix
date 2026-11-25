@@ -47,12 +47,29 @@ public class MixinGuiNpcAdvancedCustomRoleJob {
     @Inject(method = "m_7856_", at = @At("TAIL"), require = 1)
     private void cnpcplus$quickSelect(CallbackInfo ci) {
         GuiNpcAdvanced self = (GuiNpcAdvanced)(Object)this;
+        var font = Minecraft.getInstance().font;
+        int quickWidth = Math.max(44, font.width(net.minecraft.client.resources.language.I18n.get("cnpcplus.select.quick")) + 12);
+        int labelWidth = Math.min(120, Math.max(60, Math.max(font.width(self.getButton(8).getMessage()), font.width(self.getButton(5).getMessage()))));
         for (int id : new int[]{8, 5}) {
             var original = self.getButton(id);
             if (original == null) continue;
+            original.visible = false;
+            original.shown = false;
+            // Keep the option button as the quick-picker's data/save carrier, not an interactive arrow.
+            var edit = self.getButton(id == 8 ? 3 : 4);
+            int rowWidth = quickWidth + 6 + labelWidth + 6 + edit.getWidth();
+            int x = self.guiLeft + (self.imageWidth - rowWidth) / 2;
+            String current = original.getMessage().getString();
+            String label = font.width(current) <= labelWidth ? current : font.plainSubstrByWidth(current, labelWidth - font.width("…")) + "…";
+            var valueLabel = new noppes.npcs.shared.client.gui.components.GuiLabel(720 + id,
+                    label, x + quickWidth + 6, original.getY() + 6, current);
+            valueLabel.setWidth(labelWidth);
+            valueLabel.setCentered(true);
+            self.addLabel(valueLabel);
             self.addButton(new noppes.npcs.shared.client.gui.components.GuiButtonNop(self, 720 + id,
-                    original.getX() - 70, original.getY(), 66, 20, "cnpcplus.select.quick",
+                    x, original.getY(), quickWidth, 20, "cnpcplus.select.quick",
                     pressed -> self.setSubGui(new top.cnpcplus.client.gui.SubGuiRoleJobSelect(self, id))));
+            edit.setX(x + quickWidth + 6 + labelWidth + 6);
         }
     }
 
