@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -172,6 +173,14 @@ public final class ScriptApiCompletion {
         }
         roots.values().removeIf(Objects::isNull);
         return roots;
+    }
+
+    /** Resolves the real CNPC event class for an engine hook without guessing from capitalization. */
+    public static Class<?> eventType(String context, String function) {
+        if (context == null || function == null) return null;
+        String baseName = context.equals("BlockDoorEvent") ? "BlockEvent" : context;
+        if (!Set.of("NpcEvent", "PlayerEvent", "BlockEvent", "ItemEvent", "ForgeEvent").contains(baseName)) return null;
+        return eventClass(load(API + "event." + baseName), function);
     }
 
     private static Class<?> eventClass(Class<?> base, String function) {

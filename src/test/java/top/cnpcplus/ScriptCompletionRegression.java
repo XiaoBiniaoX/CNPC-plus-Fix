@@ -9,12 +9,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import noppes.npcs.controllers.ScriptContainer;
+import noppes.npcs.controllers.IScriptHandler;
+import top.cnpcplus.api.script.CnpcPlusApi;
 import top.cnpcplus.api.script.ScriptCheckApi;
 import top.cnpcplus.api.script.ScriptCompletionApi;
 import top.cnpcplus.api.script.ScriptCompletionApi.Language;
 import top.cnpcplus.api.script.ScriptCompletionApi.Request;
 import top.cnpcplus.api.script.ScriptCompletionApi.Result;
 import top.cnpcplus.api.script.ScriptCompletionApi.Suggestion;
+import top.cnpcplus.api.script.ScriptEditorApi;
+import top.cnpcplus.api.script.ScriptPageApi;
 import top.cnpcplus.script.ScriptDiagnostics;
 
 /** Executes the text API in an isolated JVM classpath with all client classes and language engines forbidden. */
@@ -46,6 +50,11 @@ public final class ScriptCompletionRegression {
 
     public static void run() {
         check(ScriptCompletionApi.registeredIds().isEmpty(), "unexpected starting registration");
+        editorProviders();
+        pageDraft();
+        check(CnpcPlusApi.capabilities().containsAll(Set.of("script.editor-providers.v1",
+                        "script.editor-client-actions.v1", "script.lifecycle.v1", "script.metadata.v1")),
+                "compatibility capability list is incomplete");
         check(ScriptCompletionApi.supports(" ECMAScript ") && ScriptCompletionApi.usesBuiltinChecks("JavaScript"),
                 "native ES5 labels lost");
         for (String other : List.of("Python", "Java", "JavaScript ES2024", "ECMAScript 2024", "NotJavaScript")) {
@@ -175,6 +184,73 @@ public final class ScriptCompletionRegression {
             }
         } finally { example.addon.AddonScriptCompletionExample.shutdown(); }
         check(ScriptCompletionApi.registeredIds().isEmpty(), "example leaked registration");
+    }
+
+    private static void editorProviders() {
+        check(!ScriptEditorApi.hasHighlighter("Python") && !ScriptEditorApi.hasTemplates("Python"),
+                "unexpected editor provider registration");
+        ScriptEditorApi.registerHighlighter("test:python", Set.of("Python"), request -> {
+            check(request.text().equals("print(1)") && request.carrier() == ScriptPageApi.Carrier.ITEM,
+                    "highlighter request snapshot changed");
+            return List.of(new ScriptEditorApi.TokenSpan(0, 5, ScriptEditorApi.TokenKind.KEYWORD));
+        });
+        ScriptEditorApi.registerTemplates("test:python", Set.of("Python"), request -> {
+            check(request.hook().name().equals("pickUp") && request.cursor() == 8
+                            && request.lineIndent().equals("  "), "template request lost raw hook/cursor/indent");
+            return java.util.Optional.of(new ScriptEditorApi.Template("def pickUp(event):\n  pass", 4));
+        });
+        try {
+            check(ScriptEditorApi.hasHighlighter(" python ") && ScriptEditorApi.hasTemplates("PYTHON"),
+                    "editor providers did not normalize exact aliases");
+            var tokens = ScriptEditorApi.highlight(new ScriptEditorApi.TextRequest(
+                    "print(1)", "Python", ScriptPageApi.Carrier.ITEM));
+            check(tokens.equals(List.of(new ScriptEditorApi.TokenSpan(0, 5, ScriptEditorApi.TokenKind.KEYWORD))),
+                    "highlighter spans changed");
+            var hook = new ScriptPageApi.HookDescriptor("pickUp", ScriptPageApi.Carrier.ITEM,
+                    java.util.Optional.empty(), java.util.Optional.empty());
+            var template = ScriptEditorApi.template(new ScriptEditorApi.TemplateRequest(
+                    "Python", ScriptPageApi.Carrier.ITEM, hook, "  event!", 8, "  ")).orElseThrow();
+            check(template.insertText().equals("def pickUp(event):\n  pass") && template.caret() == 4,
+                    "template provider result changed");
+            ScriptEditorApi.registerHighlighter("test:python", Set.of("Python"), request -> List.of(
+                    new ScriptEditorApi.TokenSpan(1, 4, ScriptEditorApi.TokenKind.TYPE),
+                    new ScriptEditorApi.TokenSpan(3, 5, ScriptEditorApi.TokenKind.FUNCTION)));
+            check(ScriptEditorApi.highlight(new ScriptEditorApi.TextRequest("print(1)", "Python",
+                            ScriptPageApi.Carrier.ITEM)).isEmpty()
+                            && ScriptEditorApi.lastFailure("test:python").equals("IllegalArgumentException"),
+                    "invalid highlighting result was not isolated");
+        } finally {
+            ScriptEditorApi.unregisterHighlighter("test:python");
+            ScriptEditorApi.unregisterTemplates("test:python");
+        }
+        check(!ScriptEditorApi.hasHighlighter("Python") && !ScriptEditorApi.hasTemplates("Python"),
+                "unregister did not restore editor defaults");
+    }
+
+    private static void pageDraft() {
+        ScriptContainer page = new ScriptContainer(null);
+        page.script = "saved";
+        IScriptHandler handler = (IScriptHandler) java.lang.reflect.Proxy.newProxyInstance(
+                IScriptHandler.class.getClassLoader(), new Class<?>[]{IScriptHandler.class}, (proxy, method, args) -> {
+                    return switch (method.getName()) {
+                        case "getScripts" -> List.of(page);
+                        case "getLanguage" -> "Python";
+                        case "getEnabled" -> true;
+                        case "toString" -> "test-handler";
+                        case "hashCode" -> System.identityHashCode(proxy);
+                        case "equals" -> proxy == args[0];
+                        default -> null;
+                    };
+                });
+        var descriptor = ScriptPageApi.describeEditor(page, handler, ScriptPageApi.Carrier.NPC, List.of("interact"));
+        check(descriptor.defaultLanguage().equals("Python") && descriptor.effectiveLanguage().equals("Python")
+                        && descriptor.hooks().size() == 1 && descriptor.hooks().get(0).name().equals("interact"),
+                "editor descriptor failed to preserve loaded configuration");
+        var snapshot = ScriptPageApi.draftSources(page, handler, "draft-test", 7, "unsaved");
+        check(snapshot.documentId().equals("draft-test") && snapshot.documentRevision() == 7
+                        && snapshot.units().size() == 1 && snapshot.units().get(0).text().equals("unsaved")
+                        && snapshot.units().get(0).main(), "draft snapshot did not remain separate from applied source");
+        check(page.script.equals("saved"), "draft snapshot mutated the applied page");
     }
 
     public static class Parent {

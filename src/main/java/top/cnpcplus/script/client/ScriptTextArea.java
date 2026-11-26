@@ -19,6 +19,8 @@ import noppes.npcs.shared.client.gui.components.GuiTextArea;
 import noppes.npcs.shared.client.gui.components.TextContainer;
 import org.lwjgl.glfw.GLFW;
 import top.cnpcplus.api.script.ScriptCompletionApi;
+import top.cnpcplus.api.script.ScriptEditorApi;
+import top.cnpcplus.api.script.ScriptPageApi;
 import top.cnpcplus.mixin.IGuiTextAreaScriptAccess;
 import top.cnpcplus.script.ScriptDiagnostic;
 import top.cnpcplus.script.ScriptDiagnostics;
@@ -33,7 +35,9 @@ public final class ScriptTextArea extends GuiTextArea {
     private final ScriptContainer owner;
     private final String context;
     private final String language;
+    private final ScriptPageApi.Carrier carrier;
     private final List<String> hooks;
+    private String editorProblem = "";
     private String checkedText;
     private String dismissedText;
     private int checkedCursor = -1;
@@ -56,6 +60,7 @@ public final class ScriptTextArea extends GuiTextArea {
     private String staticText;
     private ScriptDiagnostic staticDiagnostic;
     private List<ScriptDiagnostic> staticDiagnostics = Collections.emptyList();
+    private List<top.cnpcplus.api.script.ScriptCheckApi.CheckRun> checkRuns = Collections.emptyList();
     private String checkStatus = "";
     private String referenceText = "";
     private int referenceScroll, referenceRows;
@@ -63,11 +68,18 @@ public final class ScriptTextArea extends GuiTextArea {
 
     public ScriptTextArea(int id, int x, int y, int width, int height, String text,
                           ScriptContainer owner, String context, String language, List<String> hooks) {
+        this(id, x, y, width, height, text, owner, context, language, hooks, ScriptPageApi.Carrier.UNKNOWN);
+    }
+
+    public ScriptTextArea(int id, int x, int y, int width, int height, String text,
+                          ScriptContainer owner, String context, String language, List<String> hooks,
+                          ScriptPageApi.Carrier carrier) {
         super(id, x, y, width, Math.max(24, height - STATUS_HEIGHT), text);
         this.owner = owner;
         this.context = context;
         this.hooks = hooks == null ? Collections.emptyList() : new ArrayList<>(hooks);
         this.language = language == null ? "" : language;
+        this.carrier = carrier == null ? ScriptPageApi.Carrier.UNKNOWN : carrier;
     }
 
     private IGuiTextAreaScriptAccess access() {
@@ -80,6 +92,36 @@ public final class ScriptTextArea extends GuiTextArea {
 
     public boolean hasPopup() {
         return this.active && this.result != null && !this.result.suggestions().isEmpty();
+    }
+
+    public void setEditorProblem(String messageKey) {
+        this.editorProblem = messageKey == null ? "" : messageKey;
+        this.statusColor = 0xFFFF6666;
+    }
+
+    public boolean insertTemplate(ScriptPageApi.HookDescriptor hook) {
+        if (hook == null) return false;
+        String text = getText();
+        IGuiTextAreaScriptAccess access = access();
+        int cursor = Math.max(0, Math.min(text.length(), access.cnpcplus$cursor()));
+        int lineStart = text.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1;
+        int indentEnd = lineStart;
+        while (indentEnd < text.length() && indentEnd < cursor
+                && (text.charAt(indentEnd) == ' ' || text.charAt(indentEnd) == '\t')) indentEnd++;
+        String indent = text.substring(lineStart, indentEnd);
+        var template = ScriptEditorApi.template(new ScriptEditorApi.TemplateRequest(
+                this.language, this.carrier, hook, text, cursor, indent));
+        if (template.isEmpty()) return false;
+        var value = template.get();
+        access.cnpcplus$selectionStart(cursor);
+        access.cnpcplus$selectionEnd(cursor);
+        addText(value.insertText());
+        access.cnpcplus$cursor(cursor + value.caret(), false);
+        this.clicked = false;
+        this.checkedCursor = -1;
+        refresh(false);
+        dismiss();
+        return true;
     }
 
     private void refresh(boolean force) {
@@ -205,14 +247,21 @@ public final class ScriptTextArea extends GuiTextArea {
     /** Button-only lint. No writes to the container, executor, console or diagnostic NBT. */
     public void simpleCheck() {
         this.staticText = getText();
-        this.staticDiagnostics = ScriptDiagnostics.checkStaticAll(this.owner, this.staticText, this.language,
-                Set.copyOf(this.hooks));
+        var report = ScriptDiagnostics.checkStaticReport(this.owner, this.staticText, this.language, Set.copyOf(this.hooks));
+        this.staticDiagnostics = report.findings();
+        this.checkRuns = report.providers();
         this.staticDiagnostic = this.staticDiagnostics.isEmpty() ? null : this.staticDiagnostics.get(0);
         long errors = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.ERROR).count();
         long warnings = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.WARN).count();
         long infos = this.staticDiagnostics.stream().filter(item -> item.severity == ScriptDiagnostic.Severity.INFO).count();
-        this.checkStatus = this.owner == null ? I18n.get("cnpcplus.script.check_skipped")
-                : !ScriptCompletionApi.usesBuiltinChecks(this.language) && this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_skipped")
+        boolean failed = this.checkRuns.stream().anyMatch(run -> run.state() == top.cnpcplus.api.script.ScriptCheckApi.CheckState.FAILED);
+        boolean checked = report.builtinChecked() || this.checkRuns.stream().anyMatch(run ->
+                run.state() == top.cnpcplus.api.script.ScriptCheckApi.CheckState.CHECKED);
+        boolean legacy = this.checkRuns.stream().anyMatch(run ->
+                run.state() == top.cnpcplus.api.script.ScriptCheckApi.CheckState.LEGACY_UNDECLARED);
+        this.checkStatus = failed ? I18n.get("cnpcplus.script.check_failed")
+                : !checked && legacy ? I18n.get("cnpcplus.script.check_legacy")
+                : !checked ? I18n.get("cnpcplus.script.check_skipped")
                 : this.staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_clear")
                 : I18n.get("cnpcplus.script.check_summary", errors, warnings, infos);
         this.statusColor = errors > 0 ? 0xFFFF6666 : warnings > 0 ? 0xFFFFD45A : infos > 0 ? 0xFF70B8FF : 0xFFA0BBC6;
@@ -235,6 +284,22 @@ public final class ScriptTextArea extends GuiTextArea {
         this.markedWarnings = this.staticDiagnostics;
         container.makeup.clear();
         container.formatCodeText();
+        if (ScriptEditorApi.hasHighlighter(this.language) || !ScriptCompletionApi.usesBuiltinChecks(this.language)) {
+            container.makeup.clear();
+            for (ScriptEditorApi.TokenSpan token : ScriptEditorApi.highlight(
+                    new ScriptEditorApi.TextRequest(getText(), this.language, this.carrier))) {
+                char color = switch (token.kind()) {
+                    case KEYWORD -> 'b';
+                    case STRING -> 'a';
+                    case NUMBER -> 'd';
+                    case COMMENT -> '8';
+                    case TYPE -> '3';
+                    case FUNCTION -> '6';
+                    case DEFAULT -> 'f';
+                };
+                container.addMakeUp(token.start(), token.end(), color, 10);
+            }
+        }
         this.status = this.checkStatus;
         for (ScriptDiagnostic diagnostic : this.staticDiagnostics) {
             int[] range = ScriptDiagnostic.range(getText(), diagnostic.line);
@@ -309,7 +374,8 @@ public final class ScriptTextArea extends GuiTextArea {
 
         Font font = font();
         String help = completionHelp();
-        String firstLine = this.status.isEmpty() ? help : this.status;
+        String firstLine = !this.editorProblem.isEmpty() ? I18n.get(this.editorProblem)
+                : this.status.isEmpty() ? help : this.status;
         int statusWidth = this.width;
         graphics.drawString(font, font.plainSubstrByWidth(firstLine, statusWidth),
                 this.x, this.y + this.height + 3, this.status.isEmpty() ? 0xFF202020 : this.statusColor, false);

@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import top.cnpcplus.api.script.ScriptPageApi;
 import top.cnpcplus.script.tools.ScriptScope;
 
 @Mixin(value = ScriptContainer.class, remap = false)
@@ -16,6 +17,10 @@ public abstract class MixinScriptTaskScope {
     @Redirect(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At(value = "INVOKE", target =
             "Lnoppes/npcs/controllers/IScriptExecutor;run(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/String;"), require = 1)
     private String cnpcplus$scriptScope(IScriptExecutor executor, String type, Object event) {
-        return ScriptScope.run((ScriptContainer) (Object) this, handler, event, () -> executor.run(type, event));
+        ScriptContainer page = (ScriptContainer) (Object) this;
+        return ScriptScope.run(page, handler, event, () -> {
+            ScriptPageApi.observeLoaded(page, handler);
+            return executor.run(type, event);
+        });
     }
 }

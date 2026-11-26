@@ -10,6 +10,9 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.*;
 import top.cnpcplus.anvil.*;
 import top.cnpcplus.craftingview.RecipeAvailability;
+import top.cnpcplus.quest.ItemProductionEvent;
+import top.cnpcplus.quest.ItemProductionEvents;
+import top.cnpcplus.quest.ProductionSlotAccess;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -69,6 +72,8 @@ public abstract class MixinAnvilMenu extends ItemCombinerMenu {
 
     @Inject(method = "onTake", at = @At("RETURN"), require = 1)
     private void cnpcplus$refreshAfterShapeless(Player player, ItemStack result, CallbackInfo ci) {
+        ItemStack output = ((ProductionSlotAccess)getSlot(getResultSlot())).cnpcplus$takeProduction(result);
+        ItemProductionEvents.post(player, output, ItemProductionEvent.Source.ANVIL, access);
         if (cnpcplus$shapelessTake) {
             cnpcplus$shapelessTake = false;
             createResult();

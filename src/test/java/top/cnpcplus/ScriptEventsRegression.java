@@ -37,6 +37,8 @@ public final class ScriptEventsRegression {
                 if (!name.startsWith("top.cnpcplus.script.tools.ScriptScope")
                         && !name.startsWith("top.cnpcplus.script.tools.ScriptEvents")
                         && !name.startsWith("top.cnpcplus.script.tools.ScriptScheduler")
+                        && !name.startsWith("top.cnpcplus.api.script.ScriptPageApi")
+                        && !name.startsWith("top.cnpcplus.api.script.ScriptLifecycleApi")
                         && !name.equals("top.cnpcplus.script.tools.ScriptWorld")
                         && !name.equals("top.cnpcplus.script.tools.ScriptDebug")
                         && !name.equals("noppes.npcs.controllers.ScriptContainer")
@@ -79,8 +81,11 @@ public final class ScriptEventsRegression {
         currentServer.setAccessible(true);
         Object previousServer = currentServer.get(null);
         var previousController = ScriptController.Instance;
+        boolean previousHasStart = ScriptController.HasStart;
         currentServer.set(null, server);
         ScriptController.Instance = (ScriptController) unsafe.allocateInstance(ScriptController.class);
+        ScriptController.class.getField("executorProviders").set(ScriptController.Instance,
+                new java.util.HashMap<>(Map.of("ecmascript", (Supplier<?>) () -> null)));
         MinecraftForge.EVENT_BUS.start();
         var busListeners = MinecraftForge.EVENT_BUS.getClass().getDeclaredField("listeners");
         busListeners.setAccessible(true);
@@ -189,6 +194,7 @@ public final class ScriptEventsRegression {
                 check(engine.eval("String(listener.getState())").equals("UNSUBSCRIBED"), change + " not cleaned");
             }
             enabled[0] = true;
+            language[0] = "ECMAScript";
             eval.accept(first, "var order=[];var high=events.on(eventClass,'HIGHEST',false,function(event){order.push('high');event.setCanceled(true)});"
                     + "var normal=events.on(eventClass,function(event){order.push('normal')});"
                     + "var low=events.on(eventClass,'LOWEST',true,function(event){order.push('low')});");
@@ -228,12 +234,149 @@ public final class ScriptEventsRegression {
             check(((Map<?, ?>) active.get(null)).isEmpty(), "listener registry leaked");
             check(((Map<?, ?>) busListeners.get(MinecraftForge.EVENT_BUS)).size() == initialListeners,
                     "Forge bus retained unregistered Consumers");
+            publicLifetimes(loader, run, scope, handler, pages, enabled, first);
             System.out.println("SCRIPT_EVENTS_NASHORN_FORGE_BUS_PAGE_LIFECYCLE=PASS");
         } finally {
             type.getMethod("stop", ServerStoppedEvent.class).invoke(null, new Object[] {null});
             currentServer.set(null, previousServer);
             ScriptController.Instance = previousController;
+            ScriptController.HasStart = previousHasStart;
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void publicLifetimes(ClassLoader loader, java.lang.reflect.Method scopeRun, Class<?> scope,
+                                       IScriptHandler handler, ArrayList<Object> pages, boolean[] enabled,
+                                       Object page) throws Exception {
+        Class<?> pageType = page.getClass();
+        Class<?> pageApi = Class.forName("top.cnpcplus.api.script.ScriptPageApi", true, loader);
+        Class<?> lifecycle = Class.forName("top.cnpcplus.api.script.ScriptLifecycleApi", true, loader);
+        Class<?> carrierType = Class.forName("top.cnpcplus.api.script.ScriptPageApi$Carrier", true, loader);
+        Class<?> reasonType = Class.forName("top.cnpcplus.api.script.ScriptPageApi$DisposeReason", true, loader);
+        Class<?> refType = Class.forName("top.cnpcplus.api.script.ScriptPageApi$PageRef", true, loader);
+        Class<?> lifetimeType = Class.forName("top.cnpcplus.api.script.ScriptLifecycleApi$ScriptLifetime", true, loader);
+        var describe = pageApi.getMethod("describe", pageType, IScriptHandler.class, carrierType, List.class);
+        var observe = pageApi.getDeclaredMethod("observe", refType);
+        observe.setAccessible(true);
+        var current = lifecycle.getMethod("current");
+        var runWith = lifecycle.getMethod("runWith", lifetimeType, Runnable.class);
+        Object npc = Enum.valueOf((Class<? extends Enum>) carrierType, "NPC");
+        Object descriptor = describe.invoke(null, page, handler, npc, List.of("interact"));
+        Object ref = descriptor.getClass().getMethod("page").invoke(descriptor);
+        Object lifetime = capture(scopeRun, page, handler, current);
+        check((boolean) lifetimeType.getMethod("isValid").invoke(lifetime), "new public lifetime was invalid");
+        boolean[] scoped = {false};
+        check((boolean) runWith.invoke(null, lifetime, (Runnable) () -> {
+            try { scoped[0] = scope.getMethod("currentScript").invoke(null) == page; }
+            catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+        }) && scoped[0], "runWith did not restore page ownership");
+
+        var disposed = new java.util.concurrent.atomic.AtomicReference<String>();
+        boolean[] cleanupUnscoped = {false};
+        java.util.function.Consumer<Object> cleanup = reason -> {
+            disposed.set(reason.toString());
+            try { cleanupUnscoped[0] = scope.getMethod("currentScript").invoke(null) == null; }
+            catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+        };
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(lifetime, cleanup);
+        pageType.getField("script").set(page, "lifetime-source-change");
+        Object sourceChanged = Enum.valueOf((Class<? extends Enum>) reasonType, "SOURCE_CHANGED");
+        pageApi.getMethod("invalidate", refType, reasonType).invoke(null, ref, sourceChanged);
+        lifecycleTick(lifecycle);
+        check(!(boolean) lifetimeType.getMethod("isValid").invoke(lifetime)
+                        && "SOURCE_CHANGED".equals(disposed.get()) && cleanupUnscoped[0],
+                "source invalidation did not expire lifetime or isolate cleanup");
+
+        Object afterEdit = capture(scopeRun, page, handler, current);
+        disposed.set(null);
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(afterEdit, cleanup);
+        pages.remove(page);
+        observe.invoke(null, ref);
+        lifecycleTick(lifecycle);
+        check("REMOVED".equals(disposed.get()), "removed page cleanup reason changed");
+
+        pages.add(page);
+        descriptor = describe.invoke(null, page, handler, npc, List.of("interact"));
+        ref = descriptor.getClass().getMethod("page").invoke(descriptor);
+        Object beforeDisable = capture(scopeRun, page, handler, current);
+        disposed.set(null);
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(beforeDisable, cleanup);
+        enabled[0] = false;
+        observe.invoke(null, ref);
+        lifecycleTick(lifecycle);
+        check("DISABLED".equals(disposed.get()), "disabled page cleanup reason changed");
+
+        enabled[0] = true;
+        descriptor = describe.invoke(null, page, handler, npc, List.of("interact"));
+        ref = descriptor.getClass().getMethod("page").invoke(descriptor);
+        Object beforeGlobalDisable = capture(scopeRun, page, handler, current);
+        disposed.set(null);
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(beforeGlobalDisable, cleanup);
+        var scriptingToggle = Class.forName("noppes.npcs.CustomNpcs", true, loader).getField("EnableScripting");
+        scriptingToggle.setBoolean(null, false);
+        observe.invoke(null, ref);
+        lifecycleTick(lifecycle);
+        check("DISABLED".equals(disposed.get()), "global script disable did not dispose page lifetime");
+
+        scriptingToggle.setBoolean(null, true);
+        describe.invoke(null, page, handler, npc, List.of("interact"));
+        Object beforeReload = capture(scopeRun, page, handler, current);
+        disposed.set(null);
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(beforeReload, cleanup);
+        ScriptController.Instance.lastLoaded++;
+        observe.invoke(null, ref);
+        lifecycleTick(lifecycle);
+        check("RELOADED".equals(disposed.get()), "controller reload did not dispose page lifetime");
+
+        // PlayerScriptData uses a separate template generation from the global controller reload.
+        Class<?> playerData = Class.forName("noppes.npcs.controllers.data.PlayerScriptData", true, loader);
+        var playerConstructor = playerData.getConstructor(net.minecraft.world.entity.player.Player.class);
+        Object globalPlayerData = playerConstructor.newInstance((Object) null);
+        Object playerHandler = playerConstructor.newInstance((Object) null);
+        playerData.getMethod("setEnabled", boolean.class).invoke(globalPlayerData, true);
+        playerData.getMethod("setEnabled", boolean.class).invoke(playerHandler, true);
+        ScriptController.Instance.playerScripts = (noppes.npcs.controllers.data.PlayerScriptData) globalPlayerData;
+        ScriptController.HasStart = true;
+        Object playerPage = pageType.getConstructor(IScriptHandler.class).newInstance(playerHandler);
+        pageType.getField("script").set(playerPage, "player-template-source");
+        ((List<Object>) playerData.getMethod("getScripts").invoke(playerHandler)).add(playerPage);
+        Object playerDescriptor = describe.invoke(null, playerPage, playerHandler,
+                Enum.valueOf((Class<? extends Enum>) carrierType, "PLAYER"), List.of("login"));
+        Object playerRef = playerDescriptor.getClass().getMethod("page").invoke(playerDescriptor);
+        Object playerLifetime = capture(scopeRun, playerPage, (IScriptHandler) playerHandler, current);
+        disposed.set(null);
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(playerLifetime, cleanup);
+        ScriptController.Instance.lastPlayerUpdate++;
+        observe.invoke(null, playerRef);
+        lifecycleTick(lifecycle);
+        check("RELOADED".equals(disposed.get()), "player template generation did not dispose lifetime");
+
+        Object atShutdown = capture(scopeRun, playerPage, (IScriptHandler) playerHandler, current);
+        disposed.set(null);
+        lifetimeType.getMethod("onDispose", java.util.function.Consumer.class).invoke(atShutdown, cleanup);
+        pageApi.getMethod("stop", ServerStoppedEvent.class).invoke(null, new Object[] {null});
+        lifecycle.getMethod("stop", ServerStoppedEvent.class).invoke(null, new Object[] {null});
+        check("SERVER_STOPPING".equals(disposed.get())
+                        && !(boolean) lifetimeType.getMethod("isValid").invoke(atShutdown)
+                        && !(boolean) runWith.invoke(null, atShutdown, (Runnable) () -> { throw new AssertionError("stale lifetime ran"); }),
+                "server shutdown did not invalidate and clean up lifetimes");
+        lifecycle.getMethod("start", net.minecraftforge.event.server.ServerStartingEvent.class).invoke(null, new Object[] {null});
+    }
+
+    private static Object capture(java.lang.reflect.Method scopeRun, Object page, IScriptHandler handler,
+                                  java.lang.reflect.Method current) throws Exception {
+        Object[] result = new Object[1];
+        scopeRun.invoke(null, page, handler, new Object(), (Supplier<String>) () -> {
+            try { result[0] = current.invoke(null); }
+            catch (ReflectiveOperationException failure) { throw new RuntimeException(failure); }
+            return "";
+        });
+        return ((java.util.Optional<?>) result[0]).orElseThrow(() -> new AssertionError("script lifetime was unavailable"));
+    }
+
+    private static void lifecycleTick(Class<?> lifecycle) throws Exception {
+        lifecycle.getMethod("tick", TickEvent.ServerTickEvent.class).invoke(null,
+                new TickEvent.ServerTickEvent(TickEvent.Phase.START, () -> true, null));
     }
 
     private static void tick(Class<?> type) throws Exception {

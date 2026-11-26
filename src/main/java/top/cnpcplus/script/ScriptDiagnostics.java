@@ -18,6 +18,15 @@ public final class ScriptDiagnostics {
 
     private ScriptDiagnostics() {}
 
+    public record StaticReport(List<ScriptDiagnostic> findings,
+                               List<top.cnpcplus.api.script.ScriptCheckApi.CheckRun> providers,
+                               boolean builtinChecked) {
+        public StaticReport {
+            findings = List.copyOf(findings);
+            providers = List.copyOf(providers);
+        }
+    }
+
     public static void capture(ScriptContainer owner, Throwable error) {
         if (owner != null && error != null) ERRORS.put(owner, ScriptDiagnostic.capture(error, owner.script));
     }
@@ -33,15 +42,21 @@ public final class ScriptDiagnostics {
 
     public static List<ScriptDiagnostic> checkStaticAll(ScriptContainer owner, String script, String language,
                                                          Set<String> hooks) {
-        if (owner == null) return List.of();
+        return checkStaticReport(owner, script, language, hooks).findings();
+    }
+
+    public static StaticReport checkStaticReport(ScriptContainer owner, String script, String language,
+                                                 Set<String> hooks) {
         Set<String> globals = new HashSet<>(ScriptContainer.Data.keySet());
         globals.addAll(top.cnpcplus.script.tools.ScriptApiRegistry.roots().keySet());
         globals.addAll(top.cnpcplus.api.script.ScriptCheckApi.registeredGlobals());
-        List<ScriptDiagnostic> findings = new java.util.ArrayList<>(top.cnpcplus.api.script.ScriptCompletionApi.usesBuiltinChecks(language)
-                ? ScriptStaticCheck.checkAll(script, globals, owner.scripts.isEmpty(), hooks) : List.of());
+        boolean builtin = top.cnpcplus.api.script.ScriptCompletionApi.usesBuiltinChecks(language);
+        List<ScriptDiagnostic> findings = new java.util.ArrayList<>(builtin
+                ? ScriptStaticCheck.checkAll(script, globals, owner == null || owner.scripts.isEmpty(), hooks) : List.of());
         var source = new top.cnpcplus.api.script.ScriptCheckApi.Source(
                 script == null ? "" : script, language, Set.copyOf(globals));
-        for (var finding : top.cnpcplus.api.script.ScriptCheckApi.check(source)) {
+        var providerRuns = top.cnpcplus.api.script.ScriptCheckApi.checkWithStatus(source);
+        for (var run : providerRuns) for (var finding : run.findings()) {
             int offset = Math.min(source.text().length(), finding.offset());
             int line = 1, start = 0;
             for (int i = 0; i < offset; i++) if (source.text().charAt(i) == '\n') { line++; start = i + 1; }
@@ -56,7 +71,7 @@ public final class ScriptDiagnostics {
         }
         findings.sort(java.util.Comparator.comparingInt((ScriptDiagnostic item) -> item.severity.ordinal())
                 .thenComparingInt(item -> offset(script == null ? "" : script, item.line, item.column)));
-        return List.copyOf(findings);
+        return new StaticReport(findings, providerRuns, builtin);
     }
 
     private static int offset(String source, int line, int column) {

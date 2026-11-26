@@ -5,6 +5,7 @@ import net.minecraft.core.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.*;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -43,6 +44,7 @@ public class MixinCampfireRecipes {
     }
     @Inject(method = "cookTick", at = @At("HEAD"), cancellable = true, require = 1)
     private static void cnpcplus$cook(Level level, BlockPos pos, BlockState state, CampfireBlockEntity block, CallbackInfo ci) {
+        if (level.isClientSide) return;
         MixinCampfireRecipes self = (MixinCampfireRecipes)(Object)block;
         boolean changed = false;
         for (int i = 0; i < 4; i++) {
@@ -62,7 +64,13 @@ public class MixinCampfireRecipes {
             SimpleContainer container = new SimpleContainer(input);
             ItemStack output = recipe == null ? level.getRecipeManager().getRecipeFor(RecipeType.CAMPFIRE_COOKING, container, level)
                     .map(r -> r.assemble(container, level.registryAccess())).orElse(input.copy()) : recipe.outputs[0].copy();
-            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), output);
+            ItemEntity result = new ItemEntity(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, output);
+            result.setDefaultPickUpDelay();
+            if (self.cnpcplus$owners[i] != null) {
+                result.getPersistentData().putBoolean("CNPCPlusCampfireOutput", true);
+                result.getPersistentData().putUUID("CNPCPlusCampfireOwner", self.cnpcplus$owners[i]);
+            }
+            level.addFreshEntity(result);
             self.items.set(i, ItemStack.EMPTY);
             self.cnpcplus$owners[i] = null; self.cnpcplus$recipes[i] = -1;
             level.sendBlockUpdated(pos, state, state, 3);

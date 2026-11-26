@@ -23,7 +23,8 @@ import noppes.npcs.controllers.data.PlayerScriptData;
 
 public final class ScriptScope {
     private record Context(ScriptContainer script, IScriptHandler handler, Object event) {}
-    private record Lifetime(WeakReference<ScriptContainer> script, BooleanSupplier alive) implements BooleanSupplier {
+    private record Lifetime(WeakReference<ScriptContainer> script, WeakReference<IScriptHandler> handler,
+                            BooleanSupplier alive) implements BooleanSupplier {
         @Override public boolean getAsBoolean() { return alive.getAsBoolean(); }
     }
     private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
@@ -66,12 +67,56 @@ public final class ScriptScope {
 
     static BooleanSupplier withLifetime(BooleanSupplier scope, BooleanSupplier condition) {
         BooleanSupplier alive = () -> scope.getAsBoolean() && condition.getAsBoolean();
-        return scope instanceof Lifetime lifetime ? new Lifetime(lifetime.script, alive) : alive;
+        return scope instanceof Lifetime lifetime ? new Lifetime(lifetime.script, lifetime.handler, alive) : alive;
+    }
+
+    /** Public bridge for the lifecycle facade; the ThreadLocal and its concrete lifetime remain private. */
+    public static ScriptContainer currentScript() {
+        Context context = CURRENT.get();
+        if (context != null) return context.script;
+        return INHERITED.get() instanceof Lifetime lifetime ? lifetime.script.get() : null;
+    }
+
+    /** Public bridge for the lifecycle facade; returns null for an unrelated callback. */
+    public static IScriptHandler currentHandler() {
+        Context context = CURRENT.get();
+        if (context != null) return context.handler;
+        return INHERITED.get() instanceof Lifetime lifetime ? lifetime.handler.get() : null;
+    }
+
+    /** Restore page ownership for a server-thread callback without restoring the old event object. */
+    public static void runWith(ScriptContainer script, IScriptHandler handler, Runnable action) {
+        Objects.requireNonNull(script, "script");
+        Objects.requireNonNull(handler, "handler");
+        Objects.requireNonNull(action, "action");
+        Context previous = CURRENT.get();
+        CURRENT.set(new Context(script, handler, null));
+        try {
+            action.run();
+        } finally {
+            if (previous == null) CURRENT.remove();
+            else CURRENT.set(previous);
+        }
+    }
+
+    /** Run a cleanup callback without inheriting the invalidated page or event context. */
+    public static void runUnscoped(Runnable action) {
+        Context previous = CURRENT.get();
+        BooleanSupplier inherited = INHERITED.get();
+        CURRENT.remove();
+        INHERITED.remove();
+        try {
+            action.run();
+        } finally {
+            if (inherited != null) INHERITED.set(inherited);
+            if (previous != null) CURRENT.set(previous);
+        }
     }
 
     static BooleanSupplier current() {
         Context context = CURRENT.get();
         if (context == null) return INHERITED.get() == null ? () -> true : INHERITED.get();
+        var pageLifetime = top.cnpcplus.api.script.ScriptLifecycleApi.current().orElse(null);
         ScriptContainer script = context.script;
         var scriptRef = new WeakReference<>(script);
         var handlerRef = new WeakReference<>(context.handler);
@@ -88,10 +133,11 @@ public final class ScriptScope {
         long loaded = controller.lastLoaded, playerUpdate = controller.lastPlayerUpdate;
         String code = script.script, language = context.handler.getLanguage();
         List<String> links = List.copyOf(script.scripts);
-        return new Lifetime(scriptRef, () -> {
+        return new Lifetime(scriptRef, handlerRef, () -> {
             var active = scriptRef.get();
             var handler = handlerRef.get();
-            return CustomNpcs.EnableScripting && controller == ScriptController.Instance && controller.lastLoaded == loaded
+            return pageLifetime != null && pageLifetime.isValid()
+                    && CustomNpcs.EnableScripting && controller == ScriptController.Instance && controller.lastLoaded == loaded
                     && active != null && handler != null
                     && (handler instanceof PlayerScriptData player ? player.isEnabled() && controller.lastPlayerUpdate == playerUpdate : handler.getEnabled())
                     && handler.getScripts().contains(active) && Objects.equals(code, active.script)
