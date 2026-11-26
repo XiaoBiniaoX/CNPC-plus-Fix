@@ -1,14 +1,11 @@
 package top.cnpcplus.script.tools;
 
 import java.lang.ref.WeakReference;
-import java.util.List;
-import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import noppes.npcs.CustomNpcs;
 import noppes.npcs.api.IWorld;
 import noppes.npcs.api.block.IBlock;
 import noppes.npcs.api.entity.IEntity;
@@ -18,19 +15,27 @@ import noppes.npcs.api.event.NpcEvent;
 import noppes.npcs.api.event.PlayerEvent;
 import noppes.npcs.controllers.IScriptHandler;
 import noppes.npcs.controllers.ScriptContainer;
-import noppes.npcs.controllers.ScriptController;
-import noppes.npcs.controllers.data.PlayerScriptData;
+import bin.cnpcplus.script.ScriptPageState;
+import java.util.Optional;
+import top.cnpcplus.api.script.ScriptMetadataApi;
+import top.cnpcplus.api.script.ScriptScopeApi.ScriptExecutionContext;
+import top.cnpcplus.api.script.ScriptScopeApi.ScriptLifetime;
 
 public final class ScriptScope {
-    private record Context(ScriptContainer script, IScriptHandler handler, Object event) {}
+    private record Context(ScriptContainer script, IScriptHandler handler, String hook, Object event) {}
     private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
     private static final ThreadLocal<BooleanSupplier> INHERITED = new ThreadLocal<>();
 
     private ScriptScope() {}
 
     public static String run(ScriptContainer script, IScriptHandler handler, Object event, Supplier<String> action) {
+        return run(script, handler, "", event, action);
+    }
+
+    public static String run(ScriptContainer script, IScriptHandler handler, String hook, Object event, Supplier<String> action) {
+        ScriptPageState.of(script).begin(eventOwner(event));
         Context previous = CURRENT.get();
-        CURRENT.set(new Context(script, handler, event));
+        CURRENT.set(new Context(script, handler, hook, event));
         try {
             return action.get();
         } finally {
@@ -53,34 +58,32 @@ public final class ScriptScope {
         }
     }
 
-    static BooleanSupplier current() {
+    public static Optional<ScriptExecutionContext> context() {
         Context context = CURRENT.get();
-        if (context == null) return INHERITED.get() == null ? () -> true : INHERITED.get();
-        ScriptContainer script = context.script;
-        var scriptRef = new WeakReference<>(script);
-        var handlerRef = new WeakReference<>(context.handler);
-        Object event = context.event;
-        BooleanSupplier alive;
-        if (event instanceof NpcEvent npc) alive = owner(npc.npc);
-        else if (event instanceof PlayerEvent player) alive = owner(player.player);
-        else if (event instanceof BlockEvent block) alive = owner(block.block);
+        return context == null ? Optional.empty() : Optional.of(new ScriptExecutionContext(context.script, context.handler,
+                context.hook, ScriptPageState.of(context.script).effectiveLanguage(), ScriptMetadataApi.contextId(context.handler)));
+    }
+
+    public static Optional<ScriptLifetime> capture() {
+        Context context = CURRENT.get();
+        if (context != null) return Optional.of(ScriptPageState.of(context.script).lifetime());
+        BooleanSupplier inherited = INHERITED.get();
+        return inherited == null ? Optional.empty() : Optional.of(inherited::getAsBoolean);
+    }
+
+    static BooleanSupplier current() {
+        var lifetime = capture();
+        return lifetime.isPresent() ? lifetime.get()::isValid : () -> true;
+    }
+
+    private static BooleanSupplier eventOwner(Object event) {
+        if (event instanceof NpcEvent npc) return owner(npc.npc);
+        else if (event instanceof PlayerEvent player) return owner(player.player);
+        else if (event instanceof BlockEvent block) return owner(block.block);
         else if (event instanceof ItemEvent item) {
             var weak = new WeakReference<>(item.item.getMCItemStack());
-            alive = () -> { var stack = weak.get(); return stack != null && !stack.isEmpty(); };
-        } else alive = () -> true;
-        var controller = ScriptController.Instance;
-        long loaded = controller.lastLoaded, playerUpdate = controller.lastPlayerUpdate;
-        String code = script.script, language = context.handler.getLanguage();
-        List<String> links = List.copyOf(script.scripts);
-        return () -> {
-            var active = scriptRef.get();
-            var handler = handlerRef.get();
-            return CustomNpcs.EnableScripting && controller == ScriptController.Instance && controller.lastLoaded == loaded
-                    && active != null && !active.errored && handler != null
-                    && (handler instanceof PlayerScriptData player ? player.isEnabled() && controller.lastPlayerUpdate == playerUpdate : handler.getEnabled())
-                    && handler.getScripts().contains(active) && Objects.equals(code, active.script)
-                    && links.equals(active.scripts) && Objects.equals(language, handler.getLanguage()) && alive.getAsBoolean();
-        };
+            return () -> { var stack = weak.get(); return stack != null && !stack.isEmpty(); };
+        } else return () -> true;
     }
 
     static BooleanSupplier owner(Object owner) {

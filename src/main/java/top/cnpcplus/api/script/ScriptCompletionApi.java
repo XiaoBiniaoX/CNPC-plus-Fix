@@ -109,6 +109,9 @@ public final class ScriptCompletionApi {
     /** Runs synchronously on the caller's thread. No client singleton, engine or world is accessed. */
     public static Result complete(Request request) {
         Objects.requireNonNull(request, "request");
+        String engineName = ScriptLanguageApi.engineName(request.language);
+        if (!engineName.equals(request.language)) request = new Request(request.text, request.cursor, engineName,
+                request.context, request.hooks, request.explicit);
         String alias = normalize(request.language);
         Registration registered = find(alias);
         Language profile = registered != null ? registered.language : ES5.aliases.contains(alias) ? ES5 : null;
@@ -152,8 +155,9 @@ public final class ScriptCompletionApi {
     }
 
     private static Registration find(String alias) {
-        for (Registration registered : registrations.values()) if (registered.language.aliases.contains(alias)) return registered;
+        for (Registration registered : registrations.values())
+            if (registered.language.aliases.stream().map(ScriptCompletionApi::normalize).anyMatch(alias::equals)) return registered;
         return null;
     }
-    private static String normalize(String language) { return language == null ? "" : language.strip().toLowerCase(Locale.ROOT); }
+    private static String normalize(String language) { return ScriptLanguageApi.engineName(language).strip().toLowerCase(Locale.ROOT); }
 }

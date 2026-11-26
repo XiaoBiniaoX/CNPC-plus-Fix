@@ -20,12 +20,14 @@ public abstract class MixinScriptContainerError implements ScriptErrorAccess {
     @Unique private ScriptError cnpcplus$error;
 
     @Override public ScriptError cnpcplus$error() { return cnpcplus$error; }
+    @Override public void cnpcplus$clearError() { cnpcplus$error = null; }
 
     @Redirect(method = "run(Ljava/lang/String;Ljava/lang/Object;)V",
             at = @At(value = "INVOKE", target = "Ljava/lang/Throwable;printStackTrace(Ljava/io/PrintWriter;)V"),
             require = 1)
     private void cnpcplus$captureError(Throwable error, java.io.PrintWriter writer) {
         cnpcplus$error = ScriptError.from(script, error);
+        bin.cnpcplus.script.ScriptPageState.of((ScriptContainer)(Object)this).nativeError(error);
         error.printStackTrace(writer); // 保留原Console，脚本自行print的行号不会进入诊断解析。
     }
 

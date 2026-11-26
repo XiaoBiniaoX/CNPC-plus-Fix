@@ -100,12 +100,31 @@ public final class ApiCompletion {
         roots.put("PosZero", load(API + "IPos"));
         roots.put("CNPCPlusLog", org.slf4j.Logger.class);
         roots.putAll(ScriptApiRegistry.roots());
+        String contextId = switch (context) {
+            case "NpcEvent" -> "cnpcplus:npc";
+            case "PlayerEvent" -> "cnpcplus:player";
+            case "BlockEvent" -> "cnpcplus:block";
+            case "BlockDoorEvent" -> "cnpcplus:block_door";
+            case "ItemEvent" -> "cnpcplus:item";
+            case "ForgeEvent" -> "cnpcplus:forge_event";
+            default -> "cnpcplus:unknown";
+        };
+        for (var global : top.cnpcplus.api.script.ScriptMetadataApi.globals(contextId)) {
+            Class<?> type = load(global.typeName());
+            if (type != null) roots.putIfAbsent(global.name(), type);
+        }
         for (String name : new String[]{"AnimationType", "EntitiesType", "RoleType", "JobType", "SideType", "PotionEffectType", "ParticleType"})
             roots.put(name, load(API + "constants." + name));
         matcher = ASSIGN.matcher(code.substring(scope, Math.max(scope, Math.min(cursor, code.length()))));
         while (matcher.find()) roots.put(matcher.group(1), resolve(matcher.group(2), roots, 0));
         roots.values().removeIf(Objects::isNull);
         return roots;
+    }
+
+    public static Class<?> hookEventType(String context, String hook) {
+        Class<?> base = load(API + "event." + (context.equals("BlockDoorEvent") ? "BlockEvent" : context));
+        Class<?> result = eventClass(base, hook);
+        return result == base ? null : result;
     }
 
     private static Class<?> eventClass(Class<?> base, String function) {
@@ -132,6 +151,7 @@ public final class ApiCompletion {
             case "customguiscroll" -> { return load(API + "event.CustomGuiEvent$ScrollEvent"); }
             case "customguiclosed" -> { return load(API + "event.CustomGuiEvent$CloseEvent"); }
             case "customguislot" -> { return load(API + "event.CustomGuiEvent$SlotEvent"); }
+            case "customguislotclicked" -> { return load(API + "event.CustomGuiEvent$SlotClickEvent"); }
             case "customchestclosed" -> { return load(API + "event.CustomContainerEvent$CloseEvent"); }
             case "customchestclicked" -> { return load(API + "event.CustomContainerEvent$SlotClickedEvent"); }
             case "projectiletick" -> { return load(API + "event.ProjectileEvent$UpdateEvent"); }

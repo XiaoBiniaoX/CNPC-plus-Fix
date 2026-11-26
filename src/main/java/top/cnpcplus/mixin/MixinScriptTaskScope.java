@@ -26,7 +26,7 @@ public abstract class MixinScriptTaskScope {
 
     @WrapMethod(method = "run(Ljava/lang/String;Ljava/lang/Object;)V")
     private void cnpcplus$scriptScope(String type, Object event, Operation<Void> original) {
-        ScriptScope.run((ScriptContainer) (Object) this, handler, event, () -> {
+        ScriptScope.run((ScriptContainer) (Object) this, handler, type, event, () -> {
             original.call(type, event);
             return null;
         });

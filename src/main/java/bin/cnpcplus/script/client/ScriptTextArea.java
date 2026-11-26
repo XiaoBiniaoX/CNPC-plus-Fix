@@ -1,7 +1,10 @@
 package bin.cnpcplus.script.client;
 
-import bin.cnpcplus.script.ScriptError;
-import bin.cnpcplus.script.ScriptErrorAccess;
+import top.cnpcplus.api.script.ScriptDiagnosticApi;
+import top.cnpcplus.api.script.ScriptDiagnosticApi.RuntimeDiagnostic;
+import top.cnpcplus.api.script.ScriptEditorApi;
+import top.cnpcplus.api.script.ScriptLanguageApi;
+import top.cnpcplus.api.script.ScriptMetadataApi;
 import top.cnpcplus.api.script.ScriptCheckApi;
 import top.cnpcplus.api.script.ScriptCheckApi.Finding;
 import top.cnpcplus.api.script.ScriptCompletionApi;
@@ -39,7 +42,8 @@ public final class ScriptTextArea extends GuiTextArea {
     private String completionError = "";
     private long completionRevision = -1;
     private TextContainer marked;
-    private ScriptError markedRuntime;
+    private RuntimeDiagnostic markedRuntime;
+    private long editorRevision = -1;
     private List<Finding> markedWarnings = List.of(), staticDiagnostics = List.of();
     private boolean jumped;
     private String status = "", checkStatus = "", referenceText = "";
@@ -58,11 +62,13 @@ public final class ScriptTextArea extends GuiTextArea {
     public boolean hasPopup() { return this.active && this.result != null && !this.result.suggestions().isEmpty(); }
     private boolean supportsCompletion() { return ScriptCompletionApi.supports(language); }
     private String completionHelp() {
+        var help = ScriptEditorApi.completionHelp(language);
+        if (!help.value().isEmpty()) return ApiTextClient.resolve(help);
         var profile = ScriptCompletionApi.language(language);
         return profile != null && !profile.helpText().isEmpty() ? profile.helpText()
                 : I18n.get(supportsCompletion() ? "cnpcplus.script.completion_help" : "cnpcplus.script.completion_js");
     }
-    private ScriptError runtime() { return owner instanceof ScriptErrorAccess access ? access.cnpcplus$error() : null; }
+    private RuntimeDiagnostic runtime() { return owner == null ? null : ScriptDiagnosticApi.getRuntimeError(owner).orElse(null); }
 
     private void refresh(boolean force) {
         int cursor = access().cnpcplus$cursor();
@@ -70,7 +76,8 @@ public final class ScriptTextArea extends GuiTextArea {
         if (!force && revision == completionRevision && cursor == checkedCursor && getText().equals(checkedText)) return;
         completionRevision = revision;
         checkedCursor = cursor; checkedText = getText(); selected = firstVisible = 0;
-        result = ScriptCompletionApi.complete(new Request(checkedText, cursor, language, context, hooks, force));
+        result = ScriptCompletionApi.complete(new Request(checkedText, cursor, ScriptLanguageApi.engineName(language),
+                ScriptMetadataApi.legacyContext(context), hooks, force));
         hints = result.signatures();
         completionError = result.error();
         if (!force && cursor == dismissedCursor && checkedText.equals(dismissedText)) result = null;
@@ -126,52 +133,79 @@ public final class ScriptTextArea extends GuiTextArea {
         boolean handled = super.mouseClicked(x, y, button); checkedCursor = -1; return handled;
     }
 
-    private ScriptError diagnostic() {
-        ScriptError runtime = runtime();
-        return runtime != null && runtime.matches(getText()) ? runtime : null;
+    private RuntimeDiagnostic diagnostic() {
+        return owner != null && owner.script.equals(getText()) ? runtime() : null;
     }
     /** Button-only lint: no executor, owner, console or diagnostic-NBT writes. */
     public void simpleCheck() {
-        staticText = getText();
-        staticDiagnostics = owner == null ? List.of() : ScriptCheckApi.analyze(
-                new ScriptCheckApi.Source(staticText, language, ScriptContainer.Data.keySet()), owner.scripts.isEmpty(), Set.copyOf(hooks));
+        String requestedText = getText();
+        var globals = new HashSet<>(ScriptContainer.Data.keySet());
+        ScriptMetadataApi.globals(context).forEach(global -> globals.add(global.name()));
+        var analysis = ScriptCheckApi.analyzeDetailed(new ScriptCheckApi.Source(requestedText,
+                ScriptLanguageApi.engineName(language), globals), owner == null || owner.scripts.isEmpty(), Set.copyOf(hooks));
+        if (!requestedText.equals(getText())) return;
+        staticText = requestedText;
+        staticDiagnostics = analysis.findings();
         long errors = staticDiagnostics.stream().filter(item -> item.severity() == ScriptCheckApi.Severity.ERROR).count();
         long warnings = staticDiagnostics.stream().filter(item -> item.severity() == ScriptCheckApi.Severity.WARN).count();
         long infos = staticDiagnostics.stream().filter(item -> item.severity() == ScriptCheckApi.Severity.INFO).count();
-        checkStatus = owner == null || !ScriptCompletionApi.usesBuiltinChecks(language) && staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_skipped")
-                : staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_clear")
-                : I18n.get("cnpcplus.script.check_summary", errors, warnings, infos);
-        statusColor = errors > 0 ? 0xFFFF6666 : warnings > 0 ? 0xFFFFD45A : infos > 0 ? 0xFF70B8FF : 0xFF202020;
+        checkStatus = switch (analysis.state()) {
+            case UNSUPPORTED -> I18n.get("cnpcplus.script.check_unsupported");
+            case INCOMPLETE -> I18n.get("cnpcplus.script.check_incomplete", ApiTextClient.resolve(analysis.statusMessage()));
+            case COMPLETE -> staticDiagnostics.isEmpty() ? I18n.get("cnpcplus.script.check_supported_clear")
+                    : I18n.get("cnpcplus.script.check_summary", errors, warnings, infos);
+        };
+        statusColor = analysis.state() == ScriptCheckApi.AnalysisState.INCOMPLETE || errors > 0 ? 0xFFFF6666
+                : warnings > 0 ? 0xFFFFD45A : infos > 0 ? 0xFF70B8FF : 0xFF202020;
         marked = null;
     }
     private void markError() {
         if (staticText != null && !getText().equals(staticText)) {
             staticText = null; staticDiagnostics = List.of(); checkStatus = ""; marked = null;
         }
-        ScriptError runtime = runtime(); TextContainer container = access().cnpcplus$container();
-        if (container == marked && runtime == markedRuntime && staticDiagnostics == markedWarnings) return;
-        marked = container; markedRuntime = runtime; markedWarnings = staticDiagnostics;
-        container.makeup.clear(); container.formatCodeText();
+        RuntimeDiagnostic runtime = diagnostic(); TextContainer container = access().cnpcplus$container();
+        long revision = ScriptEditorApi.revision();
+        if (container == marked && runtime == markedRuntime && staticDiagnostics == markedWarnings && editorRevision == revision) return;
+        marked = container; markedRuntime = runtime; markedWarnings = staticDiagnostics; editorRevision = revision;
+        container.makeup.clear();
+        var spans = ScriptEditorApi.highlight(new ScriptEditorApi.EditorSource(getText(), language, context,
+                ScriptMetadataApi.hooks(context, hooks)));
+        if (spans.isEmpty()) container.formatCodeText();
+        else {
+            var lexical = new ArrayList<>(container.makeup);
+            for (var span : spans.get()) if (span.length() > 0) {
+                char color = switch (span.kind()) {
+                    case KEYWORD -> '2'; case STRING -> '4'; case COMMENT -> '8'; case NUMBER, LITERAL -> '6';
+                    case TYPE, GLOBAL -> '3'; case FUNCTION -> '5'; case OPERATOR -> '0';
+                };
+                // Native addMakeUp treats touching spans as conflicts. Create each validated span independently.
+                container.makeup.clear();
+                container.addMakeUp(span.offset(), span.offset() + span.length(), color, 0);
+                lexical.addAll(container.makeup);
+            }
+            container.makeup.clear(); container.makeup.addAll(lexical);
+        }
         status = checkStatus;
+        if (owner != null && !language.isEmpty() && ScriptLanguageApi.extension(language).isEmpty()) {
+            status = I18n.get("cnpcplus.script.language_missing", language); statusColor = 0xFFFF6666;
+        }
         for (Finding finding : staticDiagnostics) {
             char color = switch (finding.severity()) { case ERROR -> 'c'; case WARN -> 'e'; case INFO -> 'b'; };
             int priority = switch (finding.severity()) { case ERROR -> 100; case WARN -> 90; case INFO -> 80; };
             if (finding.length() > 0) container.addMakeUp(finding.offset(), finding.offset() + finding.length(), color, priority);
         }
         if (runtime == null) return;
-        if (!runtime.matches(getText())) { status = I18n.get("cnpcplus.script.error_stale"); statusColor = 0xFFFF6666; return; }
         statusColor = 0xFFFF6666;
-        int[] range = runtime.range(getText());
-        if (range == null) { status = I18n.get("cnpcplus.script.error_external"); return; }
-        status = I18n.get("cnpcplus.script.error_line", runtime.line());
-        container.addMakeUp(range[0], range[1], 'c', Integer.MAX_VALUE);
+        status = "[" + runtime.sourceId() + "] " + ApiTextClient.resolve(runtime.message());
+        if (!runtime.sourceId().equals("main") || runtime.offset() < 0) return;
+        if (runtime.length() > 0) container.addMakeUp(runtime.offset(), runtime.offset() + runtime.length(), 'c', Integer.MAX_VALUE);
         if (!jumped) { jumpToError(); jumped = true; }
     }
     private void jumpToError() {
-        ScriptError error = diagnostic();
-        int[] range = error == null ? null : error.range(getText());
-        if (range == null && staticDiagnostics.isEmpty()) return;
-        int position = range != null ? range[0] : staticDiagnostics.getFirst().offset();
+        RuntimeDiagnostic error = diagnostic();
+        int offset = error != null && error.sourceId().equals("main") ? error.offset() : -1;
+        if (offset < 0 && staticDiagnostics.isEmpty()) return;
+        int position = offset >= 0 ? offset : staticDiagnostics.getFirst().offset();
         access().cnpcplus$select(position, position, position);
         var container = access().cnpcplus$container();
         for (int row = 0; row < container.lines.size(); row++) {
@@ -202,10 +236,10 @@ public final class ScriptTextArea extends GuiTextArea {
     }
     private void drawStatusTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         if (mouseX < x || mouseX >= x + width || mouseY < y + height || mouseY >= y + height + 24) return;
-        List<String> lines = new ArrayList<>(); ScriptError error = diagnostic();
+        List<String> lines = new ArrayList<>(); RuntimeDiagnostic error = diagnostic();
         if ((error != null || !staticDiagnostics.isEmpty()) && mouseY < y + height + 12) {
             if (!status.isEmpty()) lines.add(status);
-            if (error != null) lines.add(error.message());
+            if (error != null) lines.add(ApiTextClient.resolve(error.message()));
             for (Finding finding : staticDiagnostics) lines.add(warning(finding));
         } else {
             lines.add(completionHelp());
