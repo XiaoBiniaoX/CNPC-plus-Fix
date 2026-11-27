@@ -50,6 +50,20 @@ public final class QuestProgressRegression {
                         && !QuestExplore.coordinateInputAllowed("+1") && !QuestExplore.coordinateInputAllowed("1.5")
                         && !QuestExplore.coordinateInputAllowed("--1"),
                 "signed coordinate editing accepted invalid input or rejected a negative coordinate");
+        QuestExplore exploreText = new QuestExplore();
+        check(exploreText.getProgressText().equals("探索区域....吧！"), "exploration progress label default changed");
+        exploreText.setProgressText("已探访");
+        var exploreTextTag = new net.minecraft.nbt.CompoundTag();
+        exploreText.addAdditionalSaveData(exploreTextTag);
+        QuestExplore loadedExploreText = new QuestExplore();
+        loadedExploreText.readAdditionalSaveData(exploreTextTag);
+        check(loadedExploreText.getProgressText().equals("已探访"), "exploration progress label did not persist");
+        check(QuestExplore.formatProgressLabel("探索区域....吧！", 12.345)
+                        .equals("探索区域....吧！: 12.35%"), "exploration percentage was not rounded to two decimals");
+        var legacyExploreTag = new net.minecraft.nbt.CompoundTag();
+        loadedExploreText.readAdditionalSaveData(legacyExploreTag);
+        check(loadedExploreText.getProgressText().equals(QuestExplore.DEFAULT_PROGRESS_TEXT),
+                "legacy exploration task missed its progress label default");
         check(QuestCraft.furnaceRecipe("cnpcplus:smelting/12").equals(
                 new QuestCraft.RecipeReference("furnace", "12")), "furnace recipe identity was not parsed");
         check(QuestCraft.furnaceRecipe("cnpcplus:blasting/not-a-number") == null,
@@ -112,7 +126,9 @@ public final class QuestProgressRegression {
         BitSet visible = QuestRegionRecorder.visibleCells(new int[][]{
                 {1, 2, 2, -1}, {2, 3, -1}, {1, 3}
         });
-        check(visible.get(1) && visible.get(2) && visible.get(3) && !visible.get(0), "ray-hit threshold incorrect");
+        check(visible.get(1) && visible.get(2) && visible.get(3) && !visible.get(0), "visible ray cells were not aggregated");
+        BitSet singleRay = QuestRegionRecorder.visibleCells(new int[][]{{7, 7}});
+        check(singleRay.cardinality() == 1 && singleRay.get(7), "a cell seen by one gaze ray did not count");
         BitSet explored = new BitSet();
         check(QuestRegionRecorder.recordNewCells(explored, (BitSet)visible.clone()), "first discovery was discarded");
         check(explored.cardinality() == 3, "first discovery count incorrect");
@@ -140,6 +156,24 @@ public final class QuestProgressRegression {
         region.x2 = 2; region.y2 = 400; region.z2 = -1;
         region.normalize();
         check(region.cellCount(-64, 320) == 3L * 96L * 2L, "height clipping or negative cell count incorrect");
+        region.horizontalCoverage = true;
+        check(region.cellCount(-64, 320) == 3L * 2L, "horizontal coverage still counted every Y layer");
+        var horizontalTag = new net.minecraft.nbt.CompoundTag();
+        region.addAdditionalSaveData(horizontalTag);
+        QuestExplore loadedHorizontal = new QuestExplore();
+        loadedHorizontal.readAdditionalSaveData(horizontalTag);
+        check(loadedHorizontal.horizontalCoverage && loadedHorizontal.cellCount(-64, 320) == 3L * 2L,
+                "horizontal coverage mode did not persist");
+        check(QuestRegionRecorder.horizontalCellIndex(-5, -1, baseX, baseZ, 2) == 0
+                        && QuestRegionRecorder.horizontalCellIndex(-4, -1, baseX, baseZ, 2) == 2,
+                "horizontal cells did not merge Y layers or preserve X/Z boundaries");
+        var volumeProgress = new net.minecraft.nbt.CompoundTag();
+        check(!loadedHorizontal.progressModeMatches(volumeProgress), "missing mode marker was reused by horizontal mode");
+        loadedHorizontal.horizontalCoverage = false;
+        check(loadedHorizontal.progressModeMatches(volumeProgress), "missing mode marker was not treated as legacy volume");
+        volumeProgress.putBoolean(QuestExplore.COVERAGE_MODE_KEY, false);
+        loadedHorizontal.horizontalCoverage = true;
+        check(!loadedHorizontal.progressModeMatches(volumeProgress), "volume progress was reused by horizontal mode");
         region.x1 = Integer.MIN_VALUE; region.x2 = Integer.MAX_VALUE;
         check(region.cellCount(-64, 320) == -1, "oversized region accepted");
         System.out.println("QUEST_PROGRESS_REGRESSION=PASS");

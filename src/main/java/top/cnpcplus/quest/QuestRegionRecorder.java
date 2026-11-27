@@ -3,11 +3,7 @@ package top.cnpcplus.quest;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -83,21 +79,23 @@ public final class QuestRegionRecorder {
                 Vec3 end = start.add(direction.scale(quest.viewDistance));
                 BlockHitResult hit = player.level().clip(new ClipContext(start, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
                 double stop = hit.getType() == BlockHitResult.Type.MISS ? quest.viewDistance : start.distanceTo(hit.getLocation());
-                Set<Integer> cells = new HashSet<>();
+                BitSet cells = new BitSet();
                 for (double d = 1.0D; d < stop; d += 2.0D) {
                     BlockPos pos = BlockPos.containing(start.x + direction.x * d, start.y + direction.y * d, start.z + direction.z * d);
                     if (pos.getX() < minX || pos.getX() > maxX || pos.getY() < minY || pos.getY() > maxY
                             || pos.getZ() < minZ || pos.getZ() > maxZ) continue;
-                    cells.add(cellIndex(pos.getX(), pos.getY(), pos.getZ(), baseCellX, baseCellY, baseCellZ, sizeY, sizeZ));
+                    cells.set(exploreCellIndex(quest, pos.getX(), pos.getY(), pos.getZ(),
+                            baseCellX, baseCellY, baseCellZ, sizeY, sizeZ));
                 }
                 // A visible solid surface belongs to the region even when no air sample enters it.
                 if (hit.getType() != BlockHitResult.Type.MISS) {
                     BlockPos pos = hit.getBlockPos();
                     if (pos.getX() >= minX && pos.getX() <= maxX && pos.getY() >= minY && pos.getY() <= maxY
                             && pos.getZ() >= minZ && pos.getZ() <= maxZ)
-                        cells.add(cellIndex(pos.getX(), pos.getY(), pos.getZ(), baseCellX, baseCellY, baseCellZ, sizeY, sizeZ));
+                        cells.set(exploreCellIndex(quest, pos.getX(), pos.getY(), pos.getZ(),
+                                baseCellX, baseCellY, baseCellZ, sizeY, sizeZ));
                 }
-                rays.add(cells.stream().mapToInt(Integer::intValue).toArray());
+                rays.add(cells.stream().toArray());
             }
         }
 
@@ -113,15 +111,11 @@ public final class QuestRegionRecorder {
         });
     }
 
-    /** Pure-Java threshold stage: at most 15 small arrays, no game/world references. */
+    /** Pure-Java aggregation stage: any sampled visible ray can contribute a cell. */
     public static BitSet visibleCells(int[][] rays) {
-        Map<Integer, Integer> hits = new HashMap<>();
-        for (int[] ray : rays) {
-            Set<Integer> unique = new HashSet<>();
-            for (int cell : ray) if (cell >= 0 && unique.add(cell)) hits.merge(cell, 1, Integer::sum);
-        }
         BitSet visible = new BitSet();
-        for (Map.Entry<Integer, Integer> hit : hits.entrySet()) if (hit.getValue() >= 2) visible.set(hit.getKey());
+        for (int[] ray : rays)
+            for (int cell : ray) if (cell >= 0 && cell < QuestExplore.MAX_CELLS) visible.set(cell);
         return visible;
     }
 
@@ -131,6 +125,17 @@ public final class QuestRegionRecorder {
         int y = Math.floorDiv(worldY, 4) - baseCellY;
         int z = Math.floorDiv(worldZ, 4) - baseCellZ;
         return (x * sizeY + y) * sizeZ + z;
+    }
+
+    static int horizontalCellIndex(int worldX, int worldZ, int baseCellX, int baseCellZ, int sizeZ) {
+        return (Math.floorDiv(worldX, 4) - baseCellX) * sizeZ + Math.floorDiv(worldZ, 4) - baseCellZ;
+    }
+
+    private static int exploreCellIndex(QuestExplore quest, int worldX, int worldY, int worldZ,
+                                        int baseCellX, int baseCellY, int baseCellZ, int sizeY, int sizeZ) {
+        return quest.horizontalCoverage
+                ? horizontalCellIndex(worldX, worldZ, baseCellX, baseCellZ, sizeZ)
+                : cellIndex(worldX, worldY, worldZ, baseCellX, baseCellY, baseCellZ, sizeY, sizeZ);
     }
 
     static int questIndex(long scan, int players, int quests) {
@@ -155,12 +160,16 @@ public final class QuestRegionRecorder {
             String savedDimension = ticket.data().extraData.getString("CNPCPlusExploreDimension");
             if (!savedDimension.isEmpty() && !savedDimension.equals(ticket.dimension())) continue;
             BitSet explored = BitSet.valueOf(ticket.data().extraData.getLongArray("CNPCPlusExploreCells"));
+            boolean modeChanged = !ticket.quest().progressModeMatches(ticket.data().extraData);
+            if (modeChanged) explored.clear();
             BitSet fresh = completion.cells();
-            if (!recordNewCells(explored, fresh)) continue;
+            boolean discovered = recordNewCells(explored, fresh);
+            if (!modeChanged && !discovered) continue;
             if (savedDimension.isEmpty()) ticket.data().extraData.putString("CNPCPlusExploreDimension", ticket.dimension());
+            ticket.data().extraData.putBoolean(QuestExplore.COVERAGE_MODE_KEY, ticket.quest().horizontalCoverage);
             ticket.data().extraData.putLongArray("CNPCPlusExploreCells", explored.toLongArray());
             ticket.playerData().updateClient = true;
-            ticket.playerData().questData.checkQuestCompletion(player, 7);
+            if (discovered) ticket.playerData().questData.checkQuestCompletion(player, 7);
         }
     }
 

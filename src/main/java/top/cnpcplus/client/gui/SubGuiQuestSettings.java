@@ -60,7 +60,7 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
         else if (quest.type == 2) { imageWidth = 560; imageHeight = 300; }
         else if (quest.type == 4) { imageWidth = 560; imageHeight = 320; }
         else if (quest.type == 5) { imageWidth = 360; imageHeight = 230; }
-        else if (quest.type == 7) { imageWidth = 380; imageHeight = 240; }
+        else if (quest.type == 7) { imageWidth = 380; imageHeight = 320; }
         else { imageWidth = 350; imageHeight = 220; }
         if (quest.type == 6) {
             QuestCraft craft = (QuestCraft)quest.questInterface;
@@ -266,7 +266,13 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
                 Integer.toString(explore.viewDistance)));
         getTextField(7).numbersOnly = true;
         getTextField(7).setMinMaxDefault(1, 128, 16);
-        addButton(new GuiButtonNop(this, 21, guiLeft + imageWidth - 86, guiTop + 212, 74, 20, "gui.done"));
+        addTextField(new GuiTextFieldNop(8, this, guiLeft + 22, guiTop + 188,
+                imageWidth - 44, 20, explore.getProgressText()));
+        getTextField(8).setMaxLength(64);
+        addButton(new GuiButtonNop(this, 22, guiLeft + 22, guiTop + 228, 250, 20, explore.coverageModeKey()));
+        addButton(new GuiButtonNop(this, 23, guiLeft + 280, guiTop + 228, 78, 20,
+                "cnpcplus.quest.explore.coverage.help"));
+        addButton(new GuiButtonNop(this, 21, guiLeft + imageWidth - 86, guiTop + 292, 74, 20, "gui.done"));
     }
 
     private void setupLocation(noppes.npcs.quests.QuestLocation location) {
@@ -309,6 +315,8 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
             targetSearch = field.getValue();
         } else if (quest.type == 7 && id == 7 && field.isInteger()) {
             ((QuestExplore)quest.questInterface).viewDistance = Math.max(1, Math.min(128, field.getInteger()));
+        } else if (quest.type == 7 && id == 8) {
+            ((QuestExplore)quest.questInterface).setProgressText(field.getValue());
         } else if (field.isInteger() && ((quest.type == 4 && id >= 10 && id < 16) || (quest.type == 7 && id >= 0 && id < 6))) {
             int value = field.getInteger();
             if (quest.type == 4) setCoordinate((QuestAreaKill)quest.questInterface, id - 10, value);
@@ -490,7 +498,16 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
             getTextField(0).enabled = false;
             updateCraftSlotButtons();
             refreshRecipeList();
+        } else if (quest.type == 7 && button.id == 22) {
+            GuiTextFieldNop.unfocus();
+            QuestExplore explore = (QuestExplore)quest.questInterface;
+            explore.horizontalCoverage = !explore.horizontalCoverage;
+            button.setDisplayText(explore.coverageModeKey());
+        } else if (quest.type == 7 && button.id == 23) {
+            GuiTextFieldNop.unfocus();
+            setSubGui(new SubGuiQuestExploreCoverageHelp());
         } else if (button.id == 21) {
+            if (quest.type == 7) GuiTextFieldNop.unfocus();
             if (quest.type == 2 || quest.type == 4 || quest.type == 5) saveTargets();
             if (quest.type == 4) ((QuestAreaKill)quest.questInterface).normalize();
             else if (quest.type == 7) ((QuestExplore)quest.questInterface).normalize();
@@ -751,15 +768,17 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
             drawCoordinateLabels(graphics, 42, 34);
             graphics.drawString(font, I18n.get("cnpcplus.quest.explore.percent"), guiLeft + 22, guiTop + 128, 0x555555, false);
             graphics.drawString(font, I18n.get("cnpcplus.quest.explore.distance"), guiLeft + 230, guiTop + 148, 0x555555, false);
-            graphics.drawString(font, I18n.get("cnpcplus.quest.explore.distance.help"), guiLeft + 22, guiTop + 176, 0x686868, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.explore.progress_text"), guiLeft + 22, guiTop + 176, 0x555555, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.explore.coverage.label"), guiLeft + 22, guiTop + 214, 0x555555, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.explore.distance.help"), guiLeft + 22, guiTop + 254, 0x686868, false);
             if (Minecraft.getInstance().level != null) {
                 QuestExplore q = (QuestExplore)quest.questInterface;
                 long cells = q.cellCount(Minecraft.getInstance().level.getMinBuildHeight(), Minecraft.getInstance().level.getMaxBuildHeight());
                 if (cells <= 0 || cells > QuestExplore.MAX_CELLS)
-                    graphics.drawString(font, I18n.get("cnpcplus.quest.explore.invalid"), guiLeft + 22, guiTop + 198, 0xff3030, false);
+                    graphics.drawString(font, I18n.get("cnpcplus.quest.explore.invalid"), guiLeft + 22, guiTop + 270, 0xff3030, false);
                 else if (cells == 1)
-                    graphics.drawString(font, I18n.get("cnpcplus.quest.explore.small"), guiLeft + 22, guiTop + 198, 0xff9a6a18, false);
-                else graphics.drawString(font, I18n.get("cnpcplus.quest.explore.cells", cells), guiLeft + 22, guiTop + 198, 0x686868, false);
+                    graphics.drawString(font, I18n.get("cnpcplus.quest.explore.small"), guiLeft + 22, guiTop + 270, 0xff9a6a18, false);
+                else graphics.drawString(font, I18n.get("cnpcplus.quest.explore.cells", cells), guiLeft + 22, guiTop + 270, 0x686868, false);
             }
         }
     }
