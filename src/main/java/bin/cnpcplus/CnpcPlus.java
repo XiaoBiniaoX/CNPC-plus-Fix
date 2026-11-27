@@ -41,6 +41,8 @@ public class CnpcPlus {
     public void onInit(FMLInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
         MinecraftForge.EVENT_BUS.register(new QuestCompletionEvents());
+        MinecraftForge.EVENT_BUS.register(new bin.cnpcplus.quest.QuestProductionProgress());
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.quest.QuestDamageLedger.INSTANCE);
         MinecraftForge.EVENT_BUS.register(new SmeltingBurnTimeHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDataPersistence());
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.fx.FxEngine.class);

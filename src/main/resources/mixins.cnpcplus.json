@@ -84,6 +84,7 @@
     "quest.MixinQuestRewardGrid",
     "quest.MixinContainerNpcQuestTypeItem",
     "quest.MixinServerEventsHandler",
+    "quest.MixinQuestTypeFactory",
     "quest.MixinPlayerQuestData",
     "quest.MixinContainerNpcQuestReward",
     "bard.MixinJobBard",

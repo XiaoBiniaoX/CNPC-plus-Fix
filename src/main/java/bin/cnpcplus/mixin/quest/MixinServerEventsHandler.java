@@ -1,22 +1,57 @@
 package bin.cnpcplus.mixin.quest;
 
 import noppes.npcs.ServerEventsHandler;
+import noppes.npcs.NoppesUtilServer;
+import bin.cnpcplus.quest.QuestAreaKillContext;
+import bin.cnpcplus.quest.QuestDamageLedger;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.DamageSource;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
 
 @Mixin(value = ServerEventsHandler.class, remap = false)
 public abstract class MixinServerEventsHandler {
+
+    @Inject(method = "invoke", at = @At("HEAD"), require = 1, remap = false)
+    private void cnpcplus$beginQuestDeath(LivingDeathEvent event, CallbackInfo ci) {
+        if (!event.getEntityLiving().world.isRemote) QuestDamageLedger.INSTANCE.beginDeath(event.getEntityLiving());
+    }
+
+    @Redirect(method = "invoke", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/NoppesUtilServer;GetDamageSourcee(Lnet/minecraft/util/DamageSource;)Lnet/minecraft/entity/Entity;"),
+            require = 1, remap = false)
+    private Entity cnpcplus$creditDamageContributor(DamageSource source) {
+        EntityPlayer contributor = QuestDamageLedger.INSTANCE.currentContributor();
+        return contributor == null ? NoppesUtilServer.GetDamageSourcee(source) : contributor;
+    }
+
+    @Inject(method = "invoke", at = @At("RETURN"), require = 1, remap = false)
+    private void cnpcplus$endQuestDeath(LivingDeathEvent event, CallbackInfo ci) {
+        if (!event.getEntityLiving().world.isRemote) QuestDamageLedger.INSTANCE.endDeath();
+    }
+
+    @Inject(method = "doQuest", at = @At("HEAD"), require = 1, remap = false)
+    private void cnpcplus$pushAreaVictim(EntityPlayer player, EntityLivingBase entity, boolean all, CallbackInfo ci) {
+        QuestAreaKillContext.push(entity);
+    }
+
+    @Inject(method = "doQuest", at = @At("RETURN"), require = 1, remap = false)
+    private void cnpcplus$popAreaVictim(EntityPlayer player, EntityLivingBase entity, boolean all, CallbackInfo ci) {
+        QuestAreaKillContext.pop();
+    }
 
     @Inject(method = "pickUp", at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void cnpcplus$deferQuestCheck(EntityItemPickupEvent event, CallbackInfo ci) {
