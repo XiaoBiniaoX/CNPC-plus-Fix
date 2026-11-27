@@ -33,7 +33,7 @@ public final class BardRangeGuard {
      * 重播时再也找不到「该播哪首、以谁为音源」。这就是「循环开着走远了却彻底断掉、不再重播」的根因。
      *
      * <p>所以在起播时把「曲目 + 是否流式 + 循环开关 + 停止距离 + 诗人坐标」快照下来，
-     * 之后的续播完全依赖这份快照，不再依赖实体是否还活着。
+     * 之后的续播完全依赖这份快照，不再依赖实体是否仍被客户端加载。
      */
     private static volatile String loopSong = "";
     private static volatile boolean loopStreamer = true;
@@ -100,13 +100,16 @@ public final class BardRangeGuard {
     }
 
     /**
-     * 判断当前正在播放的诗人音乐是否应该因为玩家走出 maxRange 而停止。
+     * 判断当前正在播放的诗人音乐是否应该因为死亡或玩家走出 maxRange 而停止。
      *
-     * @return true 表示该停了；未勾选 hasOffRange，或开了循环播放时永远返回 false
+     * @return true 表示该停了；存活诗人在未勾选 hasOffRange 或开了循环时不因距离停歌
      */
     public static boolean shouldStop(MusicController c) {
         JobBard bard = bardOf(c);
         if (bard == null) return false;
+
+        // 死亡必须停歌；普通区块卸载不能按 isRemoved/isAlive 误判为死亡。
+        if (bard.npc.isDeadOrDying() || bard.npc.isKilled()) return true;
 
         // 用户没开「停止距离激活」时，原版语义是走远也继续播，这里必须放过。
         if (!bard.hasOffRange) return false;
@@ -120,7 +123,7 @@ public final class BardRangeGuard {
     /**
      * 开了循环播放时，歌自然放完后是否需要立刻重播当前这一首。
      *
-     * <p>判定完全基于起播时的快照，不依赖诗人实体是否还在客户端存活 ——
+     * <p>判定完全基于起播时的快照，不依赖诗人实体是否仍被客户端加载 ——
      * 这正是走太远 / 区块卸载后仍能续播的关键。
      *
      * <p>玩家仍在快照范围内时不由这里接管，让诗人的 aiStep 按歌单权重正常切歌，两者不抢。

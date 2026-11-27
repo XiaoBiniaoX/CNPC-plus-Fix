@@ -37,7 +37,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 非循环模式下这条会完整复现：歌被停了，而 aiStep 的接管分支要求 {@code active} 为真，
  * 于是谁也不播。判据用 {@code playingEntity != this.npc}：不是我在放就无权停。
  *
- * <p>该方法只做「停音乐」一件事，取消掉不会漏掉任何清理逻辑。
+     * <p>死亡不属于正常卸载：必须先停掉本诗人拥有的播放并清除循环快照，不能继续保活。
  */
 @Mixin(value = JobBard.class, remap = false)
 public class MixinJobBardDelete {
@@ -45,12 +45,21 @@ public class MixinJobBardDelete {
     @Inject(method = "delete", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$keepPlaying(CallbackInfo ci) {
         JobBard self = (JobBard) (Object) this;
+        if (!self.npc.isClientSide()) return;
+        MusicController c = MusicController.Instance;
+        if (self.npc.isDeadOrDying() || self.npc.isKilled()) {
+            if (c != null && c.playingEntity == self.npc) {
+                c.stopMusic();
+                BardRangeGuard.forget();
+            }
+            ci.cancel();
+            return;
+        }
         if (self.isLooping) {
             ci.cancel();
             return;
         }
         // 不是我在放的歌，就不许我停它。
-        MusicController c = MusicController.Instance;
         if (c != null && c.playing != null && c.playingEntity != null
                 && c.playingEntity != self.npc) {
             ci.cancel();

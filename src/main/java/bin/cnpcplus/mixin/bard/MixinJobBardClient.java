@@ -48,6 +48,10 @@ public class MixinJobBardClient {
     private void cnpcplus$bardAiStep(CallbackInfo ci) {
         JobBard self = (JobBard) (Object) this;
         if (!self.npc.isClientSide()) return;
+        if (self.npc.isDeadOrDying() || self.npc.isKilled() || self.npc.isRemoved()) {
+            ci.cancel();
+            return;
+        }
         List<String[]> songs = SongListStore.get(self);
         boolean fallback = false;
         if (songs == null || songs.isEmpty()) {

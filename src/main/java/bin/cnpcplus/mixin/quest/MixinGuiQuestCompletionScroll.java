@@ -118,8 +118,8 @@ public abstract class MixinGuiQuestCompletionScroll extends GuiNPCInterface {
         int top = this.cnpcplus$textTop();
         int bottom = this.cnpcplus$textBottom();
         if (button == 0 && this.cnpcplus$questTotalRows > this.cnpcplus$visibleRows()
-                && mouseX >= this.guiLeft + 166 && mouseX <= this.guiLeft + 172
-                && mouseY >= top && mouseY <= bottom) {
+                && mouseX >= this.guiLeft + 166 && mouseX < this.guiLeft + 168 + TextScrollBar.WIDTH + 2
+                && mouseY >= top && mouseY < bottom) {
             this.cnpcplus$questRowStart = TextScrollBar.rowForMouse((int) mouseY, top, bottom,
                     this.cnpcplus$questTotalRows, this.cnpcplus$visibleRows());
             return true;

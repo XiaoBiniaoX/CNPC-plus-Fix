@@ -69,8 +69,11 @@ public final class PlayerTextPreview {
         @Override public boolean mouseClicked(double x, double y, int button) {
             GuiButtonNop back = getButton(900);
             if (button == 0 && back != null && x >= back.getX() && x < back.getX() + back.getWidth()
-                    && y >= back.getY() && y < back.getY() + back.getHeight()) close();
-            return true;
+                    && y >= back.getY() && y < back.getY() + back.getHeight()) {
+                close();
+                return true;
+            }
+            return super.mouseClicked(x, y, button);
         }
         @Override public boolean keyPressed(int key, int scan, int modifiers) {
             if (key == 256 || isInventoryKey(key)) close();

@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import noppes.npcs.client.ClientProxy;
 import noppes.npcs.client.TextBlockClient;
 import noppes.npcs.client.gui.player.GuiDialogInteract;
+import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.controllers.data.DialogOption;
 import noppes.npcs.shared.client.util.NoppesStringUtils;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GuiDialogInteract.class)
-public class GuiDialogInteractMixin {
+public abstract class GuiDialogInteractMixin extends GuiNPCInterface {
 
     @Shadow(remap = false)
     private int rowStart;
@@ -101,12 +102,18 @@ public class GuiDialogInteractMixin {
         ci.cancel();
     }
 
-    /** 复用原生 rowStart/rowTotal 画细滑条，不改变追加新对话后自动滚到底的语义。 */
+    @Unique
+    private int cnpcplus$scrollbarX() {
+        GuiDialogInteract self = (GuiDialogInteract)(Object)this;
+        return Math.max(2, Math.min(self.width - TextScrollBar.WIDTH - 2, self.guiLeft + self.imageWidth + 112));
+    }
+
+    /** 复用原生 rowStart/rowTotal，不改变追加新对话后自动滚到底的语义。 */
     @Inject(method = "render", at = @At("TAIL"), remap = false)
     private void cnpcplus$drawDialogScrollbar(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
         GuiDialogInteract self = (GuiDialogInteract)(Object)this;
-        TextScrollBar.draw(graphics, self.guiLeft + self.imageWidth + 116, self.guiTop,
-                self.guiTop + this.dialogHeight, this.rowTotal, this.cnpcplus$visibleRows(), this.rowStart);
+        TextScrollBar.draw(graphics, this.cnpcplus$scrollbarX(), Math.max(0, self.guiTop),
+                Math.min(self.height, self.guiTop + this.dialogHeight), this.rowTotal, this.cnpcplus$visibleRows(), this.rowStart);
     }
 
     /**
@@ -116,38 +123,40 @@ public class GuiDialogInteractMixin {
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true, remap = false)
     private void cnpcplus$scrollbarClick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         GuiDialogInteract self = (GuiDialogInteract)(Object)this;
-        int top = self.guiTop;
-        int bottom = self.guiTop + this.dialogHeight;
-        int barX = self.guiLeft + self.imageWidth + 116;
+        int top = Math.max(0, self.guiTop);
+        int bottom = Math.min(self.height, self.guiTop + this.dialogHeight);
+        int barX = this.cnpcplus$scrollbarX();
         // 用 mouseY < bottom 而不是 <=：bottom 正好是第 0 个选项所在的 y
         // （drawLinedOptions 里 k=0 时 y = guiTop + dialogHeight），
         // 写成 <= 会在第一个选项那条扫描线上抢走左键。
         if (button == 0 && this.rowTotal > this.cnpcplus$visibleRows()
-                && mouseX >= barX - 2 && mouseX <= barX + 4 && mouseY >= top && mouseY < bottom) {
+                && mouseX >= barX - 2 && mouseX < barX + TextScrollBar.WIDTH + 2 && mouseY >= top && mouseY < bottom) {
             this.rowStart = TextScrollBar.rowForMouse((int) mouseY, top, bottom,
                     this.rowTotal, this.cnpcplus$visibleRows());
             cir.setReturnValue(true);
         }
+        // 预览也复用上面的滑条交互，但不能落入原生选项选择/发包逻辑。
+        if ((Object)this instanceof top.cnpcplus.text.client.PlayerTextPreview.TraditionalDialog) cir.setReturnValue(true);
     }
 
-    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true, remap = false)
-    private void cnpcplus$scrollDialogText(double mouseX, double mouseY, double scrollX, double scrollY,
-                                           CallbackInfoReturnable<Boolean> cir) {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) return true;
         GuiDialogInteract self = (GuiDialogInteract)(Object)this;
         // 1.21.1 竖直增量在第四个参数；横向滚轮设备只给 scrollX 时退回它。
         double delta = scrollY != 0.0 ? scrollY : scrollX;
-        if (delta == 0.0) return;
+        if (delta == 0.0) return false;
         // 下边界同样用 >= 排除：选项区从 guiTop + dialogHeight 开始，不参与正文滚动。
         // 上边界与渲染裁剪同源（rowStart>0 时正文会画到 guiTop 之上），否则滚轮在上半区失效。
         int clipTop = Math.max(0, self.guiTop - this.rowStart * this.cnpcplus$lineHeight());
         if (mouseX < self.guiLeft - 60 || mouseX > self.guiLeft + self.imageWidth + 120
                 || mouseY < clipTop || mouseY >= self.guiTop + this.dialogHeight) {
-            return;
+            return false;
         }
         int visible = this.cnpcplus$visibleRows();
-        if (this.rowTotal <= visible) return;
+        if (this.rowTotal <= visible) return false;
         this.rowStart = TextScrollBar.clamp(this.rowStart + (delta > 0.0 ? -3 : 3), this.rowTotal, visible);
-        cir.setReturnValue(true);
+        return true;
     }
 
     @Redirect(method = "drawLinedOptions", at = @At(value = "INVOKE", target = "Lnoppes/npcs/shared/client/util/NoppesStringUtils;formatText(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;"), remap = false)
