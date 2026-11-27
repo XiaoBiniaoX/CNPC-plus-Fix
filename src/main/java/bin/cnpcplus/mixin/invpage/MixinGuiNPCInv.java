@@ -108,5 +108,6 @@ public class MixinGuiNPCInv {
         for (Map.Entry<Integer, Float> e : ((GuiNPCInv) (Object) this).npc.inventory.dropchance.entrySet()) {
             this.chances.putIfAbsent(e.getKey(), e.getValue());
         }
+        GuiTextFieldNop.unfocus();
     }
 }
