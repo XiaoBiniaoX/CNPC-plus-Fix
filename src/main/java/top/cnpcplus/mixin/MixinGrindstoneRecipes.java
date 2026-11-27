@@ -39,6 +39,10 @@ public abstract class MixinGrindstoneRecipes extends AbstractContainerMenu {
                 StationRecipe recipe = StationRecipes.find(0, new ItemStack[]{repairSlots.getItem(0), repairSlots.getItem(1)}, player);
                 if (recipe == null) { old.onTake(player, stack); return; }
                 if (!player.level().isClientSide) {
+                    ItemStack output = ((top.cnpcplus.quest.ProductionSlotAccess)this).cnpcplus$takeProduction(stack);
+                    top.cnpcplus.quest.ItemProductionEvents.post(player, output,
+                            top.cnpcplus.quest.ItemProductionEvent.Source.GRINDSTONE,
+                            MixinGrindstoneRecipes.this.access, "grindstone", Integer.toString(recipe.id));
                     if (!player.getAbilities().instabuild) player.giveExperienceLevels(-recipe.experience);
                     ItemStack top = repairSlots.getItem(0).copy(), bottom = repairSlots.getItem(1).copy();
                     int[] matched = recipe.matchSlots(new ItemStack[]{top, bottom});

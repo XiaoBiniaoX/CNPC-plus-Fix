@@ -102,6 +102,12 @@ public final class RecipeServices {
     public static void updateGlobalRecipe(ResourceLocation key, RecipeCarpentry recipe) {
         MinecraftServer server = CustomNpcs.Server;
         if (server == null) return;
+        var packet = new bin.cnpcplus.craftingview.network.PacketCarpentryRecipe(key,
+                recipe == null ? new net.minecraft.nbt.CompoundTag() : recipe.writeNBT(server.registryAccess()));
+        for (var player : server.getPlayerList().getPlayers()) {
+            if (net.neoforged.neoforge.network.registration.NetworkRegistry.hasChannel(player.connection, packet.type().id()))
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, packet);
+        }
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath("customnpcs", "global/" + key.getPath());
         RecipeHolder<?> holder = recipe != null && recipe.isGlobal && !recipe.getResult().isEmpty()
                 && !recipe.getIngredients().isEmpty() ? new RecipeHolder<>(id, recipe) : null;

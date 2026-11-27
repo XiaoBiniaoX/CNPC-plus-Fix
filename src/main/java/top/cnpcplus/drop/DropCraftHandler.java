@@ -172,8 +172,14 @@ public final class DropCraftHandler {
             // Vec3 值快照；用户要求粒子以「合成时掉落物所在位置」发射，
             // 不是方块中心。音效仍留方块中心——用户只反馈粒子位置）
             net.minecraft.world.phys.Vec3 anchor = trigger.position();
+            net.minecraft.world.entity.player.Player owner = trigger.getOwner() instanceof net.minecraft.world.entity.player.Player p ? p : null;
+            if (owner == null) {
+                for (ItemEntity input : plan.deduct.keySet()) {
+                    if (input.getOwner() instanceof net.minecraft.world.entity.player.Player p) { owner = p; break; }
+                }
+            }
             // 先判定后消耗：plan 已验证全部充足，这里只按计划扣减
-            execute(level, pos, anchor, plan);
+            execute(level, pos, anchor, plan, owner);
             any = true;
             // 允许日志（用户授权）：链式只打第一条防刷屏
             if (chain == 0) {
@@ -204,7 +210,8 @@ public final class DropCraftHandler {
      *               方块坐标 pos 仍用于产出位置与音效位置（不变）。
      */
     private static void execute(ServerLevel level, BlockPos pos,
-                                net.minecraft.world.phys.Vec3 anchor, CraftPlan plan) {
+                                net.minecraft.world.phys.Vec3 anchor, CraftPlan plan,
+                                net.minecraft.world.entity.player.Player owner) {
         for (Map.Entry<ItemEntity, Integer> en : plan.deduct.entrySet()) {
             ItemEntity e = en.getKey();
             if (e.isRemoved()) continue; // 并发窗口兜底（单线程 tick 内基本不会发生）
@@ -215,6 +222,9 @@ public final class DropCraftHandler {
                 pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5, plan.output);
         out.setDefaultPickUpDelay();
         level.addFreshEntity(out);
+        if (owner != null) top.cnpcplus.quest.ItemProductionEvents.post(owner, plan.output,
+                top.cnpcplus.quest.ItemProductionEvent.Source.DROP,
+                level, pos, plan.output.getCount(), "drop", Integer.toString(plan.recipe.id));
         // 233d 粒子特效：实例快照入队（引擎 LevelTick 驱动发送；fx 空=零开销）
         // 233d-UI6：锚点=掉落物实体位置 anchor（用户「以被合成掉落物实体世界坐标为锚点」）
         top.cnpcplus.drop.fx.runtime.DropFxEngine.spawn(level,

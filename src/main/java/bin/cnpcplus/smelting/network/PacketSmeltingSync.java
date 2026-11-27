@@ -66,6 +66,7 @@ public record PacketSmeltingSync(List<SmeltingRecipeData> recipes, int selectedI
     public static void handle(PacketSmeltingSync packet, IPayloadContext context) {
         context.enqueueWork(() -> {
             SmeltingClientData.set(packet.recipes, packet.selectedId);
+            top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
         });
     }
 }

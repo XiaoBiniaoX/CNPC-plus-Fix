@@ -16,6 +16,7 @@ public final class SmithingClientSync {
 
     public static void accept(List<SmithingRecipeData> data) {
         SmithingClientData.set(data);
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
         net.minecraft.client.Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof GuiNpcSmithingRecipes gui) {
             gui.refreshFromServer();

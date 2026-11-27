@@ -27,16 +27,41 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(value = AnvilMenu.class, remap = false)
 public abstract class MixinAnvilMenu extends net.minecraft.world.inventory.ItemCombinerMenu {
+    @org.spongepowered.asm.mixin.Unique private String cnpcplus$productionRecipeId = "";
     protected MixinAnvilMenu(net.minecraft.world.inventory.MenuType<?> type, int id, net.minecraft.world.entity.player.Inventory inventory, net.minecraft.world.inventory.ContainerLevelAccess access) { super(type, id, inventory, access); }
 
     // onTake 随后会清空cost，必须在HEAD读取；只在服务端补原版跳过的创造模式奖励。
     @Inject(method = "onTake(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;)V",
             at = @At("HEAD"), require = 1, remap = false)
     private void cnpcplus$rewardCreativeNegativeCost(Player player, ItemStack stack, CallbackInfo ci) {
+        cnpcplus$productionRecipeId = "";
+        if (!player.level().isClientSide) {
+            for (var recipe : top.cnpcplus.anvil.AnvilRecipeRegistry.list(player.registryAccess())) {
+                boolean direct = top.cnpcplus.anvil.AnvilCraftHandler.matchesSlot(recipe.inputA, inputSlots.getItem(0), recipe.nameOnly)
+                        && top.cnpcplus.anvil.AnvilCraftHandler.matchesSlot(recipe.inputB, inputSlots.getItem(1), recipe.nameOnly);
+                boolean reverse = recipe.shapeless
+                        && top.cnpcplus.anvil.AnvilCraftHandler.matchesSlot(recipe.inputA, inputSlots.getItem(1), recipe.nameOnly)
+                        && top.cnpcplus.anvil.AnvilCraftHandler.matchesSlot(recipe.inputB, inputSlots.getItem(0), recipe.nameOnly);
+                if (!recipe.result.isEmpty() && (direct || reverse)
+                        && top.cnpcplus.craftingview.RecipeAvailability.allows(recipe.availability, player)) {
+                    cnpcplus$productionRecipeId = Integer.toString(recipe.id);
+                    break;
+                }
+            }
+        }
         int cost = ((AnvilMenu) (Object) this).getCost();
         if (!player.level().isClientSide && player.getAbilities().instabuild && cost < 0) {
             player.giveExperienceLevels(-cost);
         }
+    }
+
+    @Inject(method = "onTake", at = @At("TAIL"), require = 1, remap = false)
+    private void cnpcplus$postProduction(Player player, ItemStack stack, CallbackInfo ci) {
+        if (player.level().isClientSide) return;
+        ItemStack output = ((top.cnpcplus.quest.ProductionSlotAccess)getSlot(getResultSlot())).cnpcplus$takeProduction(stack);
+        if (!cnpcplus$productionRecipeId.isBlank()) top.cnpcplus.quest.ItemProductionEvents.post(player, output,
+                top.cnpcplus.quest.ItemProductionEvent.Source.ANVIL, access, "anvil", cnpcplus$productionRecipeId);
+        cnpcplus$productionRecipeId = "";
     }
 
     @Inject(method = "mayPickup", at = @At("HEAD"), cancellable = true, require = 1, remap = false)

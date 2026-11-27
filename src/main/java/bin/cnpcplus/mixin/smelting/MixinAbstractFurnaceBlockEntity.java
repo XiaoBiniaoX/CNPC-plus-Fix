@@ -16,6 +16,31 @@ public abstract class MixinAbstractFurnaceBlockEntity implements SmeltingFuelRul
 
     @Override public RecipeType<?> cnpcplus$getRecipeType() { return recipeType; }
 
+    @Inject(method = "setRecipeUsed", at = @At("TAIL"), remap = false, require = 1)
+    private void cnpcplus$recordOutput(net.minecraft.world.item.crafting.RecipeHolder<?> recipe,
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        var furnace = (AbstractFurnaceBlockEntity)(Object)this;
+        if (recipe == null || furnace.getLevel() == null || furnace.getLevel().isClientSide) return;
+        int count = recipe.value().getResultItem(furnace.getLevel().registryAccess()).getCount();
+        if (count <= 0) return;
+        var data = furnace.getPersistentData();
+        var batches = data.getList("CNPCPlusFurnaceOutputs", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        var batch = new net.minecraft.nbt.CompoundTag();
+        batch.putString("Recipe", recipe.id().toString());
+        batch.putInt("Count", count);
+        batch.put("Output", furnace.getItem(2).save(furnace.getLevel().registryAccess()));
+        batches.add(batch);
+        int tracked = 0;
+        for (int i = batches.size() - 1; i >= 0; i--) {
+            var row = batches.getCompound(i);
+            int kept = Math.min(row.getInt("Count"), Math.max(0, furnace.getItem(2).getCount() - tracked));
+            tracked += kept;
+            if (kept == 0) batches.remove(i);
+            else row.putInt("Count", kept);
+        }
+        data.put("CNPCPlusFurnaceOutputs", batches);
+    }
+
     @Inject(method = "canBurn", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
     private static void cnpcplus$availability(net.minecraft.core.RegistryAccess registries, net.minecraft.world.item.crafting.RecipeHolder<?> holder,
             net.minecraft.core.NonNullList<ItemStack> inventory, int maxStackSize, AbstractFurnaceBlockEntity furnace, CallbackInfoReturnable<Boolean> cir) {

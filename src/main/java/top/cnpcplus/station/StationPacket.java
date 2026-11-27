@@ -33,6 +33,7 @@ public record StationPacket(int operation, int kind, CompoundTag data) implement
             if (operation == 0) {
                 player.openMenu(new SimpleMenuProvider((id, inv, p) -> new StationMenu(id, inv, kind),
                         Component.translatable("cnpcplus.station." + StationRecipes.KINDS[kind])), buf -> buf.writeVarInt(kind));
+            } else if (operation == 5) { sync(player, kind); return;
             } else if (player.containerMenu instanceof StationMenu menu && menu.kind == kind) {
                 if (operation == 2) { menu.select(data.getInt("Id"), player); return; }
                 else if (operation == 3 || operation == 4) {

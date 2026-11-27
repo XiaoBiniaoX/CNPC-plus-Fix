@@ -1,11 +1,14 @@
 package bin.cnpcplus.mixin.quest;
 
-import bin.cnpcplus.quest.TeamKillShare;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import top.cnpcplus.quest.TeamKillShare;
+import top.cnpcplus.quest.QuestAreaKillContext;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import noppes.npcs.ServerEventsHandler;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -25,25 +28,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * （EntityNPCInterface.die 末尾调 super.die），所以一个挂钩点即可覆盖两者。
  */
 @Mixin(value = ServerEventsHandler.class, remap = false)
-public class MixinServerEventsHandlerTeamKill {
+public abstract class MixinServerEventsHandlerTeamKill {
 
-    @Inject(method = "doQuest", at = @At("HEAD"), require = 1)
-    private void cnpcplus$shareToTeam(Player player, LivingEntity entity, boolean all, CallbackInfo ci) {
-        // all == false 是 AREA_KILL 分支的递归调用（:202）。那里已经在给周围玩家逐个记账，
-        // 若在递归里再扩散一次，就变成「范围内 N 人 × 队伍 M 人」的叠乘重复计数。
-        if (!all) return;
-        if (player == null || entity == null) return;
-        if (player.level() == null || player.level().isClientSide) return;
+    @Invoker("doQuest")
+    protected abstract void cnpcplus$doQuest(Player player, LivingEntity entity, boolean all);
 
-        String entityName;
-        if (entity instanceof Player) {
-            entityName = "Player";
-        } else {
-            var key = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
-            if (key == null) return;
-            entityName = key.toString();
+    @WrapMethod(method = "doQuest")
+    private void cnpcplus$shareToTeam(Player player, LivingEntity entity, boolean all, Operation<Void> original) {
+        if (!all && TeamKillShare.alreadyHandled(entity, player)) return;
+        if (all) TeamKillShare.begin(entity);
+        TeamKillShare.markHandled(entity, player);
+        QuestAreaKillContext.push(entity);
+        try {
+            if (all && !player.level().isClientSide && player.getTeam() != null) {
+                for (var mate : player.getServer().getPlayerList().getPlayers()) {
+                    if (mate != player && mate.getTeam() == player.getTeam()) cnpcplus$doQuest(mate, entity, false);
+                }
+            }
+            original.call(player, entity, all);
+        } finally {
+            QuestAreaKillContext.pop();
         }
-
-        TeamKillShare.share(player, entity, entityName);
     }
 }

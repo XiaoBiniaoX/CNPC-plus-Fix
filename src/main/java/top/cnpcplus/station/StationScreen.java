@@ -119,6 +119,7 @@ public final class StationScreen extends GuiContainerNPCInterface2<StationMenu> 
     }
     public static void accept(int kind, List<StationRecipe> recipes, CompoundTag tag) {
         StationRecipes.CLIENT.put(kind, recipes);
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
         if (Minecraft.getInstance().screen instanceof StationScreen screen && screen.container.kind == kind) {
             screen.capture();
             if (tag.contains("EditedId") && tag.getInt("EditedId") == screen.editing.id) {

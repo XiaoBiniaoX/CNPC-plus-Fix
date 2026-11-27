@@ -34,6 +34,7 @@ public class CnpcPlus {
         modContainer.registerConfig(ModConfig.Type.COMMON, CnpcPlusConfig.SPEC);
         modContainer.registerConfig(ModConfig.Type.COMMON, top.cnpcplus.config.NpcAiOptimizerConfig.SPEC, "cnpcplus-ai.toml");
         CraftingViewNetwork.register(modEventBus);
+        top.cnpcplus.questtrigger.ModRegistry.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, top.cnpcplus.ai.PursuitLimit::filterTarget);
         modEventBus.addListener(SmeltingMenus::register);
         modEventBus.addListener(AnvilMenus::register);
@@ -53,6 +54,8 @@ public class CnpcPlus {
         NeoForge.EVENT_BUS.register(ProjectileFxTracker.class);
         NeoForge.EVENT_BUS.register(top.cnpcplus.villagertrade.TradeDataStore.class);
         NeoForge.EVENT_BUS.register(ScoreboardFixListener.class);
+        NeoForge.EVENT_BUS.register(top.cnpcplus.quest.QuestProgression.class);
+        NeoForge.EVENT_BUS.register(top.cnpcplus.quest.QuestDamageLedger.class);
         NeoForge.EVENT_BUS.register(NoppesCommandBlockAccess.class);
         NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerDataLifecycle.class);
         NeoForge.EVENT_BUS.register(bin.cnpcplus.playerdata.PlayerAutoSave.class);

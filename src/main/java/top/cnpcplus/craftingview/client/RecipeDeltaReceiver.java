@@ -9,5 +9,6 @@ public final class RecipeDeltaReceiver {
     public static void accept(RecipeDeltaPacket packet) {
         var connection = Minecraft.getInstance().getConnection();
         if (connection != null) RecipeIndexUpdates.replace(connection.getRecipeManager(), packet.id(), packet.recipe());
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
     }
 }

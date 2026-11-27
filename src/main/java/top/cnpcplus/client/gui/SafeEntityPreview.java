@@ -49,24 +49,25 @@ public final class SafeEntityPreview {
         return rendered;
     }
 
-    public static boolean nativeDisplay(GuiGraphics g, EntityNPCInterface npc, int x, int y, float zoom, int rotation,
+    public static boolean nativeDisplay(GuiGraphics g, LivingEntity entity, int x, int y, float zoom, int rotation,
             int mx, int my, float left, float top, boolean follow, boolean riders) {
-        float yaw = npc.getYRot(), pitch = npc.getXRot(), body = npc.yBodyRot, head = npc.yHeadRot, oldHead = npc.yHeadRotO;
-        int orientation = npc.ais.orientation, name = npc.display.getShowName();
+        EntityNPCInterface npc = entity instanceof EntityNPCInterface value ? value : null;
+        float yaw = entity.getYRot(), pitch = entity.getXRot(), body = entity.yBodyRot, head = entity.yHeadRot, oldHead = entity.yHeadRotO;
+        int orientation = npc == null ? 0 : npc.ais.orientation, name = npc == null ? 0 : npc.display.getShowName();
         try {
-            float height = npc.getBbHeight();
+            float height = entity.getBbHeight();
             float scale = height > 2.4f ? 2 / height : 1;
             float dx = left + x - mx, dy = top + y - 50 * scale * zoom - my;
-            npc.setYRot(follow ? (float)Math.atan(dx / 80) * 40 + rotation : rotation);
-            npc.setXRot(follow ? -(float)Math.atan(dy / 40) * 20 : 0);
-            npc.yHeadRot = npc.yHeadRotO = npc.yBodyRot = npc.getYRot();
-            npc.ais.orientation = (int)npc.getYRot(); npc.display.setShowName(1);
+            entity.setYRot(follow ? (float)Math.atan(dx / 80) * 40 + rotation : rotation);
+            entity.setXRot(follow ? -(float)Math.atan(dy / 40) * 20 : 0);
+            entity.yHeadRot = entity.yHeadRotO = entity.yBodyRot = entity.getYRot();
+            if (npc != null) { npc.ais.orientation = (int)entity.getYRot(); npc.display.setShowName(1); }
             copyModel(npc);
             Quaternionf pose = Axis.YP.rotationDegrees(180).mul(Axis.ZP.rotationDegrees(180)).mul(Axis.YN.rotationDegrees(rotation));
-            return inventory(g, (int)left + x, (int)top + y, Math.max(1, (int)(30 * scale * zoom)), pose, new Quaternionf(), npc);
+            return inventory(g, (int)left + x, (int)top + y, Math.max(1, (int)(30 * scale * zoom)), pose, new Quaternionf(), entity);
         } finally {
-            npc.setYRot(yaw); npc.setXRot(pitch); npc.yBodyRot = body; npc.yHeadRot = head; npc.yHeadRotO = oldHead;
-            npc.ais.orientation = orientation; npc.display.setShowName(name);
+            entity.setYRot(yaw); entity.setXRot(pitch); entity.yBodyRot = body; entity.yHeadRot = head; entity.yHeadRotO = oldHead;
+            if (npc != null) { npc.ais.orientation = orientation; npc.display.setShowName(name); }
             copyModel(npc);
         }
     }

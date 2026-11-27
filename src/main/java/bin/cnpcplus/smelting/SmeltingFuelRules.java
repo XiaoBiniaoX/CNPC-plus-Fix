@@ -39,15 +39,15 @@ public final class SmeltingFuelRules {
             if (type == RecipeType.SMOKING && !data.smokerAllowed) continue;
             allowedHere = true;
 
-            int vanillaBurn = fuel.getBurnTime(type);
-            if (data.genericFuelAllowed && vanillaBurn > 0) {
-                // 通用燃料保持原版手感：高炉/烟熏炉半速消耗。
-                return finalValue ? Math.max(1, vanillaBurn / 2) : vanillaBurn;
-            }
             if (!data.fuel.isEmpty() && ItemStack.isSameItemSameComponents(data.fuel, fuel)) {
                 // 指定燃料按配方设定的时长精确生效，不受高炉/烟熏炉的 /2 影响。
                 // 关键点：必须 >=1，否则 0 会被原版当成「不是燃料」而不点火。
                 return Math.max(1, Math.round(data.cookTime));
+            }
+            int vanillaBurn = fuel.getBurnTime(type);
+            if (data.genericFuelAllowed && vanillaBurn > 0) {
+                // 通用燃料保持原版手感；指定燃料优先保留配方时长。
+                return finalValue ? Math.max(1, vanillaBurn / 2) : vanillaBurn;
             }
             // 本条允许但燃料不匹配：记下「有允许的配方但这个燃料不行」，继续看下一条。
             resolved = 0;

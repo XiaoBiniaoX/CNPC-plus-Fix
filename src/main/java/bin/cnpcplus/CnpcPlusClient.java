@@ -19,11 +19,24 @@ import top.cnpcplus.drop.client.GuiDropRecipes;
 @EventBusSubscriber(modid = CnpcPlus.MODID, value = net.neoforged.api.distmarker.Dist.CLIENT)
 public class CnpcPlusClient {
 
+    @net.neoforged.bus.api.SubscribeEvent
+    public static void questTriggerTab(net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent event) {
+        if (event.getTab() == noppes.npcs.CustomTabs.CNPCS.get())
+            event.accept(top.cnpcplus.questtrigger.ModRegistry.QUEST_TRIGGER_ITEM.get());
+    }
+
     public CnpcPlusClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(top.cnpcplus.shader.client.ClientShaders.class);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandHitboxOverlay::render);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(top.cnpcplus.wand.client.WandPathOverlay::render);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(top.cnpcplus.questtrigger.client.QuestTriggerOverlay::onRenderLevelStage);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(CnpcPlusClient::clearRecipeLists);
+    }
+
+    private static void clearRecipeLists(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        bin.cnpcplus.smelting.SmeltingClientData.set(java.util.List.of(), -1);
+        top.cnpcplus.station.StationRecipes.CLIENT.clear();
     }
 
     @net.neoforged.bus.api.SubscribeEvent
