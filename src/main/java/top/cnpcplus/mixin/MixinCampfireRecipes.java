@@ -69,6 +69,8 @@ public class MixinCampfireRecipes {
             if (self.cnpcplus$owners[i] != null) {
                 result.getPersistentData().putBoolean("CNPCPlusCampfireOutput", true);
                 result.getPersistentData().putUUID("CNPCPlusCampfireOwner", self.cnpcplus$owners[i]);
+                if (self.cnpcplus$recipes[i] >= 0)
+                    result.getPersistentData().putInt("CNPCPlusCampfireRecipe", self.cnpcplus$recipes[i]);
             }
             level.addFreshEntity(result);
             self.items.set(i, ItemStack.EMPTY);

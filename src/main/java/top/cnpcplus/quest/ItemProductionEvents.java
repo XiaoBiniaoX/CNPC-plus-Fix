@@ -13,13 +13,31 @@ public final class ItemProductionEvents {
 
     public static void post(Player player, ItemStack stack, ItemProductionEvent.Source source,
                             Level level, BlockPos pos, int count) {
-        if (player.level().isClientSide || level == null || level.isClientSide || stack.isEmpty() || count <= 0) return;
-        MinecraftForge.EVENT_BUS.post(new ItemProductionEvent(player, stack, source, level, pos, count));
+        post(player, stack, source, level, pos, count, "", "");
+    }
+
+    public static void post(Player player, ItemStack stack, ItemProductionEvent.Source source,
+                            Level level, BlockPos pos, int count, String station, String recipeId) {
+        if (player == null || player.level().isClientSide || level == null || level.isClientSide
+                || stack.isEmpty() || count <= 0 || station == null || station.isBlank()
+                || recipeId == null || recipeId.isBlank()) return;
+        MinecraftForge.EVENT_BUS.post(new ItemProductionEvent(player, stack, source, level, pos, count, station, recipeId));
     }
 
     public static void post(Player player, ItemStack stack, ItemProductionEvent.Source source,
                             ContainerLevelAccess access) {
         if (player.level().isClientSide || stack.isEmpty()) return;
         access.execute((level, pos) -> post(player, stack, source, level, pos, stack.getCount()));
+    }
+
+    public static void post(Player player, ItemStack stack, ItemProductionEvent.Source source,
+                            ContainerLevelAccess access, String station, String recipeId) {
+        post(player, stack, source, access, stack.getCount(), station, recipeId);
+    }
+
+    public static void post(Player player, ItemStack stack, ItemProductionEvent.Source source,
+                            ContainerLevelAccess access, int outputCount, String station, String recipeId) {
+        if (player.level().isClientSide || stack.isEmpty()) return;
+        access.execute((level, pos) -> post(player, stack, source, level, pos, outputCount, station, recipeId));
     }
 }

@@ -16,6 +16,7 @@ public final class DropClientSync {
 
     public static void accept(List<DropRecipeData> data) {
         DropClientData.set(data);
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
         net.minecraft.client.Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof GuiDropRecipes gui) {
             gui.refreshFromServer();

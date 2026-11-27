@@ -18,6 +18,10 @@ public final class QuestExplore extends QuestInterface {
     public int viewDistance = 16;
     public static final int MAX_CELLS = 1_000_000;
 
+    public static boolean coordinateInputAllowed(String text) {
+        return text.matches("-?[0-9]*");
+    }
+
     public void normalize() {
         int v = Math.min(x1, x2); x2 = Math.max(x1, x2); x1 = v;
         v = Math.min(y1, y2); y2 = Math.max(y1, y2); y1 = v;

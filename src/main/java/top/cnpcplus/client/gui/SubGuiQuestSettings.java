@@ -3,49 +3,80 @@ package top.cnpcplus.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.client.Minecraft;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.core.registries.BuiltInRegistries;
-import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.controllers.data.Quest;
 import noppes.npcs.entity.EntityNPCInterface;
-import noppes.npcs.client.EntityUtil;
 import noppes.npcs.quests.QuestKill;
 import noppes.npcs.quests.QuestManual;
 import noppes.npcs.shared.client.gui.components.GuiCustomScrollNop;
 import noppes.npcs.shared.client.gui.components.GuiButtonNop;
 import noppes.npcs.shared.client.gui.components.GuiSliderNop;
 import noppes.npcs.shared.client.gui.components.GuiTextFieldNop;
+import noppes.npcs.shared.client.gui.listeners.IGuiInterface;
 import noppes.npcs.shared.client.gui.listeners.ISliderListener;
 import noppes.npcs.shared.client.gui.listeners.ICustomScrollListener;
 import noppes.npcs.shared.client.gui.listeners.ITextfieldListener;
-import top.cnpcplus.quest.ItemProductionEvent;
+import top.cnpcplus.quest.CraftStation;
 import top.cnpcplus.quest.QuestAreaKill;
 import top.cnpcplus.quest.QuestCraft;
 import top.cnpcplus.quest.QuestExplore;
 import top.cnpcplus.text.client.PlayerTextPreview;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /** Coordinates and per-output settings for CNPCplus quest types. */
-public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextfieldListener, ISliderListener, ICustomScrollListener {
-    private static final net.minecraft.resources.ResourceLocation SLOT_TEXTURE =
-            new net.minecraft.resources.ResourceLocation("customnpcs", "textures/gui/slot.png");
+public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfieldListener, ISliderListener, ICustomScrollListener {
     private final Quest quest;
     private GuiCustomScrollNop candidatesScroll;
     private java.util.List<Candidate> candidates = java.util.List.of();
-    private EntityNPCInterface preview;
+    private Entity nearbyPreview;
     private GuiTextFieldNop selectedTargetField;
-    private final java.util.List<String> visibleTargetKeys = new java.util.ArrayList<>(3);
-    private record Candidate(String label, String value, EntityNPCInterface npc) {}
+    private int selectedCraftSlot;
+    private int selectedTargetRow;
+    private String targetSearch = "";
+    private final List<String> visibleTargetKeys = new ArrayList<>(3);
+    private final List<Candidate> visibleCandidates = new ArrayList<>();
+    private final List<GuiQuestItemSlotButton> craftSlotButtons = new ArrayList<>(9);
+    private final List<StationIconButton> stationIconButtons = new ArrayList<>(CraftStation.values().length);
+    private final List<RecipeRowButton> recipeRowButtons = new ArrayList<>(6);
+    private final List<QuestCraftRecipe> visibleRecipes = new ArrayList<>();
+    private CraftStation selectedStation = CraftStation.WORKBENCH;
+    private QuestCraftRecipe selectedRecipe;
+    private String recipeSearch = "";
+    private int recipeScrollOffset;
+    private boolean draggingRecipeScrollbar;
+    private record Candidate(String label, String value, Entity preview) {}
 
     public SubGuiQuestSettings(Quest quest) {
         this.quest = quest;
-        if (quest.type == 6 || quest.type == 2 || quest.type == 4) { imageWidth = 420; imageHeight = 240; }
+        if (quest.type == 6) { imageWidth = 600; imageHeight = 340; }
+        else if (quest.type == 2) { imageWidth = 560; imageHeight = 300; }
+        else if (quest.type == 4) { imageWidth = 560; imageHeight = 320; }
         else if (quest.type == 5) { imageWidth = 360; imageHeight = 230; }
         else if (quest.type == 7) { imageWidth = 380; imageHeight = 240; }
         else { imageWidth = 350; imageHeight = 220; }
-        setBackground("menubg.png");
+        if (quest.type == 6) {
+            QuestCraft craft = (QuestCraft)quest.questInterface;
+            for (int i = 0; i < 9; i++) {
+                if (craft.configured(i)) {
+                    selectedCraftSlot = i;
+                    break;
+                }
+            }
+            if (craft.configured(selectedCraftSlot)) {
+                selectedStation = CraftStation.byKey(craft.stations[selectedCraftSlot]);
+                selectedRecipe = new QuestCraftRecipe(craft.stations[selectedCraftSlot],
+                        craft.recipeIds[selectedCraftSlot], craft.recipeName(selectedCraftSlot),
+                        craft.outputs[selectedCraftSlot], List.of());
+            }
+        }
     }
 
     @Override
@@ -59,18 +90,48 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
     }
 
     private void setupCraft(QuestCraft craft) {
+        QuestCraftRecipeCatalog.requestMissingLists();
+        craftSlotButtons.clear();
+        stationIconButtons.clear();
+        recipeRowButtons.clear();
         for (int i = 0; i < 9; i++) {
-            int y = guiTop + 38 + i * 20;
-            String count = Integer.toString(craft.required[i]);
-            addTextField(new GuiTextFieldNop(i, this, guiLeft + 365, y, 52, 18, count));
-            getTextField(i).numbersOnly = true;
-            getTextField(i).setMinMaxDefault(1, 1_000_000, 1);
-            addButton(new GuiButtonNop(this, 100 + i, guiLeft + 143, y - 1, 180, 20,
-                    "cnpcplus.quest.source." + ItemProductionEvent.Source.values()[craft.sources[i].ordinal()].name().toLowerCase(java.util.Locale.ROOT)));
+            GuiQuestItemSlotButton slot = new GuiQuestItemSlotButton(this, 30 + i,
+                    guiLeft + 20 + i % 3 * 32, guiTop + 55 + i / 3 * 32,
+                    QuestCraft.previewStack(craft.outputs[i], craft.required[i]),
+                    Component.translatable("cnpcplus.quest.craft.recipe.empty_slot", i + 1));
+            slot.setSelected(i == selectedCraftSlot);
+            addButton(slot);
+            craftSlotButtons.add(slot);
         }
-        addButton(new GuiQuestItemSlotButton(this, 20, guiLeft + 12, guiTop + 218,
-                new ItemStack(Items.NAME_TAG), Component.translatable("cnpcplus.quest.craft.items")));
-        addButton(new GuiButtonNop(this, 21, guiLeft + imageWidth - 86, guiTop + 218, 74, 20, "gui.done"));
+        boolean hasRecipe = craft.configured(selectedCraftSlot);
+        addTextField(new GuiTextFieldNop(0, this, guiLeft + 20, guiTop + 245, 112, 20,
+                Integer.toString(craft.required[selectedCraftSlot])));
+        getTextField(0).numbersOnly = true;
+        getTextField(0).setMinMaxDefault(1, 1_000_000, 1);
+        getTextField(0).enabled = hasRecipe;
+        for (int i = 0; i < CraftStation.values().length; i++) {
+            CraftStation station = CraftStation.values()[i];
+            StationIconButton icon = new StationIconButton(this, 200 + i, guiLeft + 168 + i % 6 * 32,
+                    guiTop + 38 + i / 6 * 28, station);
+            icon.setSelected(station == selectedStation);
+            addButton(icon);
+            stationIconButtons.add(icon);
+        }
+        NativeSearchField searchField = new NativeSearchField(90, this, guiLeft + 168, guiTop + 96, 246, recipeSearch);
+        searchField.setMaxLength(128);
+        searchField.setHint(Component.translatable("cnpcplus.quest.craft.recipe.search"));
+        searchField.setResponder(value -> { recipeSearch = value; recipeScrollOffset = 0; refreshRecipeList(); });
+        addTextField(searchField);
+        for (int i = 0; i < 6; i++) {
+            RecipeRowButton row = new RecipeRowButton(this, 300 + i,
+                    guiLeft + 168, guiTop + 126 + i * 27, 246, 24);
+            row.visible = false;
+            addButton(row);
+            recipeRowButtons.add(row);
+        }
+        addButton(new GuiButtonNop(this, 20, guiLeft + 20, guiTop + 274, 112, 20, "cnpcplus.quest.craft.recipe.clear"));
+        addButton(new GuiButtonNop(this, 21, guiLeft + imageWidth - 86, guiTop + imageHeight - 28, 74, 20, "gui.done"));
+        refreshRecipeList();
     }
 
     private void setupTargets() {
@@ -80,7 +141,7 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
         }
         java.util.Map<String, Integer> targets = targetMap();
         visibleTargetKeys.clear();
-        int rowTop = quest.type == 4 ? 144 : 64;
+        int rowTop = quest.type == 4 ? 148 : 82;
         int rowCount = 0;
         for (var entry : targets.entrySet()) {
             if (rowCount == 3) break;
@@ -90,14 +151,20 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
         }
         while (rowCount < 3) addTargetRow(rowCount++, "", 1, rowTop);
         candidates = getCandidates();
+        NativeSearchField searchField = new NativeSearchField(90, this,
+                guiLeft + imageWidth - 202, guiTop + 42, 188, targetSearch);
+        searchField.setMaxLength(128);
+        searchField.setHint(Component.translatable("cnpcplus.quest.targets.search"));
+        searchField.setResponder(value -> { targetSearch = value; refreshCandidateList(); });
+        addTextField(searchField);
         candidatesScroll = new GuiCustomScrollNop(this, 0);
         candidatesScroll.disabledSearch();
-        candidatesScroll.setSize(142, 64);
-        candidatesScroll.guiLeft = guiLeft + imageWidth - 154;
-        candidatesScroll.guiTop = guiTop + 42;
-        candidatesScroll.setUnsortedList(candidates.stream().map(Candidate::label).toList());
+        candidatesScroll.setSize(188, quest.type == 4 ? 116 : 100);
+        candidatesScroll.guiLeft = guiLeft + imageWidth - 202;
+        candidatesScroll.guiTop = guiTop + 66;
         addScroll(candidatesScroll);
-        addButton(new GuiButtonNop(this, 21, guiLeft + imageWidth - 86, guiTop + 212, 74, 20, "gui.done"));
+        refreshCandidateList();
+        addButton(new GuiButtonNop(this, 21, guiLeft + imageWidth - 86, guiTop + imageHeight - 28, 74, 20, "gui.done"));
     }
 
     private void setupManual() {
@@ -116,7 +183,7 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
 
     private void addTargetRow(int row, String name, int amount, int rowTop) {
         int y = guiTop + rowTop + row * 25;
-        int countX = quest.type == 2 || quest.type == 4 ? imageWidth - 208 : 236;
+        int countX = quest.type == 2 || quest.type == 4 ? imageWidth - 274 : 236;
         int nameWidth = quest.type == 2 || quest.type == 4 ? countX - 42 : 212;
         addTextField(new GuiTextFieldNop(row, this, guiLeft + 18, y, nameWidth, 20, name));
         addTextField(new GuiTextFieldNop(row + 3, this, guiLeft + countX, y, 54, 20, Integer.toString(amount)));
@@ -129,22 +196,42 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
     }
 
     private java.util.List<Candidate> getCandidates() {
-        java.util.ArrayList<Candidate> result = new java.util.ArrayList<>();
-        result.add(new Candidate(I18n.get("cnpcplus.quest.target.player"), "Player", null));
-        if (Minecraft.getInstance().level != null) {
-            for (EntityType<?> type : EntityUtil.getAllEntitiesClassesNoNpcs(Minecraft.getInstance().level).keySet()) {
-                var key = BuiltInRegistries.ENTITY_TYPE.getKey(type);
-                if (key != null) result.add(new Candidate(key.toString(), key.toString(), null));
-            }
-        }
-        if (Minecraft.getInstance().level != null && Minecraft.getInstance().player != null) {
-            var box = Minecraft.getInstance().player.getBoundingBox().inflate(32);
-            for (EntityNPCInterface npc : Minecraft.getInstance().level.getEntitiesOfClass(EntityNPCInterface.class, box)) {
+        ArrayList<Candidate> result = new ArrayList<>();
+        var player = Minecraft.getInstance().player;
+        var level = Minecraft.getInstance().level;
+        if (player == null || level == null) return result;
+        result.add(new Candidate(I18n.get("cnpcplus.quest.target.player"), "Player", player));
+        var nearby = player.getBoundingBox().inflate(128);
+        java.util.HashSet<String> entityTypes = new java.util.HashSet<>();
+        java.util.HashSet<String> npcNames = new java.util.HashSet<>();
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, nearby)) {
+            if (entity == player || !entity.isAlive() || entity.distanceToSqr(player) > 128.0 * 128.0) continue;
+            if (entity instanceof EntityNPCInterface npc) {
                 String name = npc.getName().getString();
-                if (!name.isBlank()) result.add(new Candidate(I18n.get("cnpcplus.quest.target.npc", name), name, npc));
+                if (name.isBlank() || !npcNames.add(name)) continue;
+                var snapshot = npc.writeSpawnData().copy();
+                snapshot.putString("CNPCPlusPreviewType", BuiltInRegistries.ENTITY_TYPE.getKey(npc.getType()).toString());
+                result.add(new Candidate(I18n.get("cnpcplus.quest.target.npc", name), name,
+                        PlayerTextPreview.npc(snapshot)));
+            } else {
+                var key = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+                if (key != null && entityTypes.add(key.toString()))
+                    result.add(new Candidate(key.toString(), key.toString(), entity));
             }
         }
         return result;
+    }
+
+    private void refreshCandidateList() {
+        if (candidatesScroll == null) return;
+        String query = targetSearch.trim().toLowerCase(Locale.ROOT);
+        visibleCandidates.clear();
+        for (Candidate candidate : candidates) {
+            if (query.isEmpty() || candidate.label().toLowerCase(Locale.ROOT).contains(query)
+                    || candidate.value().toLowerCase(Locale.ROOT).contains(query)) visibleCandidates.add(candidate);
+        }
+        candidatesScroll.setUnsortedList(visibleCandidates.stream()
+                .map(candidate -> candidate.label().replace("%", "%%")).toList());
     }
 
     private void saveTargets() {
@@ -173,7 +260,7 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
         addCoordinateFields(values, 6, 0, 42, 34);
         GuiSliderNop percent = new GuiSliderNop(this, 6, guiLeft + 22, guiTop + 142, 190, 20,
                 (explore.requiredPercent - 1) / 79.0F);
-        percent.setString(I18n.get("cnpcplus.quest.explore.percent") + " " + explore.requiredPercent + "%");
+        percent.setString(explore.requiredPercent + "%");
         addSlider(percent);
         addTextField(new GuiTextFieldNop(7, this, guiLeft + 278, guiTop + 142, 68, 20,
                 Integer.toString(explore.viewDistance)));
@@ -190,23 +277,27 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
     }
 
     private void addCoordinateFields(int[] values, int count, int firstId, int top, int rowGap) {
+        boolean compact = quest.type == 4;
+        int step = compact ? 82 : 108;
         for (int i = 0; i < count; i++) {
             int col = i < 6 ? i % 3 : i - 6;
             int row = i < 6 ? i / 3 : 2;
-            int x = guiLeft + (i < 6 ? 22 + col * 108 : 22 + col * 158);
+            int x = guiLeft + (i < 6 ? 22 + col * step : 22 + col * 158);
             int y = guiTop + top + row * rowGap;
             int id = firstId + i;
-            addTextField(new GuiTextFieldNop(id, this, x + (i < 6 ? 26 : 36), y, 72, 20, Integer.toString(values[i])));
-            getTextField(id).numbersOnly = true;
+            addTextField(new GuiTextFieldNop(id, this, x + (i < 6 ? 26 : 36), y,
+                    compact ? 50 : 72, 20, Integer.toString(values[i])));
+            if (quest.type == 7) getTextField(id).setFilter(QuestExplore::coordinateInputAllowed);
+            else getTextField(id).numbersOnly = true;
         }
     }
 
     @Override
     public void unFocused(GuiTextFieldNop field) {
         int id = field.id;
-        if (quest.type == 6 && id >= 0 && id < 9) {
+        if (quest.type == 6 && id == 0) {
             QuestCraft craft = (QuestCraft)quest.questInterface;
-            if (field.isInteger()) craft.required[id] = Math.max(1, Math.min(1_000_000, field.getInteger()));
+            if (field.isInteger()) craft.required[selectedCraftSlot] = Math.max(1, Math.min(1_000_000, field.getInteger()));
         } else if (quest.type == 3 && id >= 0 && id < 3) {
             noppes.npcs.quests.QuestLocation location = (noppes.npcs.quests.QuestLocation)quest.questInterface;
             if (id == 0) location.location = field.getValue();
@@ -214,6 +305,8 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
             else location.location3 = field.getValue();
         } else if ((quest.type == 2 || quest.type == 4 || quest.type == 5) && id >= 0 && id < 6) {
             saveTargets();
+        } else if ((quest.type == 2 || quest.type == 4) && id == 90) {
+            targetSearch = field.getValue();
         } else if (quest.type == 7 && id == 7 && field.isInteger()) {
             ((QuestExplore)quest.questInterface).viewDistance = Math.max(1, Math.min(128, field.getInteger()));
         } else if (field.isInteger() && ((quest.type == 4 && id >= 10 && id < 16) || (quest.type == 7 && id >= 0 && id < 6))) {
@@ -238,13 +331,165 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
         }
     }
 
+    private void refreshRecipeList() {
+        if (quest.type != 6 || selectedStation == null) return;
+        QuestCraft craft = (QuestCraft)quest.questInterface;
+        if (craft.configured(selectedCraftSlot)) {
+            for (QuestCraftRecipe recipe : QuestCraftRecipeCatalog.recipes(craft.stations[selectedCraftSlot])) {
+                if (recipe.id().equals(craft.recipeIds[selectedCraftSlot])) {
+                    selectedRecipe = recipe;
+                    break;
+                }
+            }
+        }
+        String query = recipeSearch.trim().toLowerCase(Locale.ROOT);
+        visibleRecipes.clear();
+        for (QuestCraftRecipe recipe : QuestCraftRecipeCatalog.recipes(selectedStation.key)) {
+            if (query.isEmpty() || recipe.name().toLowerCase(Locale.ROOT).contains(query)
+                    || recipe.id().toLowerCase(Locale.ROOT).contains(query)
+                    || recipe.output().getHoverName().getString().toLowerCase(Locale.ROOT).contains(query))
+                visibleRecipes.add(recipe);
+        }
+        recipeScrollOffset = Math.max(0, Math.min(recipeScrollOffset, Math.max(0, visibleRecipes.size() - 6)));
+        for (int i = 0; i < recipeRowButtons.size(); i++) {
+            int index = recipeScrollOffset + i;
+            RecipeRowButton row = recipeRowButtons.get(i);
+            row.visible = index < visibleRecipes.size();
+            QuestCraftRecipe recipe = row.visible ? visibleRecipes.get(index) : null;
+            boolean selected = recipe != null && selectedRecipe != null
+                    && selectedRecipe.station().equals(recipe.station()) && selectedRecipe.id().equals(recipe.id());
+            row.setRecipe(recipe, selected);
+        }
+        updateStationIcons();
+    }
+
+    private void updateCraftSlotButtons() {
+        QuestCraft craft = (QuestCraft)quest.questInterface;
+        for (int i = 0; i < craftSlotButtons.size(); i++) {
+            craftSlotButtons.get(i).setItem(QuestCraft.previewStack(craft.outputs[i], craft.required[i]));
+            craftSlotButtons.get(i).setSelected(i == selectedCraftSlot);
+        }
+    }
+
+    private void updateStationIcons() {
+        for (StationIconButton button : stationIconButtons) button.setSelected(button.station == selectedStation);
+    }
+
+    public static void refreshCraftRecipes() {
+        if (Minecraft.getInstance().screen instanceof IGuiInterface parent
+                && parent.getSubGui() instanceof SubGuiQuestSettings settings && settings.quest.type == 6)
+            settings.refreshRecipeList();
+    }
+
+    private static final class StationIconButton extends GuiButtonNop {
+        private final CraftStation station;
+        private final ItemStack icon;
+        private boolean selected;
+
+        StationIconButton(SubGuiQuestSettings gui, int id, int x, int y, CraftStation station) {
+            super(gui, id, x, y, 24, 24, " ");
+            this.station = station;
+            this.icon = new ItemStack(stationIcon(station));
+        }
+
+        void setSelected(boolean value) { selected = value; }
+
+        @Override public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            if (!visible) return;
+            int x = getX(), y = getY();
+            var font = Minecraft.getInstance().font;
+            graphics.fill(x, y, x + 24, y + 24, selected ? 0xff555555 : 0xff777777);
+            graphics.fill(x + 1, y + 1, x + 23, y + 23,
+                    selected ? 0xffeeeeee : isHoveredOrFocused() ? 0xffd8d8d8 : 0xffc0c0c0);
+            graphics.renderItem(icon, x + 4, y + 4);
+            if (selected) graphics.renderOutline(x - 1, y - 1, 26, 26, 0xfff4f0dc);
+            if (isHovered()) graphics.renderTooltip(font, Component.translatable(station.translationKey), mouseX, mouseY);
+        }
+
+        private static net.minecraft.world.item.Item stationIcon(CraftStation station) {
+            return switch (station) {
+                case WORKBENCH -> Items.CRAFTING_TABLE;
+                case CARPENTRY -> Items.OAK_PLANKS;
+                case ANVIL -> Items.ANVIL;
+                case SMITHING -> Items.SMITHING_TABLE;
+                case FURNACE -> Items.FURNACE;
+                case BLAST_FURNACE -> Items.BLAST_FURNACE;
+                case SMOKER -> Items.SMOKER;
+                case GRINDSTONE -> Items.GRINDSTONE;
+                case BREWING -> Items.BREWING_STAND;
+                case CAMPFIRE -> Items.CAMPFIRE;
+                case DROP -> Items.DROPPER;
+            };
+        }
+    }
+
+    private static final class RecipeRowButton extends GuiButtonNop {
+        private QuestCraftRecipe recipe;
+        private boolean selected;
+
+        RecipeRowButton(SubGuiQuestSettings gui, int id, int x, int y, int width, int height) {
+            super(gui, id, x, y, width, height, " ");
+        }
+
+        void setRecipe(QuestCraftRecipe recipe, boolean selected) {
+            this.recipe = recipe;
+            this.selected = selected;
+        }
+
+        @Override public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            if (!visible || recipe == null) return;
+            int x = getX(), y = getY();
+            graphics.fill(x, y, x + width, y + height, selected ? 0xff555555 : 0xff777777);
+            graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1,
+                    isHoveredOrFocused() ? 0xffd8d8d8 : 0xffc0c0c0);
+            ItemStack output = recipe.output();
+            graphics.renderItem(output, x + 4, y + 4);
+            graphics.renderItemDecorations(Minecraft.getInstance().font, output, x + 4, y + 4);
+            String name = Minecraft.getInstance().font.plainSubstrByWidth(recipe.name(), width - 54);
+            graphics.drawString(Minecraft.getInstance().font, name, x + 26, y + 8, 0xff202020, false);
+            graphics.drawString(Minecraft.getInstance().font, "×" + output.getCount(), x + width - 26, y + 8, 0xff404040, false);
+            if (isHovered()) {
+                graphics.renderTooltip(Minecraft.getInstance().font,
+                        Component.literal(recipe.name()).withStyle(ChatFormatting.YELLOW), mouseX, mouseY);
+                graphics.renderOutline(x, y, width, height, 0xfff4f0dc);
+            }
+        }
+    }
+
     @Override
     public void buttonEvent(GuiButtonNop button) {
         GuiTextFieldNop.unfocus();
-        if (quest.type == 6 && button.id >= 100 && button.id < 109) {
-            setSubGui(new SubGuiQuestCraftSource((QuestCraft)quest.questInterface, button.id - 100));
-        } else if (button.id == 20) {
-            setSubGui(new SubGuiQuestCraftItems((QuestCraft)quest.questInterface));
+        if (quest.type == 6 && button.id >= 30 && button.id < 39) {
+            selectedCraftSlot = button.id - 30;
+            QuestCraft craft = (QuestCraft)quest.questInterface;
+            if (craft.configured(selectedCraftSlot)) {
+                selectedStation = CraftStation.byKey(craft.stations[selectedCraftSlot]);
+                selectedRecipe = new QuestCraftRecipe(craft.stations[selectedCraftSlot],
+                        craft.recipeIds[selectedCraftSlot], craft.recipeName(selectedCraftSlot),
+                        craft.outputs[selectedCraftSlot], List.of());
+            } else selectedRecipe = null;
+            recipeScrollOffset = 0;
+            m_7856_();
+        } else if (quest.type == 6 && button.id >= 200 && button.id < 200 + CraftStation.values().length) {
+            selectedStation = CraftStation.values()[button.id - 200];
+            recipeScrollOffset = 0;
+            refreshRecipeList();
+        } else if (quest.type == 6 && button.id >= 300 && button.id < 306) {
+            int index = recipeScrollOffset + button.id - 300;
+            if (index < visibleRecipes.size()) {
+                selectedRecipe = visibleRecipes.get(index);
+                ((QuestCraft)quest.questInterface).setRecipe(selectedCraftSlot, selectedRecipe.station(),
+                        selectedRecipe.id(), selectedRecipe.name(), selectedRecipe.output());
+                getTextField(0).enabled = true;
+                updateCraftSlotButtons();
+                refreshRecipeList();
+            }
+        } else if (quest.type == 6 && button.id == 20) {
+            ((QuestCraft)quest.questInterface).clearRecipe(selectedCraftSlot);
+            selectedRecipe = null;
+            getTextField(0).enabled = false;
+            updateCraftSlotButtons();
+            refreshRecipeList();
         } else if (button.id == 21) {
             if (quest.type == 2 || quest.type == 4 || quest.type == 5) saveTargets();
             if (quest.type == 4) ((QuestAreaKill)quest.questInterface).normalize();
@@ -257,7 +502,7 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
     public void mouseDragged(GuiSliderNop slider) {
         int percent = Math.max(1, Math.min(80, 1 + Math.round(slider.sliderValue * 79.0F)));
         ((QuestExplore)quest.questInterface).requiredPercent = percent;
-        slider.setString(I18n.get("cnpcplus.quest.explore.percent") + " " + percent + "%");
+        slider.setString(percent + "%");
     }
 
     @Override public void mousePressed(GuiSliderNop slider) {}
@@ -266,31 +511,167 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
     @Override
     public boolean m_6375_(double x, double y, int button) {
         boolean handled = super.m_6375_(x, y, button);
+        if (quest.type == 6 && button == 0 && x >= guiLeft + 416 && x < guiLeft + 422
+                && y >= guiTop + 126 && y < guiTop + 288) {
+            draggingRecipeScrollbar = true;
+            updateRecipeScrollFromMouse(y);
+            return true;
+        }
         if ((quest.type == 2 || quest.type == 4 || quest.type == 5)
-                && GuiTextFieldNop.isAnyActive() && GuiTextFieldNop.getActive().id >= 0 && GuiTextFieldNop.getActive().id < 3)
+                && GuiTextFieldNop.isAnyActive() && GuiTextFieldNop.getActive().id >= 0 && GuiTextFieldNop.getActive().id < 3) {
             selectedTargetField = GuiTextFieldNop.getActive();
+            selectedTargetRow = selectedTargetField.id;
+        }
         return handled;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (quest.type == 6 && draggingRecipeScrollbar) {
+            updateRecipeScrollFromMouse(mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingRecipeScrollbar = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private void updateRecipeScrollFromMouse(double mouseY) {
+        int maxOffset = Math.max(0, visibleRecipes.size() - 6);
+        if (maxOffset == 0) return;
+        int thumbHeight = Math.max(24, 162 * 6 / visibleRecipes.size());
+        double fraction = Math.max(0, Math.min(1, (mouseY - guiTop - 126 - thumbHeight / 2.0) / (162 - thumbHeight)));
+        recipeScrollOffset = (int)Math.round(fraction * maxOffset);
+        refreshRecipeList();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (quest.type == 6 && mouseX >= guiLeft + 168 && mouseX < guiLeft + 422
+                && mouseY >= guiTop + 126 && mouseY < guiTop + 288 && !visibleRecipes.isEmpty()) {
+            recipeScrollOffset = Math.max(0, Math.min(Math.max(0, visibleRecipes.size() - 6),
+                    recipeScrollOffset - (delta > 0 ? 1 : -1)));
+            refreshRecipeList();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
     public void scrollClicked(double x, double y, int button, GuiCustomScrollNop scroll) {
         int index = scroll.getSelectedIndex();
-        if (index < 0 || index >= candidates.size()) return;
-        Candidate candidate = candidates.get(index);
-        if (selectedTargetField != null) {
-            selectedTargetField.setValue(candidate.value());
-            saveTargets();
+        if (scroll != candidatesScroll || index < 0 || index >= visibleCandidates.size()) return;
+        Candidate candidate = visibleCandidates.get(index);
+        int row = selectedTargetField != null ? selectedTargetField.id : selectedTargetRow;
+        if (getTextField(row).getValue().isBlank()) {
+            for (int i = 0; i < 3; i++) if (getTextField(i).getValue().isBlank()) { row = i; break; }
         }
-        preview = null;
-        if (candidate.npc() != null) {
-            var snapshot = candidate.npc().writeSpawnData().copy();
-            snapshot.putString("CNPCPlusPreviewType", BuiltInRegistries.ENTITY_TYPE.getKey(candidate.npc().getType()).toString());
-            preview = PlayerTextPreview.npc(snapshot);
-        }
+        selectedTargetRow = row;
+        selectedTargetField = getTextField(row);
+        selectedTargetField.setValue(candidate.value());
+        saveTargets();
+        nearbyPreview = candidate.preview();
     }
 
     @Override public void scrollDoubleClicked(String selected, GuiCustomScrollNop scroll) {
         scrollClicked(0, 0, 0, scroll);
+    }
+
+    private void drawRecipePreview(GuiGraphics graphics, QuestCraftRecipe recipe, int mouseX, int mouseY) {
+        int cell = 22;
+        boolean brewing = recipe.station().equals("brewing");
+        boolean smelting = recipe.station().equals("furnace") || recipe.station().equals("blast_furnace")
+                || recipe.station().equals("smoker");
+        int columns = recipe.columns(), rows = recipe.rows();
+        int gridWidth = columns * cell, gridHeight = brewing ? cell * 2 + 14 : smelting ? cell * 2 + 8 : rows * cell;
+        int outputCount = brewing ? 3 : 1;
+        int outputWidth = outputCount == 3 ? outputCount * cell : 36;
+        int arrowWidth = 14, gap = 6;
+        int contentWidth = gridWidth + gap + arrowWidth + gap + outputWidth;
+        int startX = guiLeft + 428 + Math.max(3, (166 - contentWidth) / 2);
+        int previewHeight = Math.max(gridHeight, outputCount == 3 ? gridHeight : 36);
+        int startY = guiTop + 126 + (132 - previewHeight) / 2;
+        for (int i = 0; i < columns * rows; i++) {
+            int x, y;
+            if (brewing) {
+                if (i == 1) {
+                    x = startX + cell;
+                    y = startY;
+                } else if (i >= 3) {
+                    int bottle = i - 3;
+                    x = startX + bottle * cell;
+                    y = startY + cell + 7 + (bottle == 1 ? 7 : 0);
+                } else continue;
+            } else if (smelting) {
+                x = startX;
+                y = startY + i * (cell + 8);
+            } else {
+                x = startX + i % columns * cell;
+                y = startY + i / columns * cell;
+            }
+            graphics.fill(x, y, x + cell, y + cell, 0xff252a2d);
+            graphics.fill(x + 1, y + 1, x + cell - 1, y + cell - 1, 0xff8b8b8b);
+            ItemStack input = recipe.inputAt(i);
+            if (!input.isEmpty()) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(x + cell / 2f, y + cell / 2f, 0);
+                graphics.pose().scale(1.25f, 1.25f, 1f);
+                graphics.renderItem(input, -8, -8);
+                graphics.renderItemDecorations(font, input, -8, -8);
+                graphics.pose().popPose();
+                if (mouseX >= x && mouseX < x + cell && mouseY >= y && mouseY < y + cell)
+                    graphics.renderTooltip(font, input, mouseX, mouseY);
+            }
+        }
+        int arrowX = startX + gridWidth + gap;
+        graphics.drawString(font, "→", arrowX + 2, startY + previewHeight / 2 - 4, 0xffffe79a, false);
+        int outputX = arrowX + arrowWidth + gap;
+        for (int i = 0; i < outputCount; i++) {
+            int size = outputCount == 3 ? cell : 36;
+            int x = outputX + i * cell;
+            int y = outputCount == 3
+                    ? startY + cell + 7 + (i == 1 ? 7 : 0)
+                    : startY + (previewHeight - size) / 2;
+            graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, 0xffd7c47a);
+            graphics.fill(x, y, x + size, y + size, 0xff555555);
+            graphics.fill(x + 1, y + 1, x + size - 1, y + size - 1, 0xff8b8b8b);
+            ItemStack output = QuestCraft.previewStack(recipe.previewOutputAt(i),
+                    ((QuestCraft)quest.questInterface).required[selectedCraftSlot]);
+            if (!output.isEmpty()) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(x + size / 2f, y + size / 2f, 0);
+                graphics.pose().scale(outputCount == 3 ? 1.25f : 1.4f, outputCount == 3 ? 1.25f : 1.4f, 1f);
+                graphics.renderItem(output, -8, -8);
+                graphics.renderItemDecorations(font, output, -8, -8);
+                graphics.pose().popPose();
+                if (mouseX >= x && mouseX < x + size && mouseY >= y && mouseY < y + size)
+                    graphics.renderTooltip(font, output, mouseX, mouseY);
+            }
+        }
+        int detailsY = smelting ? 250 : 267;
+        String name = font.plainSubstrByWidth(recipe.name(), 156);
+        graphics.drawString(font, name, guiLeft + 433, guiTop + detailsY, 0xffeeeeee, false);
+        graphics.drawString(font, I18n.get("cnpcplus.quest.craft.recipe.identity", recipe.id()),
+                guiLeft + 433, guiTop + detailsY + 12, 0xffc6c6c6, false);
+        if (smelting) {
+            ItemStack fuel = recipe.inputAt(1);
+            String fuelText = fuel.isEmpty()
+                    ? I18n.get(recipe.genericFuelAllowed()
+                            ? "cnpcplus.quest.craft.recipe.fuel.unspecified"
+                            : "cnpcplus.quest.craft.recipe.fuel.unavailable")
+                    : I18n.get("cnpcplus.quest.craft.recipe.fuel.specified", fuel.getHoverName().getString());
+            graphics.drawString(font, font.plainSubstrByWidth(fuelText, 156),
+                    guiLeft + 433, guiTop + detailsY + 24, 0xffe2d2a0, false);
+            String genericFuelText = I18n.get(recipe.genericFuelAllowed()
+                    ? "cnpcplus.quest.craft.recipe.fuel.generic_allowed"
+                    : "cnpcplus.quest.craft.recipe.fuel.generic_disabled");
+            graphics.drawString(font, font.plainSubstrByWidth(genericFuelText, 156),
+                    guiLeft + 433, guiTop + detailsY + 36, 0xffc6c6c6, false);
+        }
     }
 
     @Override
@@ -300,44 +681,57 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
         if (quest.type == 6) {
             QuestCraft craft = (QuestCraft)quest.questInterface;
             graphics.drawString(font, I18n.get("cnpcplus.quest.craft.title"), guiLeft + 12, guiTop + 10, 0x202020, false);
-            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.output"), guiLeft + 12, guiTop + 24, 0x555555, false);
-            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.source.label"), guiLeft + 143, guiTop + 24, 0x555555, false);
-            graphics.drawString(font, I18n.get("cnpcplus.quest.targets.amount"), guiLeft + 358, guiTop + 24, 0x555555, false);
-            for (int i = 0; i < 9; i++) {
-                int x = guiLeft + 12, y = guiTop + 38 + i * 20;
-                ItemStack target = craft.items.items.get(i);
-                graphics.fill(x, y, x + 20, y + 20, 0xff171717);
-                graphics.blit(SLOT_TEXTURE, x + 1, y + 1, 0, 0, 18, 18);
-                if (!target.isEmpty()) graphics.renderItem(target, x + 2, y + 2);
-                String name = target.isEmpty() ? I18n.get("cnpcplus.quest.craft.unset") : target.getHoverName().getString();
-                graphics.drawString(font, font.plainSubstrByWidth(name, 97), guiLeft + 36, y + 6, 0x303030, false);
-                if (mouseX >= x && mouseX < x + 20 && mouseY >= y && mouseY < y + 20 && !target.isEmpty())
-                    graphics.renderTooltip(font, target, mouseX, mouseY);
-            }
-            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.items"), guiLeft + 39, guiTop + 224, 0x303030, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.recipe.output"), guiLeft + 20, guiTop + 36, 0x555555, false);
+            graphics.vLine(guiLeft + 152, guiTop + 31, guiTop + 298, 0xffa0a0a0);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.recipe.station"), guiLeft + 168, guiTop + 22, 0x555555, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.recipe.list"), guiLeft + 168, guiTop + 115, 0x555555, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.recipe.preview"), guiLeft + 428, guiTop + 115, 0x555555, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.selected", selectedCraftSlot + 1), guiLeft + 20, guiTop + 158, 0x555555, false);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.craft.recipe.required"), guiLeft + 20, guiTop + 222, 0x555555, false);
+            graphics.drawWordWrap(font, Component.translatable("cnpcplus.quest.craft.overview.help"),
+                    guiLeft + 20, guiTop + 182, 122, 0x686868);
+
+            int previewBottom = selectedRecipe != null && (selectedRecipe.station().equals("furnace")
+                    || selectedRecipe.station().equals("blast_furnace") || selectedRecipe.station().equals("smoker"))
+                    ? 300 : 288;
+            graphics.fill(guiLeft + 428, guiTop + 126, guiLeft + 594, guiTop + previewBottom, 0xff343b40);
+            if (selectedRecipe == null) graphics.drawString(font, I18n.get("cnpcplus.quest.craft.unset"),
+                    guiLeft + 438, guiTop + 145, 0xffc6c6c6, false);
+            else drawRecipePreview(graphics, selectedRecipe, mouseX, mouseY);
+            if (visibleRecipes.isEmpty()) graphics.drawWordWrap(font,
+                    Component.translatable("cnpcplus.quest.craft.recipe.empty"), guiLeft + 170, guiTop + 145, 236, 0xff686868);
+            int maxOffset = Math.max(0, visibleRecipes.size() - 6);
+            graphics.fill(guiLeft + 416, guiTop + 126, guiLeft + 420, guiTop + 288, 0xff777777);
+            int thumbHeight = maxOffset == 0 ? 162 : Math.max(24, 162 * 6 / visibleRecipes.size());
+            int thumbY = guiTop + 126 + (maxOffset == 0 ? 0 : (162 - thumbHeight) * recipeScrollOffset / maxOffset);
+            graphics.fill(guiLeft + 416, thumbY, guiLeft + 420, thumbY + thumbHeight, 0xff303030);
         } else if (quest.type == 2 || quest.type == 4) {
             graphics.drawString(font, I18n.get(quest.type == 2 ? "cnpcplus.quest.kill.title" : "cnpcplus.quest.area.title"),
                     guiLeft + 12, guiTop + 12, 0x202020, false);
             if (quest.type == 4) {
                 graphics.drawString(font, I18n.get("cnpcplus.quest.area.bounds"), guiLeft + 22, guiTop + 24, 0x555555, false);
                 drawCoordinateLabels(graphics, 42, 34);
-                graphics.drawString(font, I18n.get("cnpcplus.quest.area.targets"), guiLeft + 18, guiTop + 124, 0x555555, false);
-                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.name"), guiLeft + 18, guiTop + 134, 0x555555, false);
-                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.amount"), guiLeft + imageWidth - 208, guiTop + 134, 0x555555, false);
+                graphics.drawString(font, I18n.get("cnpcplus.quest.area.targets"), guiLeft + 18, guiTop + 112, 0x555555, false);
+                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.name"), guiLeft + 18, guiTop + 128, 0x555555, false);
+                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.amount"), guiLeft + imageWidth - 274, guiTop + 128, 0x555555, false);
             } else {
-                graphics.drawString(font, I18n.get("cnpcplus.quest.kill.help"), guiLeft + 18, guiTop + 36, 0x555555, false);
-                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.name"), guiLeft + 18, guiTop + 50, 0x555555, false);
-                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.amount"), guiLeft + imageWidth - 208, guiTop + 50, 0x555555, false);
+                graphics.drawWordWrap(font, Component.translatable("cnpcplus.quest.kill.help"),
+                        guiLeft + 18, guiTop + 36, 330, 0x555555);
+                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.name"), guiLeft + 18, guiTop + 66, 0x555555, false);
+                graphics.drawString(font, I18n.get("cnpcplus.quest.targets.amount"), guiLeft + imageWidth - 274, guiTop + 66, 0x555555, false);
             }
-            graphics.drawString(font, I18n.get("cnpcplus.quest.targets.candidates"), guiLeft + imageWidth - 154, guiTop + 24, 0x555555, false);
-            if (preview != null) {
-                int px = guiLeft + imageWidth - 154, py = guiTop + 118;
-                graphics.fill(px - 1, py - 1, px + 144, py + 72, 0xffa49d89);
-                graphics.fill(px, py, px + 142, py + 70, 0xff343b40);
-                SafeEntityPreview.nativeDisplay(graphics, preview, 71, 39, 0.8f, 180, mouseX, mouseY, px, py, true, false);
+            int px = guiLeft + imageWidth - 202, py = guiTop + (quest.type == 4 ? 184 : 168);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.targets.candidates"), px, guiTop + 24, 0x555555, false);
+            graphics.fill(px - 1, py - 1, px + 190, py + 102, 0xffa49d89);
+            graphics.fill(px, py, px + 188, py + 100, 0xff343b40);
+            if (nearbyPreview != null) {
+                graphics.enableScissor(px, py, px + 188, py + 100);
+                SafeEntityPreview.nativeDisplay(graphics, nearbyPreview, 94, 94, 0.9f, 180,
+                        mouseX, mouseY, px, py, true, false);
+                graphics.disableScissor();
             } else {
                 graphics.drawWordWrap(font, Component.translatable("cnpcplus.quest.targets.preview.help"),
-                        guiLeft + imageWidth - 152, guiTop + 122, 138, 0x686868);
+                        px + 8, py + 24, 172, 0xffc6c6c6);
             }
         } else if (quest.type == 5) {
             graphics.drawString(font, I18n.get("cnpcplus.quest.manual.title"), guiLeft + 12, guiTop + 12, 0x202020, false);
@@ -355,6 +749,7 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
                     guiLeft + 12, guiTop + 14, 0x202020, false);
             graphics.drawString(font, I18n.get("cnpcplus.quest.explore.bounds"), guiLeft + 22, guiTop + 26, 0x555555, false);
             drawCoordinateLabels(graphics, 42, 34);
+            graphics.drawString(font, I18n.get("cnpcplus.quest.explore.percent"), guiLeft + 22, guiTop + 128, 0x555555, false);
             graphics.drawString(font, I18n.get("cnpcplus.quest.explore.distance"), guiLeft + 230, guiTop + 148, 0x555555, false);
             graphics.drawString(font, I18n.get("cnpcplus.quest.explore.distance.help"), guiLeft + 22, guiTop + 176, 0x686868, false);
             if (Minecraft.getInstance().level != null) {
@@ -371,8 +766,9 @@ public final class SubGuiQuestSettings extends GuiNPCInterface implements ITextf
 
     private void drawCoordinateLabels(GuiGraphics graphics, int top, int rowGap) {
         String[] labels = {"X1", "Y1", "Z1", "X2", "Y2", "Z2"};
+        int step = quest.type == 4 ? 82 : 108;
         for (int i = 0; i < 6; i++) {
-            int x = guiLeft + 22 + (i % 3) * 108;
+            int x = guiLeft + 22 + (i % 3) * step;
             int y = guiTop + top + (i / 3) * rowGap;
             graphics.drawString(font, labels[i], x, y + 6, 0x303030, false);
         }

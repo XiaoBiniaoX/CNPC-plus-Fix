@@ -27,7 +27,9 @@ public record StationPacket(int operation, int kind, CompoundTag data) {
         context.enqueueWork(() -> {
             var player = context.getSender();
             if (player == null || !player.hasPermissions(2) || kind < 0 || kind >= 3 || data == null || data.sizeInBytes() > 30000) return;
-            if (operation == 0) {
+            if (operation == 5) {
+                sync(player, kind);
+            } else if (operation == 0) {
                 NetworkHooks.openScreen(player, new SimpleMenuProvider((id, inv, p) -> new StationMenu(id, inv, kind),
                         Component.translatable("cnpcplus.station." + StationRecipes.KINDS[kind])), buf -> buf.writeVarInt(kind));
             } else if (player.containerMenu instanceof StationMenu menu && menu.kind == kind) {

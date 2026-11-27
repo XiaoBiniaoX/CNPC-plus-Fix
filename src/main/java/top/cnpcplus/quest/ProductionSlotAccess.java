@@ -5,4 +5,8 @@ import net.minecraft.world.item.ItemStack;
 /** Keeps the actual quick-move amount until the output's successful onTake callback. */
 public interface ProductionSlotAccess {
     ItemStack cnpcplus$takeProduction(ItemStack taken);
+    void cnpcplus$rememberRecipe(String station, String recipeId);
+    String cnpcplus$recipeStation();
+    String cnpcplus$recipeId();
+    void cnpcplus$clearRecipe();
 }

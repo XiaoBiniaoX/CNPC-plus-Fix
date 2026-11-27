@@ -39,5 +39,6 @@ public final class SmithingClientSync {
         if (mc.screen instanceof GuiNpcSmithingRecipes gui) {
             gui.refreshFromServer();
         }
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
     }
 }

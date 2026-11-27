@@ -14,14 +14,18 @@ import top.cnpcplus.quest.ItemProductionEvents;
 @Mixin(ItemEntity.class)
 public abstract class MixinItemEntityProduction {
     @Unique private ItemStack cnpcplus$pickupSnapshot = ItemStack.EMPTY;
+    @Unique private int cnpcplus$pickupRecipe = -1;
 
     @Inject(method = "playerTouch", at = @At("HEAD"), require = 1)
     private void cnpcplus$beforePickup(Player player, CallbackInfo ci) {
         ItemEntity item = (ItemEntity)(Object)this;
-        cnpcplus$pickupSnapshot = !player.level().isClientSide
+        boolean ownedCustomOutput = !player.level().isClientSide
                 && item.getPersistentData().getBoolean("CNPCPlusCampfireOutput")
                 && item.getPersistentData().hasUUID("CNPCPlusCampfireOwner")
-                ? item.getItem().copy() : ItemStack.EMPTY;
+                && item.getPersistentData().getUUID("CNPCPlusCampfireOwner").equals(player.getUUID())
+                && item.getPersistentData().contains("CNPCPlusCampfireRecipe");
+        cnpcplus$pickupSnapshot = ownedCustomOutput ? item.getItem().copy() : ItemStack.EMPTY;
+        cnpcplus$pickupRecipe = ownedCustomOutput ? item.getPersistentData().getInt("CNPCPlusCampfireRecipe") : -1;
     }
 
     @Inject(method = "playerTouch", at = @At("TAIL"), require = 1)
@@ -30,8 +34,10 @@ public abstract class MixinItemEntityProduction {
         if (cnpcplus$pickupSnapshot.isEmpty()) return;
         int remaining = item.isRemoved() ? 0 : item.getItem().getCount();
         int taken = cnpcplus$pickupSnapshot.getCount() - remaining;
-        if (taken > 0) ItemProductionEvents.post(player, cnpcplus$pickupSnapshot,
-                ItemProductionEvent.Source.CAMPFIRE, player.level(), item.blockPosition(), taken);
+        if (taken > 0 && cnpcplus$pickupRecipe >= 0) ItemProductionEvents.post(player, cnpcplus$pickupSnapshot,
+                ItemProductionEvent.Source.CAMPFIRE, player.level(), item.blockPosition(), taken, "campfire",
+                Integer.toString(cnpcplus$pickupRecipe));
         cnpcplus$pickupSnapshot = ItemStack.EMPTY;
+        cnpcplus$pickupRecipe = -1;
     }
 }

@@ -12,7 +12,7 @@ import top.cnpcplus.quest.QuestCraft;
 import top.cnpcplus.quest.QuestExplore;
 
 /** Button-based type/repeat selector for the quest editor. */
-public final class SubGuiQuestPicker extends GuiNPCInterface {
+public final class SubGuiQuestPicker extends GuiQuestPanel {
     private static final String[] TYPES = {
             "quest.item", "quest.dialog", "quest.kill", "quest.location",
             "quest.areakill", "quest.manual", "cnpcplus.quest.craft", "cnpcplus.quest.explore"
@@ -29,8 +29,7 @@ public final class SubGuiQuestPicker extends GuiNPCInterface {
         this.quest = quest;
         this.repeat = repeat;
         imageWidth = 320;
-        imageHeight = repeat ? 190 : 230;
-        setBackground("menubg.png");
+        imageHeight = repeat ? 208 : 240;
     }
 
     @Override

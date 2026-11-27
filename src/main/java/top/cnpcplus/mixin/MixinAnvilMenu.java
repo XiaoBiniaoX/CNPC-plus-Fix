@@ -38,6 +38,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(AnvilMenu.class)
 public abstract class MixinAnvilMenu extends ItemCombinerMenu {
     @Unique private boolean cnpcplus$shapelessTake;
+    @Unique private String cnpcplus$productionRecipeId = "";
     protected MixinAnvilMenu(MenuType<?> type, int id, Inventory inventory, ContainerLevelAccess access) { super(type, id, inventory, access); }
 
     @Inject(method = "createResult", at = @At("HEAD"), cancellable = true, require = 1)
@@ -73,10 +74,18 @@ public abstract class MixinAnvilMenu extends ItemCombinerMenu {
     @Inject(method = "onTake", at = @At("RETURN"), require = 1)
     private void cnpcplus$refreshAfterShapeless(Player player, ItemStack result, CallbackInfo ci) {
         ItemStack output = ((ProductionSlotAccess)getSlot(getResultSlot())).cnpcplus$takeProduction(result);
-        ItemProductionEvents.post(player, output, ItemProductionEvent.Source.ANVIL, access);
+        if (!cnpcplus$productionRecipeId.isBlank()) ItemProductionEvents.post(player, output,
+                ItemProductionEvent.Source.ANVIL, access, "anvil", cnpcplus$productionRecipeId);
+        cnpcplus$productionRecipeId = "";
         if (cnpcplus$shapelessTake) {
             cnpcplus$shapelessTake = false;
             createResult();
         }
+    }
+
+    @Inject(method = "onTake", at = @At("HEAD"), require = 1)
+    private void cnpcplus$rememberAnvilRecipe(Player player, ItemStack result, CallbackInfo ci) {
+        var recipe = AnvilCraftHandler.find(player, inputSlots.getItem(0), inputSlots.getItem(1));
+        cnpcplus$productionRecipeId = player.level().isClientSide || recipe == null ? "" : Integer.toString(recipe.id);
     }
 }

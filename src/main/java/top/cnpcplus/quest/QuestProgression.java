@@ -18,9 +18,8 @@ public final class QuestProgression {
         for (QuestData data : java.util.List.copyOf(quests.activeQuests.values())) {
             if (data.quest.type != 6 || !(data.quest.questInterface instanceof QuestCraft craft)) continue;
             for (int i = 0; i < 9; i++) {
-                if (!craft.configured(i) || craft.sources[i] != event.getSource()) continue;
-                if (!noppes.npcs.NoppesUtilPlayer.compareItems(craft.items.items.get(i), event.getStack(),
-                        craft.ignoreDamage, craft.ignoreNBT)) continue;
+                if (!craft.configured(i) || !QuestCraft.matchesRecipe(craft.stations[i], craft.recipeIds[i],
+                        event.getStation(), event.getRecipeId())) continue;
                 int[] counts = craft.progress(data);
                 int current = i < counts.length ? counts[i] : 0;
                 if (current >= craft.required[i]) continue;

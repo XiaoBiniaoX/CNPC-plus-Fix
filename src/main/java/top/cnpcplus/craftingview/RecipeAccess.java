@@ -13,10 +13,14 @@ public class RecipeAccess {
     private RecipeAccess() {}
 
     /**
-     * 获取指定来源 map 的所有配方（过滤掉未满足对话/任务条件的配方）
+     * 获取指定来源 map 的配方；includeUnavailable 用于任务配置目录，不受玩家可用性限制。
      * @param global true → globalRecipes (工作台), false → anvilRecipes (木工台)
      */
     public static List<RecipeView> getRecipes(boolean global) {
+        return getRecipes(global, false);
+    }
+
+    public static List<RecipeView> getRecipes(boolean global, boolean includeUnavailable) {
         List<RecipeView> out = new ArrayList<>();
         var ctrl = RecipeController.instance;
         if (ctrl == null) return out;
@@ -26,7 +30,8 @@ public class RecipeAccess {
             for (var entry : map.entrySet()) {
                 RecipeCarpentry recipe = entry.getValue();
                 if (recipe == null) continue;
-                if (player != null && recipe.availability.hasOptions() && !recipe.availability.isAvailable(player)) continue;
+                if (!includeUnavailable && player != null && recipe.availability.hasOptions()
+                        && !recipe.availability.isAvailable(player)) continue;
                 out.add(new RecipeView(recipe, entry.getKey(), global));
             }
         }

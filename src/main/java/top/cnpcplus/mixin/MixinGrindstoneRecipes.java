@@ -9,6 +9,8 @@ import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.station.*;
+import top.cnpcplus.quest.ItemProductionEvent;
+import top.cnpcplus.quest.ItemProductionEvents;
 
 @Mixin(GrindstoneMenu.class)
 public abstract class MixinGrindstoneRecipes extends AbstractContainerMenu {
@@ -41,6 +43,8 @@ public abstract class MixinGrindstoneRecipes extends AbstractContainerMenu {
                 StationRecipe recipe = StationRecipes.find(0, inputs, player);
                 if (recipe == null) { old.onTake(player, stack); return; }
                 if (!player.level().isClientSide) {
+                    ItemProductionEvents.post(player, stack, ItemProductionEvent.Source.GRINDSTONE,
+                            MixinGrindstoneRecipes.this.access, "grindstone", Integer.toString(recipe.id));
                     if (!player.getAbilities().instabuild) player.giveExperienceLevels(-recipe.experience);
                     // Both remainders are computed before either setChanged can recompute the result.
                     int[] slots = recipe.matchSlots(inputs);

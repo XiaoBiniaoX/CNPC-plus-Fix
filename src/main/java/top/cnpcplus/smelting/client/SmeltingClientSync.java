@@ -16,6 +16,7 @@ public final class SmeltingClientSync {
 
     public static void accept(List<SmeltingRecipeData> data) {
         SmeltingClientData.set(data);
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
         if (Minecraft.getInstance().screen instanceof GuiNpcSmeltingRecipes gui) {
             gui.refreshFromServer();
         }

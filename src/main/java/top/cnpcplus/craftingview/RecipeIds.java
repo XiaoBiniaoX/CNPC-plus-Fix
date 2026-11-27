@@ -36,6 +36,15 @@ public final class RecipeIds {
         return ctrl.getRecipe(id) != null;
     }
 
+    public static ResourceLocation idOf(RecipeCarpentry recipe, boolean global) {
+        RecipeController ctrl = RecipeController.instance;
+        if (ctrl == null || recipe == null) return null;
+        var recipes = global ? ctrl.globalRecipes : ctrl.anvilRecipes;
+        if (recipes == null) return null;
+        for (var entry : recipes.entrySet()) if (entry.getValue() == recipe) return entry.getKey();
+        return null;
+    }
+
     public static boolean nameTaken(String name) {
         if (name == null) return false;
         String lower = name.toLowerCase(Locale.ROOT);

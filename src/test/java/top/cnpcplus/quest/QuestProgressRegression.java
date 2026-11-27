@@ -20,12 +20,79 @@ public final class QuestProgressRegression {
         }
         check(QuestCraft.capProgress(3, 5, 8) == 5, "production exceeded requirement");
         check(QuestCraft.capProgress(3, 5, -2) == 3, "negative production changed progress");
+        check(QuestCraft.producedItems(1, 4) == 4, "one recipe did not count its four produced items");
+        check(QuestCraft.producedItems(2, 4) == 8, "multiple recipe outputs were not counted as items");
+        check(QuestCraft.producedItems(Integer.MAX_VALUE, 4) == Integer.MAX_VALUE, "production count overflowed");
+        check(QuestCraft.producedItems(3, 0) == 0, "invalid recipe output size counted progress");
+        for (CraftStation station : CraftStation.values()) {
+            check(CraftStation.byKey(station.key) == station, "station key was not registered: " + station.key);
+            check(QuestCraft.matchesRecipe(station.key, "17", station.key, "17"),
+                    "matching station/recipe identity rejected: " + station.key);
+            check(!QuestCraft.matchesRecipe(station.key, "17", "other", "17"),
+                    "wrong station accepted: " + station.key);
+            check(!QuestCraft.matchesRecipe(station.key, "17", station.key, "18"),
+                    "wrong recipe accepted: " + station.key);
+        }
+        check(QuestCraft.furnaceRecipe("cnpcplus:smelting/12").station().equals("furnace")
+                        && QuestCraft.furnaceRecipe("cnpcplus:blasting/12").station().equals("blast_furnace")
+                        && QuestCraft.furnaceRecipe("cnpcplus:smoking/12").station().equals("smoker"),
+                "one of the three furnace station keys was routed incorrectly");
+        check(QuestCraft.isWorkbenchGrid(9) && !QuestCraft.isWorkbenchGrid(16),
+                "workbench production grid size does not match the vanilla 3x3 menu");
+        var sourceOutput = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, 4);
+        var previewOutput = QuestCraft.previewStack(sourceOutput, 3);
+        check(previewOutput.getCount() == 3 && sourceOutput.getCount() == 4 && previewOutput != sourceOutput,
+                "required-count preview changed the recipe output stack");
+        check(QuestCraft.previewStack(net.minecraft.world.item.ItemStack.EMPTY, 3).isEmpty(),
+                "empty recipe output became visible in preview");
+        check(QuestExplore.coordinateInputAllowed("-123") && QuestExplore.coordinateInputAllowed("123")
+                        && QuestExplore.coordinateInputAllowed("") && QuestExplore.coordinateInputAllowed("-")
+                        && !QuestExplore.coordinateInputAllowed("+1") && !QuestExplore.coordinateInputAllowed("1.5")
+                        && !QuestExplore.coordinateInputAllowed("--1"),
+                "signed coordinate editing accepted invalid input or rejected a negative coordinate");
+        check(QuestCraft.furnaceRecipe("cnpcplus:smelting/12").equals(
+                new QuestCraft.RecipeReference("furnace", "12")), "furnace recipe identity was not parsed");
+        check(QuestCraft.furnaceRecipe("cnpcplus:blasting/not-a-number") == null,
+                "invalid custom furnace identity was accepted");
+        check(QuestCraft.furnaceRecipe("minecraft:smelting/12") == null,
+                "vanilla furnace recipe entered custom progress");
+        int[] brewRecipes = {7, 7, 7};
+        long[] brewBatches = {24L, 24L, 24L};
+        check(QuestCraft.takeBrewRecipe(brewRecipes, brewBatches, 1, false) == 7
+                        && QuestCraft.takeBrewRecipe(brewRecipes, brewBatches, 0, false) == 7,
+                "separate output bottles did not retain their recipe identity");
+        check(QuestCraft.takeBrewRecipe(brewRecipes, brewBatches, 2, true) == 7
+                        && QuestCraft.takeBrewRecipe(brewRecipes, brewBatches, 2, true) == -1,
+                "an exhausted bottle retained its recipe identity");
         UUID smallContribution = UUID.randomUUID(), largeContribution = UUID.randomUUID();
         check(QuestDamageLedger.selectContributor(Map.of(smallContribution, 0.25, largeContribution, 4.0))
                         .equals(largeContribution), "player damage contributor was not selected");
 
         QuestCraft craft = new QuestCraft();
         craft.required[0] = 5;
+        craft.items.items.set(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND));
+        check(!craft.configured(0), "legacy item-only target became a recipe objective");
+        var legacyCraftTag = new net.minecraft.nbt.CompoundTag();
+        craft.addAdditionalSaveData(legacyCraftTag);
+        QuestCraft loadedLegacyCraft = new QuestCraft();
+        loadedLegacyCraft.readAdditionalSaveData(legacyCraftTag);
+        check(!loadedLegacyCraft.configured(0)
+                        && loadedLegacyCraft.items.items.get(0).is(net.minecraft.world.item.Items.DIAMOND),
+                "legacy item-only save became a recipe objective or lost its old target");
+        craft.setRecipe(1, "anvil", "7", "Example recipe",
+                new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, 3));
+        craft.required[1] = 4;
+        var craftTag = new net.minecraft.nbt.CompoundTag();
+        craft.addAdditionalSaveData(craftTag);
+        QuestCraft loadedCraft = new QuestCraft();
+        loadedCraft.readAdditionalSaveData(craftTag);
+        check(loadedCraft.configured(1) && loadedCraft.required[1] == 4
+                        && loadedCraft.stations[1].equals("anvil") && loadedCraft.recipeIds[1].equals("7")
+                        && loadedCraft.outputs[1].getCount() == 3,
+                "recipe identity, count, or output snapshot did not persist");
+        check(QuestCraft.matchesRecipe("anvil", "7", "anvil", "7"), "matching recipe identity rejected");
+        check(!QuestCraft.matchesRecipe("anvil", "7", "smithing", "7"), "different workstation was accepted");
+        check(!QuestCraft.matchesRecipe("anvil", "7", "anvil", "8"), "different recipe was accepted");
         QuestData accepted = new QuestData(null);
         craft.addProgress(accepted, 0, 3);
         QuestData otherAcceptance = new QuestData(null);

@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import top.cnpcplus.craftingview.RecipeIndexUpdates;
+import top.cnpcplus.client.gui.SubGuiQuestSettings;
 
 @Mixin(value = PacketSyncRecipeRemove.class, remap = false)
 public abstract class MixinPacketSyncRecipeRemove {
@@ -29,5 +30,6 @@ public abstract class MixinPacketSyncRecipeRemove {
             controller.anvilRecipes.remove(id);
         }
         RecipeIndexUpdates.replace(client.getConnection().getRecipeManager(), RecipeType.CRAFTING, id, null);
+        SubGuiQuestSettings.refreshCraftRecipes();
     }
 }

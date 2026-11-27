@@ -16,6 +16,7 @@ public final class AnvilClientSync {
 
     public static void accept(List<AnvilRecipeData> data) {
         AnvilClientData.set(data);
+        top.cnpcplus.client.gui.SubGuiQuestSettings.refreshCraftRecipes();
         net.minecraft.client.Minecraft mc = Minecraft.getInstance();
         if (mc.screen instanceof GuiNpcAnvilRecipes gui) {
             gui.refreshFromServer();

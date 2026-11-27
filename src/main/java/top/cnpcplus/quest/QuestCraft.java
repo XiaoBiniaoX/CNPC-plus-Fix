@@ -7,6 +7,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import noppes.npcs.api.CustomNPCsException;
 import noppes.npcs.api.handler.data.IQuestObjective;
 import noppes.npcs.controllers.data.PlayerData;
@@ -16,15 +17,73 @@ import noppes.npcs.quests.QuestItem;
 /** Craft objectives are definitions on the quest; progress belongs to each active QuestData. */
 public final class QuestCraft extends QuestItem {
     public final int[] required = new int[9];
-    public final ItemProductionEvent.Source[] sources = new ItemProductionEvent.Source[9];
+    public final String[] stations = new String[9];
+    public final String[] recipeIds = new String[9];
+    public final String[] recipeNames = new String[9];
+    public final ItemStack[] outputs = new ItemStack[9];
 
     public QuestCraft() {
         java.util.Arrays.fill(required, 1);
-        java.util.Arrays.fill(sources, ItemProductionEvent.Source.WORKBENCH);
+        java.util.Arrays.fill(stations, "");
+        java.util.Arrays.fill(recipeIds, "");
+        java.util.Arrays.fill(recipeNames, "");
+        java.util.Arrays.fill(outputs, ItemStack.EMPTY);
     }
 
     public boolean configured(int slot) {
-        return slot >= 0 && slot < 9 && !items.items.get(slot).isEmpty() && required[slot] > 0;
+        return slot >= 0 && slot < 9 && CraftStation.byKey(stations[slot]) != null
+                && !recipeIds[slot].isEmpty() && !outputs[slot].isEmpty() && required[slot] > 0;
+    }
+
+    public void setRecipe(int slot, String station, String recipeId, String name, ItemStack output) {
+        if (slot < 0 || slot >= 9 || CraftStation.byKey(station) == null || recipeId == null || recipeId.isBlank()) return;
+        stations[slot] = station;
+        recipeIds[slot] = recipeId;
+        recipeNames[slot] = name == null ? "" : name;
+        outputs[slot] = output == null ? ItemStack.EMPTY : output.copy();
+    }
+
+    public void clearRecipe(int slot) {
+        if (slot < 0 || slot >= 9) return;
+        stations[slot] = "";
+        recipeIds[slot] = "";
+        recipeNames[slot] = "";
+        outputs[slot] = ItemStack.EMPTY;
+    }
+
+    public String recipeName(int slot) {
+        return recipeNames[slot].isBlank() ? recipeIds[slot] : recipeNames[slot];
+    }
+
+    public static boolean matchesRecipe(String expectedStation, String expectedId, String actualStation, String actualId) {
+        return expectedStation != null && expectedStation.equals(actualStation)
+                && expectedId != null && expectedId.equals(actualId);
+    }
+
+    public record RecipeReference(String station, String id) {}
+
+    public static RecipeReference furnaceRecipe(String id) {
+        if (id == null) return null;
+        String[][] prefixes = {{"cnpcplus:smelting/", "furnace"},
+                {"cnpcplus:blasting/", "blast_furnace"}, {"cnpcplus:smoking/", "smoker"}};
+        for (String[] prefix : prefixes) if (id.startsWith(prefix[0])) {
+            String recipeId = id.substring(prefix[0].length());
+            return recipeId.matches("\\d+") ? new RecipeReference(prefix[1], recipeId) : null;
+        }
+        return null;
+    }
+
+    public static boolean isWorkbenchGrid(int size) { return size == 9; }
+
+    public static int takeBrewRecipe(int[] recipes, long[] batches, int slot, boolean outputEmpty) {
+        if (slot < 0 || slot >= recipes.length || slot >= batches.length
+                || recipes[slot] < 0 || batches[slot] < 0) return -1;
+        int recipe = recipes[slot];
+        if (outputEmpty) {
+            recipes[slot] = -1;
+            batches[slot] = -1;
+        }
+        return recipe;
     }
 
     public int[] progress(QuestData data) {
@@ -41,20 +100,35 @@ public final class QuestCraft extends QuestItem {
         return (int)Math.min(Math.max(0, required), Math.max(0L, current) + Math.max(0L, amount));
     }
 
+    public static int producedItems(int completions, int outputPerCompletion) {
+        if (completions <= 0 || outputPerCompletion <= 0) return 0;
+        return (int)Math.min(Integer.MAX_VALUE, (long)completions * outputPerCompletion);
+    }
+
+    public static ItemStack previewStack(ItemStack stack, int count) {
+        ItemStack preview = stack.copy();
+        if (!preview.isEmpty()) preview.setCount(Math.max(1, count));
+        return preview;
+    }
+
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         java.util.Arrays.fill(required, 1);
-        java.util.Arrays.fill(sources, ItemProductionEvent.Source.WORKBENCH);
-        ListTag list = tag.getList("CNPCPlusCraftTargets", Tag.TAG_COMPOUND);
+        java.util.Arrays.fill(stations, "");
+        java.util.Arrays.fill(recipeIds, "");
+        java.util.Arrays.fill(recipeNames, "");
+        java.util.Arrays.fill(outputs, ItemStack.EMPTY);
+        ListTag list = tag.getList("CNPCPlusCraftRecipes", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag row = list.getCompound(i);
             int slot = row.getInt("Slot");
             if (slot < 0 || slot >= 9) continue;
+            String station = row.getString("Station");
+            String recipeId = row.getString("RecipeId");
+            if (CraftStation.byKey(station) == null || recipeId.isBlank()) continue;
             required[slot] = Math.max(1, row.getInt("Required"));
-            int source = row.getInt("Source");
-            sources[slot] = source >= 0 && source < ItemProductionEvent.Source.values().length
-                    ? ItemProductionEvent.Source.values()[source] : ItemProductionEvent.Source.WORKBENCH;
+            setRecipe(slot, station, recipeId, row.getString("Name"), ItemStack.of(row.getCompound("Output")));
         }
     }
 
@@ -67,10 +141,13 @@ public final class QuestCraft extends QuestItem {
             CompoundTag row = new CompoundTag();
             row.putInt("Slot", i);
             row.putInt("Required", required[i]);
-            row.putInt("Source", sources[i].ordinal());
+            row.putString("Station", stations[i]);
+            row.putString("RecipeId", recipeIds[i]);
+            row.putString("Name", recipeNames[i]);
+            row.put("Output", outputs[i].save(new CompoundTag()));
             list.add(row);
         }
-        tag.put("CNPCPlusCraftTargets", list);
+        tag.put("CNPCPlusCraftRecipes", list);
     }
 
     @Override
@@ -121,7 +198,10 @@ public final class QuestCraft extends QuestItem {
         @Override public boolean isCompleted() { return current() >= required[slot]; }
         @Override public String getText() { return getMCText().getString(); }
         @Override public Component getMCText() {
-            return items.items.get(slot).getHoverName().copy().append(Component.literal(": " + current() + "/" + required[slot]));
+            CraftStation station = CraftStation.byKey(stations[slot]);
+            if (station == null) return Component.translatable("cnpcplus.quest.craft.unset");
+            return Component.translatable("cnpcplus.quest.craft.objective", Component.translatable(station.translationKey),
+                    outputs[slot].getHoverName(), current(), required[slot]);
         }
     }
 }

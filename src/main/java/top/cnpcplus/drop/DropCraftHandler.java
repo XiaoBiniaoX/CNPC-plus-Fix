@@ -227,7 +227,8 @@ public final class DropCraftHandler {
         out.setDefaultPickUpDelay();
         if (level.addFreshEntity(out) && owner != null) {
             top.cnpcplus.quest.ItemProductionEvents.post(owner, plan.output,
-                    top.cnpcplus.quest.ItemProductionEvent.Source.DROP, level, pos, plan.output.getCount());
+                    top.cnpcplus.quest.ItemProductionEvent.Source.DROP, level, pos, plan.output.getCount(), "drop",
+                    Integer.toString(plan.recipe.id));
         }
         // 233d 粒子特效：实例快照入队（引擎 LevelTick 驱动发送；fx 空=零开销）
         // 233d-UI6：锚点=掉落物实体位置 anchor（用户「以被合成掉落物实体世界坐标为锚点」）
