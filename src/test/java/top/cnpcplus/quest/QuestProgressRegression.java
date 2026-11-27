@@ -36,6 +36,12 @@ public final class QuestProgressRegression {
         resumed.readAdditionalSaveData(saved);
         check(craft.progress(resumed)[0] == 3, "accepted quest progress did not persist");
 
+        QuestAreaKill areaKill = new QuestAreaKill();
+        areaKill.targets.put("minecraft:zombie", 4);
+        areaKill.refreshTargets();
+        check(areaKill.targets.getClass().getName().endsWith("$AreaTargets"), "area target filter wrapper was lost");
+        check(areaKill.targets.get("minecraft:zombie") == 4, "refreshing area targets discarded configured counts");
+
         BitSet visible = QuestRegionRecorder.visibleCells(new int[][]{
                 {1, 2, 2, -1}, {2, 3, -1}, {1, 3}
         });

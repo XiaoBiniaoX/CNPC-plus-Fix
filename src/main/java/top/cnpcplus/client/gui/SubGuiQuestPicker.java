@@ -2,6 +2,7 @@ package top.cnpcplus.client.gui;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import noppes.npcs.constants.EnumQuestRepeat;
 import noppes.npcs.controllers.data.Quest;
@@ -27,8 +28,8 @@ public final class SubGuiQuestPicker extends GuiNPCInterface {
         this.parent = parent;
         this.quest = quest;
         this.repeat = repeat;
-        imageWidth = 280;
-        imageHeight = repeat ? 142 : 178;
+        imageWidth = 320;
+        imageHeight = repeat ? 190 : 230;
         setBackground("menubg.png");
     }
 
@@ -36,11 +37,12 @@ public final class SubGuiQuestPicker extends GuiNPCInterface {
     public void m_7856_() {
         super.m_7856_();
         String[] choices = repeat ? REPEATS : TYPES;
-        int width = (imageWidth - 30) / 2;
         for (int i = 0; i < choices.length; i++) {
-            int x = guiLeft + 10 + (i % 2) * (width + 10);
-            int y = guiTop + 30 + (i / 2) * 26;
-            addButton(new GuiButtonNop(this, i, x, y, width, 20, choices[i]));
+            int y = guiTop + 30 + i * 23;
+            GuiButtonNop choice = new GuiButtonNop(this, i, guiLeft + 12, y, imageWidth - 24, 20, choices[i]);
+            if (!repeat) choice.setTooltip(net.minecraft.client.gui.components.Tooltip.create(
+                    Component.translatable("cnpcplus.quest.type." + i + ".help")));
+            addButton(choice);
         }
     }
 
@@ -68,6 +70,8 @@ public final class SubGuiQuestPicker extends GuiNPCInterface {
     public void m_88315_(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.m_88315_(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(font, I18n.get(repeat ? "cnpcplus.quest.repeat.title" : "cnpcplus.quest.type.title"),
-                guiLeft + imageWidth / 2, guiTop + 12, 0x202020);
+                guiLeft + imageWidth / 2, guiTop + 10, 0x202020);
+        graphics.drawCenteredString(font, I18n.get(repeat ? "cnpcplus.quest.repeat.help" : "cnpcplus.quest.type.help"),
+                guiLeft + imageWidth / 2, guiTop + 20, 0x686868);
     }
 }

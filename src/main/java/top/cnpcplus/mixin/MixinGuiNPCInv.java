@@ -115,6 +115,7 @@ public class MixinGuiNPCInv {
 
     @Inject(method = "save", at = @At("HEAD"))
     private void cnpcplus$mergeChances(CallbackInfo ci) {
+        GuiTextFieldNop.unfocus();
         this.chances.putAll(this.cnpcplus$pending);
         for (java.util.Map.Entry<Integer, Float> e : ((GuiNPCInv) (Object) this).npc.inventory.dropchance.entrySet()) {
             this.chances.putIfAbsent(e.getKey(), e.getValue());

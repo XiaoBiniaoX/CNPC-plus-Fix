@@ -286,6 +286,7 @@
     "MixinGuiDialogTextEditor",
     "MixinGuiQuestTextEditor",
     "MixinGuiQuestEditTypes",
+    "MixinGuiNpcQuestTypeDialogLayout",
     "MixinGuiNpcQuestTypeKillArea",
     "MixinGuiDialogStyledText",
     "MixinGuiModernStyledText",
