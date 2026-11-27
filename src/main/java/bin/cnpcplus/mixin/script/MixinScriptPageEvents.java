@@ -15,5 +15,6 @@ public abstract class MixinScriptPageEvents {
     @Inject(method = "GetScript", at = @At("HEAD"), require = 1)
     private static void cnpcplus$releasePages(NBTTagList data, IScriptHandler handler, CallbackInfoReturnable<List<ScriptContainer>> cir) {
         ScriptEvents.release(handler);
+        bin.cnpcplus.script.ScriptRuntimeHost.release(handler);
     }
 }

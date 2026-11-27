@@ -57,7 +57,7 @@ public class CnpcPlus {
     /** Smelting recipes are per save, so the cache must not survive a world change. */
     @Mod.EventHandler
     public void onServerStopped(FMLServerStoppedEvent event) {
-        bin.cnpcplus.script.tools.ScriptEvents.stop();
+        bin.cnpcplus.script.ScriptRuntimeHost.releaseAll();
         bin.cnpcplus.script.tools.ScriptScheduler.stop();
         bin.cnpcplus.script.tools.ScriptAsync.stop();
         bin.cnpcplus.script.tools.ScriptDebug.stop();

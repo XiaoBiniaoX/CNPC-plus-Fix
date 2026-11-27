@@ -34,10 +34,15 @@ public abstract class MixinScriptContainerDiagnostic {
         }
         cnpcplus$boundEngine = engine;
     }
-    @Inject(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At("HEAD"), require = 1)
+    @Inject(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$observeHook(String type, Object event, CallbackInfo ci) {
-        ScriptHooks.observe((ScriptContainer) (Object) this, type, event);
-        bin.cnpcplus.script.tools.ScriptScope.observe((ScriptContainer)(Object)this, handler, event);
+        ScriptContainer page = (ScriptContainer)(Object)this;
+        ScriptHooks.observe(page, type, event);
+        bin.cnpcplus.script.tools.ScriptScope.observe(page, handler, event);
+        if (bin.cnpcplus.script.ScriptRuntimeHost.run(page, type, event, new HashMap<>(Data))) {
+            bin.cnpcplus.script.tools.ScriptScope.leave();
+            ci.cancel();
+        }
     }
     @Redirect(method = "run(Ljava/lang/String;Ljava/lang/Object;)V", at = @At(value = "INVOKE", target = "Ljava/lang/Throwable;printStackTrace(Ljava/io/PrintWriter;)V"), require = 1)
     private void cnpcplus$captureError(Throwable error, PrintWriter writer) {
@@ -51,17 +56,15 @@ public abstract class MixinScriptContainerDiagnostic {
         if (self.isValid()) ScriptDiagnostics.clear(self);
         bin.cnpcplus.script.tools.ScriptScope.leave();
     }
-    @Inject(method = "readFromNBT", at = @At("HEAD"), require = 1)
-    private void cnpcplus$releaseEvents(NBTTagCompound nbt, CallbackInfo ci) {
-        bin.cnpcplus.script.tools.ScriptEvents.release((ScriptContainer)(Object)this);
-    }
     @Inject(method = "readFromNBT", at = @At("RETURN"), require = 1)
     private void cnpcplus$readError(NBTTagCompound nbt, CallbackInfo ci) {
-        ScriptDiagnostics.read((ScriptContainer) (Object) this, nbt); ScriptHooks.read((ScriptContainer) (Object) this, nbt);
+        ScriptContainer page = (ScriptContainer) (Object) this;
+        ScriptHooks.read(page, nbt);
     }
     @Inject(method = "writeToNBT", at = @At("RETURN"), require = 1)
     private void cnpcplus$writeError(NBTTagCompound nbt, CallbackInfoReturnable<NBTTagCompound> cir) {
         ScriptDiagnostics.write((ScriptContainer) (Object) this, cir.getReturnValue());
         ScriptHooks.write((ScriptContainer) (Object) this, cir.getReturnValue(), Data.keySet());
+        bin.cnpcplus.script.ScriptRuntimeHost.writeDiagnostics((ScriptContainer) (Object) this, cir.getReturnValue());
     }
 }

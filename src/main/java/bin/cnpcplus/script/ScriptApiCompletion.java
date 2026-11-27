@@ -3,12 +3,13 @@ package bin.cnpcplus.script;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.regex.*;
+import bin.cnpcplus.api.script.ScriptCheckApi;
 
 /** Read API metadata only. Never construct an API object or evaluate editor text. */
 public final class ScriptApiCompletion {
     private static final Pattern FUNCTION = Pattern.compile("\\bfunction\\s+(\\w+)\\s*\\(\\s*([\\w$]+)[^)]*\\)\\s*\\{");
     private static final Pattern ASSIGN = Pattern.compile("\\b(?:var|let|const)\\s+([\\w$]+)\\s*=\\s*([^;\\n]+)");
-    private static final Map<Class<?>, List<Entry>> CACHE = new HashMap<>();
+    private static final Map<Class<?>, List<Entry>> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
     private static final String API = "noppes.npcs.api.";
 
     private ScriptApiCompletion() {}
@@ -59,6 +60,8 @@ public final class ScriptApiCompletion {
             if (!declaration) {
                 for (Map.Entry<String, Type> root : roots.entrySet()) if (root.getKey().indexOf('.') < 0)
                     choices.add(new Entry(root.getKey(), root.getKey(), root.getKey() + " : " + label(root.getValue()), root.getValue(), false));
+                for (String name : ScriptCheckApi.registeredGlobals()) if (!roots.containsKey(name))
+                    choices.add(new Entry(name, name, name + " : registered addon global", null, false));
                 choices.add(new Entry("log", "log(", "log(Object) : void", Void.TYPE, true));
                 choices.add(new Entry("dump", "dump(", "dump(Object) : String", String.class, true));
             }
@@ -152,6 +155,25 @@ public final class ScriptApiCompletion {
         return base;
     }
 
+    /** Returns only a verified concrete event subtype; a generic/guessed base is reported as unknown. */
+    public static Class<?> hookEventType(String context, String hook) {
+        if (context == null || hook == null) return null;
+        String event = context;
+        switch (context.toLowerCase(Locale.ROOT)) {
+            case "npc": event = "NpcEvent"; break;
+            case "player": case "global": event = "PlayerEvent"; break;
+            case "block": event = "BlockEvent"; break;
+            case "door": event = "BlockDoorEvent"; break;
+            case "item": event = "ItemEvent"; break;
+            case "forge": return null;
+        }
+        if (event.equals("BlockDoorEvent")) event = "BlockEvent";
+        Class<?> base = load(API + "event." + event);
+        if (base == null) return null;
+        Class<?> resolved = eventClass(base, hook.toLowerCase(Locale.ROOT));
+        return resolved == base ? null : resolved;
+    }
+
     public static List<Entry> members(Class<?> owner) {
         if (owner == null || owner == Object.class || owner.isPrimitive()) return Collections.emptyList();
         List<Entry> cached = CACHE.get(owner);
@@ -162,8 +184,8 @@ public final class ScriptApiCompletion {
         if (runtime != null) collectMembers(runtime, entries);
         if (owner.isArray()) entries.put("length", new Entry("length", "length", "length : int", Integer.TYPE, false));
         cached = Collections.unmodifiableList(new ArrayList<>(entries.values()));
-        CACHE.put(owner, cached);
-        return cached;
+        List<Entry> previous = CACHE.putIfAbsent(owner, cached);
+        return previous == null ? cached : previous;
     }
 
     /** CNPC naming only. Addon public methods are reflected after Mixin transformation. */

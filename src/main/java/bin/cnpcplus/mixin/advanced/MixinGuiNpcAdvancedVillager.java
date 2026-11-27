@@ -6,25 +6,24 @@ import net.minecraft.nbt.NBTTagCompound;
 import noppes.npcs.client.gui.mainmenu.GuiNpcAdvanced;
 import noppes.npcs.client.gui.util.GuiNpcButton;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import java.lang.reflect.Field;
 import java.util.Arrays;
 
 @Mixin(value = GuiNpcAdvanced.class, remap = false)
 public abstract class MixinGuiNpcAdvancedVillager {
-    @Inject(method = "func_73866_w_()V", at = @At("TAIL"), require = 1)
-    private void cnpcplus$extendRoleList(CallbackInfo ci) {
-        GuiNpcAdvanced self = (GuiNpcAdvanced) (Object) this;
-        GuiNpcButton roles = self.getButton(8);
-        try {
-            Field field = GuiNpcButton.class.getDeclaredField("display"); field.setAccessible(true);
-            String[] old = (String[]) field.get(roles);
-            String[] names = Arrays.copyOf(old, 9); names[8] = "role.villagertrader";
-            field.set(roles, names); roles.setDisplay(self.npc.advanced.role);
-        } catch (ReflectiveOperationException error) { throw new IllegalStateException("Cannot extend NPC roles", error); }
+    private static final String BI_DIR_CTOR =
+            "Lnoppes/npcs/client/gui/util/GuiButtonBiDirectional;<init>(IIIII[Ljava/lang/String;I)V";
+
+    @ModifyArg(method = "func_73866_w_", at = @At(value = "INVOKE", target = BI_DIR_CTOR, ordinal = 0), index = 5)
+    private String[] cnpcplus$extendRoleArray(String[] old) {
+        String[] names = Arrays.copyOf(old, old.length + 1);
+        names[old.length] = "role.villagertrader";
+        return names;
     }
+
     @Inject(method = "setGuiData", at = @At("HEAD"), cancellable = true, require = 1)
     private void cnpcplus$openVillagerEditor(NBTTagCompound tag, CallbackInfo ci) {
         GuiNpcAdvanced self = (GuiNpcAdvanced) (Object) this;

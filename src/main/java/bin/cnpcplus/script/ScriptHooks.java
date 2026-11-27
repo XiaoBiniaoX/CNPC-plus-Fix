@@ -17,6 +17,14 @@ public final class ScriptHooks {
     }
     public static Set<String> globals(ScriptContainer owner) { return GLOBALS.getOrDefault(owner, Collections.emptySet()); }
     public static List<String> names(ScriptContainer owner, String context) {
+        if (context != null) switch (context.toLowerCase(Locale.ROOT)) {
+            case "npc": context = "NpcEvent"; break;
+            case "player": case "global": context = "PlayerEvent"; break;
+            case "block": context = "BlockEvent"; break;
+            case "door": context = "BlockDoorEvent"; break;
+            case "item": context = "ItemEvent"; break;
+            case "forge": context = "ForgeEvent"; break;
+        }
         Set<String> names = new TreeSet<>(OBSERVED.getOrDefault(owner, Collections.emptySet()));
         String nativeTypes;
         switch (context) {

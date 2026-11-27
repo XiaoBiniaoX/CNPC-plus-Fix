@@ -102,7 +102,7 @@ function check03() {
     assert(messages.some(function(m) { return m.indexOf("\u00a7c这段应为红色\u00a7r") >= 0; }), "03 colored original retains codes");
     assert(messages.some(function(m) { return m.indexOf("stripCodes 去色后=这段应为红色") >= 0 && m.indexOf("\u00a7") < 0; }), "03 stripped output");
 }
-function check09() {
+function check08() {
     init(event);
     assert(handles.length === 3, "09 subscriptions");
     var spell = {getClass: function() { return {getName: function() { return "TestSpell"; }}; }};

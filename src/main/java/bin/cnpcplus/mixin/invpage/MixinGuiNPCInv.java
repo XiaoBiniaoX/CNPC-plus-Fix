@@ -12,15 +12,14 @@ import noppes.npcs.client.gui.util.GuiNpcButton;
 import noppes.npcs.client.gui.util.GuiNpcLabel;
 import noppes.npcs.client.gui.util.GuiNpcSlider;
 import noppes.npcs.client.gui.util.GuiNpcTextField;
-import noppes.npcs.containers.ContainerNPCInv;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,26 +43,22 @@ public class MixinGuiNPCInv {
     @Unique
     private final HashMap<Integer, Integer> cnpcplus$pending = new HashMap<Integer, Integer>();
 
-    /**
-     * Vanilla mode button (id 10) only offers 0/1 (stats.normal / inv.auto).
-     * Replace it with the 1.20.1 five-mode cycle: 0 scatter, 1 auto-pickup,
-     * 2 drop in place, 3 spread +/-1 block, 4 random scatter.
-     * GuiNpcButton.func_146116_c cycles (value+1)%length, so vanilla
-     * actionPerformed (lootMode = getValue()) needs no changes.
-     * Done via reflection on the protected display array at TAIL: a
-     * @Redirect on the constructor silently fails (see findings 7d), and
-     * addButton() would leave the old button in buttonList (draws first).
-     */
-    private static final Field CNPCPLUS_DISPLAY = cnpcplus$findDisplay();
+    private int cnpcplus$lootMode() {
+        return Math.max(0, Math.min(4, ((GuiNPCInv) (Object) this).npc.inventory.lootMode));
+    }
 
-    private static Field cnpcplus$findDisplay() {
-        try {
-            Field f = GuiNpcButton.class.getDeclaredField("display");
-            f.setAccessible(true);
-            return f;
-        } catch (Throwable t) {
-            return null;
-        }
+    @ModifyArg(method = "func_73866_w_", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/client/gui/util/GuiNpcButton;<init>(IIIII[Ljava/lang/String;I)V",
+            ordinal = 0, remap = false), index = 5, remap = false, require = 1)
+    private String[] cnpcplus$lootOptions(String[] options) {
+        return new String[]{"stats.normal", "inv.auto", "cnpcplus.lootMode.feet", "cnpcplus.lootMode.spread", "cnpcplus.lootMode.fly"};
+    }
+
+    @ModifyArg(method = "func_73866_w_", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/client/gui/util/GuiNpcButton;<init>(IIIII[Ljava/lang/String;I)V",
+            ordinal = 0, remap = false), index = 6, remap = false, require = 1)
+    private int cnpcplus$lootButtonValue(int value) {
+        return Math.max(0, Math.min(4, value));
     }
 
     @Inject(method = "func_73866_w_", at = @At("TAIL"), remap = false)
@@ -89,17 +84,6 @@ public class MixinGuiNPCInv {
         self.addButton(new GuiNpcButton(100, self.field_147003_i + 50, self.field_147009_r + 195, 20, 20, "<"));
         self.addButton(new GuiNpcButton(101, self.field_147003_i + 100, self.field_147009_r + 195, 20, 20, ">"));
         self.addLabel(new GuiNpcLabel(200, (page + 1) + "/3", self.field_147003_i + 75, self.field_147009_r + 200));
-        GuiNpcButton lootBtn = self.getButton(10);
-        if (lootBtn != null && CNPCPLUS_DISPLAY != null) {
-            try {
-                Object current = CNPCPLUS_DISPLAY.get(lootBtn);
-                if (current == null || ((String[]) current).length < 5) {
-                    CNPCPLUS_DISPLAY.set(lootBtn, new String[]{"stats.normal", "inv.auto", "cnpcplus.lootMode.feet", "cnpcplus.lootMode.spread", "cnpcplus.lootMode.fly"});
-                }
-                lootBtn.setDisplay(self.npc.inventory.lootMode);
-            } catch (Exception ignored) {
-            }
-        }
     }
 
     /**
@@ -143,10 +127,9 @@ public class MixinGuiNPCInv {
         }
         GuiNpcButton lootBtn = base.getButton(10);
         if (lootBtn != null) {
-            try {
-                lootBtn.setDisplay(self.npc.inventory.lootMode);
-            } catch (Exception ignored) {
-            }
+            lootBtn.setDisplay(cnpcplus$lootMode());
+            GuiNpcButton picker = base.getButton(31010);
+            if (picker != null) picker.displayString = lootBtn.displayString + "…";
         }
         ci.cancel();
     }
@@ -180,6 +163,7 @@ public class MixinGuiNPCInv {
 
     @Inject(method = "save", at = @At("HEAD"), remap = false)
     private void cnpcplus$mergeChances(CallbackInfo ci) {
+        GuiNpcTextField.unfocus();
         GuiNPCInv self = (GuiNPCInv) (Object) this;
         GuiContainerNPCInterface base = (GuiContainerNPCInterface) (Object) this;
         for (int i = 0; i < 9; i++) {

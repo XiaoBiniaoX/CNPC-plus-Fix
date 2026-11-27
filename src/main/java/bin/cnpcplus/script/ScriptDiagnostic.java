@@ -12,17 +12,40 @@ import javax.script.ScriptException;
 public final class ScriptDiagnostic {
     private static final Pattern LOCATION = Pattern.compile("(?:<eval>|<Unknown source>|<script>|Script|script|Unknown Source):(\\d+)(?::(\\d+))?|(?:line number|line|行号)\\s*[:=]?\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
     public final int line, column;
+    public final int offset;
     public final String hash, message;
     public final String warningKey, token;
     public final int length;
+    public final Severity severity;
+
+    public enum Severity { ERROR, WARN, INFO }
 
     public ScriptDiagnostic(int line, int column, String hash, String message) {
         this(line, column, hash, message, "", "", 0);
     }
     public ScriptDiagnostic(int line, int column, String hash, String message, String warningKey, String token, int length) {
+        this(line, column, -1, hash, message, warningKey, token, length, Severity.ERROR);
+    }
+    public ScriptDiagnostic(int line, int column, int offset, String hash, String message, String warningKey,
+            String token, int length, Severity severity) {
         this.line = Math.max(0, line); this.column = Math.max(0, column);
+        this.offset = offset;
         this.hash = hash; this.message = message.length() > 2048 ? message.substring(0, 2048) : message;
         this.warningKey = warningKey; this.token = token; this.length = length;
+        this.severity = severity == null ? Severity.ERROR : severity;
+    }
+    public static ScriptDiagnostic at(String source, int offset, int length, Severity severity, String key, String subject) {
+        String normalized = bin.cnpcplus.api.script.SourceUnit.normalizeText(source);
+        if (offset < 0) return new ScriptDiagnostic(0, 0, -1, hash(normalized),
+                key + (subject == null || subject.isEmpty() ? "" : ": " + subject), key,
+                subject == null ? "" : subject, 0, severity);
+        int safeOffset = Math.min(offset, normalized.length());
+        int line = 1, lineStart = 0;
+        for (int i = 0; i < safeOffset; i++) if (normalized.charAt(i) == '\n') { line++; lineStart = i + 1; }
+        int safeLength = Math.max(0, Math.min(length, normalized.length() - safeOffset));
+        return new ScriptDiagnostic(line, safeOffset - lineStart + 1, safeOffset, hash(normalized),
+                key + (subject == null || subject.isEmpty() ? "" : ": " + subject), key,
+                subject == null ? "" : subject, safeLength, severity);
     }
     public static ScriptDiagnostic capture(Throwable error, String script) {
         int line = 0, column = 0;
@@ -46,7 +69,8 @@ public final class ScriptDiagnostic {
     public boolean matches(String text) { return hash.equals(hash(text)); }
     public static String hash(String text) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(text.replace("\r", "").getBytes(StandardCharsets.UTF_8));
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
+                    bin.cnpcplus.api.script.SourceUnit.normalizeText(text).getBytes(StandardCharsets.UTF_8));
             StringBuilder out = new StringBuilder();
             for (byte b : digest) out.append(String.format("%02x", b & 255));
             return out.toString();

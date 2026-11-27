@@ -20,14 +20,16 @@ public final class SubGuiRoleJobSelect extends SubGuiInterface implements ICusto
     private GuiCustomScroll list;
     public SubGuiRoleJobSelect(GuiNpcButton button, boolean role, IntConsumer accept) {
         options = ((IGuiButtonOptions) button).cnpcplus$options().clone(); selected = button.getValue();
-        this.role = role; this.accept = accept; xSize = 280; ySize = 220; closeOnEsc = true; setBackground("menubg.png");
+        this.role = role; this.accept = accept; ySize = 220; closeOnEsc = true; setBackground("menubg.png");
     }
     @Override public void initGui() {
+        xSize = Math.min(224, width - 12);
         super.initGui();
-        addTextField(new DragSearchField(0, this, guiLeft + 12, guiTop + 28, 256, 18, search));
-        list = new GuiCustomScroll(this, 0); list.setSize(256, 136); list.guiLeft = guiLeft + 12; list.guiTop = guiTop + 52; addScroll(list);
-        addButton(new GuiNpcButton(0, guiLeft + 12, guiTop + 194, 122, 20, "gui.select"));
-        addButton(new GuiNpcButton(1, guiLeft + 146, guiTop + 194, 122, 20, "gui.cancel")); filter();
+        int contentWidth = xSize - 24, buttonWidth = (contentWidth - 6) / 2;
+        addTextField(new DragSearchField(0, this, guiLeft + 12, guiTop + 28, contentWidth, 18, search));
+        list = new GuiCustomScroll(this, 0); list.setSize(contentWidth, 136); list.guiLeft = guiLeft + 12; list.guiTop = guiTop + 52; addScroll(list);
+        addButton(new GuiNpcButton(0, guiLeft + 12, guiTop + 194, buttonWidth, 20, "gui.select"));
+        addButton(new GuiNpcButton(1, guiLeft + xSize - 12 - buttonWidth, guiTop + 194, buttonWidth, 20, "gui.cancel")); filter();
     }
     private void filter() {
         visible.clear(); List<String> labels = new ArrayList<>();

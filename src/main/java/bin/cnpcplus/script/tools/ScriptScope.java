@@ -74,6 +74,32 @@ public final class ScriptScope {
         Lifetime scope = RUNNING.get().peek();
         return scope == null ? () -> true : scope;
     }
+    /** Internal bridge used by the public runtime host to bind addon scopes to the existing owner lifetime. */
+    public static BooleanSupplier currentLifetime() { return current(); }
+    /** Internal bridge; preserves the current CNPC page/handler when a public scope is used by Scheduler. */
+    public static BooleanSupplier withCurrentLifetime(BooleanSupplier condition) { return withLifetime(current(), condition); }
+    /** World whose native hook owns this invocation, if it is world-bound. */
+    public static WorldServer worldFor(Object event, IScriptHandler handler) {
+        net.minecraft.world.World world = null;
+        if (event instanceof noppes.npcs.api.event.NpcEvent)
+            world = ((noppes.npcs.api.event.NpcEvent) event).npc.getMCEntity().world;
+        else if (event instanceof noppes.npcs.api.event.PlayerEvent)
+            world = ((noppes.npcs.api.event.PlayerEvent) event).player.getMCEntity().world;
+        else if (event instanceof noppes.npcs.api.event.BlockEvent) {
+            noppes.npcs.api.IWorld ownerWorld = ((noppes.npcs.api.event.BlockEvent) event).block.getWorld();
+            world = ownerWorld == null ? null : ownerWorld.getMCWorld();
+        } else if (event instanceof net.minecraftforge.event.world.WorldEvent)
+            world = ((net.minecraftforge.event.world.WorldEvent) event).getWorld();
+        else if (event instanceof net.minecraftforge.event.entity.EntityEvent)
+            world = ((net.minecraftforge.event.entity.EntityEvent) event).getEntity().world;
+        if (world == null && handler instanceof IScriptBlockHandler) {
+            noppes.npcs.api.IWorld ownerWorld = ((IScriptBlockHandler) handler).getBlock().getWorld();
+            world = ownerWorld == null ? null : ownerWorld.getMCWorld();
+        }
+        return world instanceof WorldServer ? (WorldServer) world : null;
+    }
+    /** Internal bridge for Scheduler callbacks registered with the public script-host scope. */
+    public static void invokeCallback(BooleanSupplier owner, Runnable action) { callback(owner, action); }
     static ScriptContainer script() {
         Lifetime scope = RUNNING.get().peek();
         ScriptContainer script = scope == null ? null : scope.script.get();
