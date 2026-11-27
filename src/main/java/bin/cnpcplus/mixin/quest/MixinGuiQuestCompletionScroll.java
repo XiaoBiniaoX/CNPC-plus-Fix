@@ -6,6 +6,9 @@ import noppes.npcs.client.TextBlockClient;
 import noppes.npcs.api.handler.data.IQuest;
 import bin.cnpcplus.text.TextStyles;
 import bin.cnpcplus.text.client.StyledTextBlock;
+import bin.cnpcplus.text.client.TextScrollbar;
+import noppes.npcs.client.gui.util.GuiNPCInterface;
+import net.minecraft.client.Minecraft;
 import org.spongepowered.asm.mixin.Shadow;
 import org.lwjgl.input.Mouse;
 import org.spongepowered.asm.mixin.Mixin;
@@ -52,7 +55,7 @@ public class MixinGuiQuestCompletionScroll {
 
     @Redirect(method = "drawQuestText", at = @At(value = "NEW", target = "noppes/npcs/client/TextBlockClient"), require = 1)
     private TextBlockClient cnpcplus$styledBlock(String text, int width, boolean mcFont, Object[] context) {
-        cnpcplus$block = new StyledTextBlock(null, TextStyles.get(quest, TextStyles.COMPLETE, text), width, 0, mcFont, context);
+        cnpcplus$block = new StyledTextBlock(null, TextStyles.get(quest, TextStyles.COMPLETE, text), width - 12, 0, mcFont, context);
         return cnpcplus$block;
     }
 
@@ -97,6 +100,14 @@ public class MixinGuiQuestCompletionScroll {
         if (this.cnpcplus$rowStart < 0) {
             this.cnpcplus$rowStart = 0;
         }
+    }
+
+    @Inject(method = "func_73863_a", at = @At("RETURN"), remap = false, require = 1)
+    private void cnpcplus$scrollbar(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        GuiNPCInterface gui = (GuiNPCInterface) (Object) this;
+        TextScrollbar.draw(gui.guiLeft + 166, gui.guiTop + 16,
+                CNPCPLUS_VISIBLE_LINES * Minecraft.getMinecraft().fontRenderer.FONT_HEIGHT,
+                this.cnpcplus$rowStart, CNPCPLUS_VISIBLE_LINES, this.cnpcplus$totalLines);
     }
 
     /**

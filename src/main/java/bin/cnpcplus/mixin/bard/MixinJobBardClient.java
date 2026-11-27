@@ -84,6 +84,11 @@ public class MixinJobBardClient {
     private void cnpcplus$bardTick(CallbackInfo ci) {
         JobBard self = (JobBard) (Object) this;
         if (!self.npc.isRemote()) return;
+        if (!self.npc.isEntityAlive()) {
+            ci.cancel();
+            BardLoopKeeper.stop(self);
+            return;
+        }
         List<String[]> songs = SongListStore.get(self);
         boolean fallback = false;
         if (songs == null || songs.isEmpty()) {
@@ -124,6 +129,7 @@ public class MixinJobBardClient {
                     && !current.isEmpty() && cnpcplus$ownsSong(self, songs, fallback, current)
                     && distSq < player.getDistanceSq((net.minecraft.entity.Entity) playingEntity)) {
                 playingEntityField.set(c, self.npc);
+                playingEntity = self.npc;
                 BardLoopKeeper.record(self, current);
             }
 
@@ -139,7 +145,7 @@ public class MixinJobBardClient {
                 return;
             }
 
-            if (!current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
+            if (mine && !current.isEmpty() && current.equals(this.cnpcplus$lastPicked)) {
                 boolean expired = System.currentTimeMillis() - this.cnpcplus$lastPlay
                         >= CnpcPlusConfig.getBardWatchdogSeconds() * 1000L;
                 if (active && !expired) return;

@@ -110,6 +110,22 @@ public final class BardLoopKeeper {
         }
     }
 
+    /** A dead bard may only stop its own playback, including playlist entries. */
+    public static void stop(JobBard self) {
+        synchronized (LOCK) {
+            if (job != null && job.get() == self) clear();
+        }
+        try {
+            Class<?> type = Class.forName("noppes.npcs.client.controllers.MusicController");
+            Object controller = type.getField("Instance").get(null);
+            if (controller != null && type.getField("playingEntity").get(controller) == self.npc) {
+                type.getMethod("stopMusic").invoke(controller);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot stop dead bard playback", e);
+        }
+    }
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -137,29 +153,35 @@ public final class BardLoopKeeper {
             if (song.isEmpty()) return;
 
             JobBard bard = job == null ? null : job.get();
+            // Ordinary distance removal also sets isDead; health / the loaded corpse
+            // flag distinguish death without breaking loops after chunk unloading.
+            if (bard != null && (bard.npc.getHealth() <= 0.0F
+                    || bard.npc.isKilled() && !bard.npc.isDead)) {
+                stop(bard);
+                return;
+            }
             // 诗人还活着就以它的实时开关为准；已被回收则只能用快照。
             boolean loopOn = bard != null ? BardLoopStore.isLooping(bard) : looping;
             if (!loopOn) {
                 clear();
                 return;
             }
-            // 诗人还在 tick → 交给 MixinJobBardClient，本类不插手（见类注释的分工）。
-            if (System.currentTimeMillis() - heartbeat < HEARTBEAT_TIMEOUT_MS) return;
-            if (System.currentTimeMillis() - lastReplay < REPLAY_COOLDOWN_MS) return;
-
-            // 已经有别的曲子在放 → 别人接管了，让位。
-            // 用反射访问 playingResource、playing 字段和 isPlaying 方法
+            // An explicit stop or a new owner invalidates this replay, even if
+            // the next bard plays the same resource or its sound has just ended.
             try {
                 Class<?> clazz = controller.getClass();
                 Object playingResource = clazz.getField("playingResource").get(controller);
-                Object playing = clazz.getField("playing").get(controller);
-                if (playingResource != null
-                        && !playingResource.toString().equals(song)
-                        && playing != null
-                        && mc.getSoundHandler().isSoundPlaying((net.minecraft.client.audio.ISound) playing)) {
+                Entity kept = npc == null ? null : npc.get();
+                Object owner = clazz.getField("playingEntity").get(controller);
+                if (playingResource == null || !playingResource.toString().equals(song)
+                        || owner != (kept != null ? kept : mc.player)) {
                     clear();
                     return;
                 }
+                // Live entity ticks handle playlist selection; the keeper only
+                // resumes an unchanged owner after its heartbeat expires.
+                if (System.currentTimeMillis() - heartbeat < HEARTBEAT_TIMEOUT_MS) return;
+                if (System.currentTimeMillis() - lastReplay < REPLAY_COOLDOWN_MS) return;
                 // 我的歌还在响，不用管。
                 boolean isPlaying = (Boolean) clazz.getMethod("isPlaying", String.class).invoke(controller, song);
                 if (isPlaying) return;

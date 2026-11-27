@@ -4,6 +4,7 @@ import noppes.npcs.client.ClientProxy;
 import noppes.npcs.client.TextBlockClient;
 import noppes.npcs.client.gui.util.GuiNPCInterface;
 import bin.cnpcplus.text.client.StyledTextBlock;
+import bin.cnpcplus.text.client.TextScrollbar;
 import java.util.List;
 import noppes.npcs.client.gui.player.GuiDialogInteract;
 import org.lwjgl.input.Mouse;
@@ -87,6 +88,16 @@ public class MixinGuiDialogInteractTextScroll {
         if (this.rowStart < 0) {
             this.rowStart = 0;
         }
+    }
+
+    @Inject(method = "func_73863_a", at = @At("RETURN"), remap = false, require = 1)
+    private void cnpcplus$scrollbar(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        int fontHeight = ClientProxy.Font.height(null);
+        if (fontHeight <= 0) return;
+        GuiNPCInterface gui = (GuiNPCInterface) (Object) this;
+        int visible = this.dialogHeight / fontHeight;
+        TextScrollbar.draw(gui.guiLeft + 284, gui.guiTop, visible * fontHeight,
+                this.rowStart, visible, this.rowTotal);
     }
 
     /**

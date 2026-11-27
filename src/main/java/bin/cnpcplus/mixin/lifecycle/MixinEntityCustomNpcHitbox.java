@@ -16,7 +16,7 @@ public class MixinEntityCustomNpcHitbox {
     private void cnpcplus$refreshBoundingBox(CallbackInfo ci) {
         EntityCustomNpc npc = (EntityCustomNpc) (Object) this;
         Entity entity = (Entity) npc;
-        if (npc.ais.returnToStart && (npc.isKilled() || npc.deathTime > 0 || npc.currentAnimation == 2 || npc.currentAnimation == 7))
+        if (npc.ais.returnToStart && (npc.isKilled() || npc.deathTime > 0))
             entity.width = 1.0E-5f;
         float width = entity.width;
         float height = entity.height;

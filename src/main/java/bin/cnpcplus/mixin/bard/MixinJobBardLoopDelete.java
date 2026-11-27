@@ -1,6 +1,7 @@
 package bin.cnpcplus.mixin.bard;
 
 import bin.cnpcplus.bard.BardLoopStore;
+import bin.cnpcplus.bard.BardLoopKeeper;
 import noppes.npcs.roles.JobBard;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,6 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * }
  * </pre>
  * 客户端实体卸载 / NPC 死亡时会走到这里（{@code killed()} 也直接调它）。
+ * 死亡必须先清理当前诗人的音源和续播记录；只有正常卸载才保留循环。
  *
  * <h3>取消条件一：开了循环</h3>
  * 玩家走远到诗人离开客户端加载范围时就会触发，表现为「开了循环、走远之后
@@ -40,6 +42,12 @@ public class MixinJobBardLoopDelete {
     @Inject(method = "delete", at = @At("HEAD"), cancellable = true, remap = false, require = 1)
     private void cnpcplus$keepLooping(CallbackInfo ci) {
         JobBard self = (JobBard) (Object) this;
+        if (!self.npc.isRemote()) return;
+        if (self.npc.getHealth() <= 0.0F || self.npc.isKilled()) {
+            BardLoopKeeper.stop(self);
+            ci.cancel();
+            return;
+        }
         if (BardLoopStore.isLooping(self)) {
             ci.cancel();
             return;

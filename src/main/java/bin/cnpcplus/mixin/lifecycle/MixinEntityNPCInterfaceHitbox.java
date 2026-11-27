@@ -44,8 +44,8 @@ public class MixinEntityNPCInterfaceHitbox implements bin.cnpcplus.common.INpcGr
      * 合成一个，顺序就是代码顺序。
      *
      * <h3>原版为什么会有尸体碰撞箱</h3>
-     * {@code updateHitbox} 第 1179-1181 行：{@code currentAnimation == 2}
-     * （死亡动画）或 {@code deathTime > 0} 时把尺寸设成 **width 0.8 / height 0.4** ——
+     * {@code updateHitbox}：动画 2（趴下）、7（爬行）或 {@code deathTime > 0}
+     * 时把尺寸设成 **width 0.8 / height 0.4** ——
      * 宽度反而比常态 0.6 更宽。第 1191-1193 行虽然有一段缩小碰撞箱的逻辑，
      * 但条件是 {@code !display.getHasHitbox() || isKilled() && stats.hideKilledBody}，
      * 也就是**只在「隐藏尸体」开着时**才生效，而且只改 width 不改 height。
@@ -73,11 +73,8 @@ public class MixinEntityNPCInterfaceHitbox implements bin.cnpcplus.common.INpcGr
 
         // 尸体去碰撞箱：只对「返回起点为开」的 NPC 生效。
         if (npc.ais != null && npc.ais.returnToStart) {
-            // 与原版第 1179 行同一套「是不是尸体」的判据。
-            // deathTime 在 EntityLivingBase 上（不是 Entity），所以从 npc 读。
-            boolean corpse = npc.currentAnimation == 2
-                    || npc.currentAnimation == 7
-                    || npc.deathTime > 0
+            // 低姿态动画也可用于活体，不能凭动画 2/7 判定尸体。
+            boolean corpse = npc.deathTime > 0
                     || npc.isKilled();
             if (corpse) {
                 entity.width = 1.0E-5f;

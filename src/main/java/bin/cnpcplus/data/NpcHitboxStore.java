@@ -58,7 +58,7 @@ public final class NpcHitboxStore {
         Settings settings = get(npc.display);
         DIMENSIONS.remove(npc);
         if (!npc.display.getHasHitbox() || npc.width <= 1.0E-5f || npc.isKilled()
-                || npc.deathTime > 0 || npc.currentAnimation == 2 || npc.currentAnimation == 7
+                || npc.deathTime > 0
                 || settings.length == 0 && settings.width == 0 && settings.height == 0) return;
         float scale = npc.display.getSize() / 5f;
         float x = settings.width == 0 ? npc.width : settings.width * scale;
@@ -75,7 +75,7 @@ public final class NpcHitboxStore {
     public static AxisAlignedBB apply(EntityNPCInterface npc, AxisAlignedBB box) {
         float[] size = DIMENSIONS.get(npc);
         if (size == null || npc.display == null || !npc.display.getHasHitbox() || npc.width <= 1.0E-5f
-                || npc.isKilled() || npc.deathTime > 0 || npc.currentAnimation == 2 || npc.currentAnimation == 7) return box;
+                || npc.isKilled() || npc.deathTime > 0) return box;
         double x = (box.minX + box.maxX) / 2, z = (box.minZ + box.maxZ) / 2;
         return new AxisAlignedBB(x - size[0] / 2, box.minY, z - size[1] / 2,
                 x + size[0] / 2, box.minY + size[2], z + size[1] / 2);

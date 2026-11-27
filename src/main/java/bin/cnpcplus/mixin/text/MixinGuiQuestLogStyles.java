@@ -2,6 +2,7 @@ package bin.cnpcplus.mixin.text;
 
 import bin.cnpcplus.text.TextStyles;
 import bin.cnpcplus.text.client.StyledTextBlock;
+import bin.cnpcplus.text.client.TextScrollbar;
 import net.minecraft.client.Minecraft;
 import noppes.npcs.client.CustomNpcResourceListener;
 import noppes.npcs.client.TextBlockClient;
@@ -23,7 +24,7 @@ public abstract class MixinGuiQuestLogStyles {
     @Shadow TextBlockClient textblock;
     @Redirect(method = "scrollClicked", at = @At(value = "NEW", target = "noppes/npcs/client/TextBlockClient"), require = 1)
     private TextBlockClient cnpcplus$block(String text, int width, boolean mcFont, Object[] context) {
-        StyledTextBlock block = new StyledTextBlock(null, TextStyles.get(selectedQuest, TextStyles.LOG, text), width,
+        StyledTextBlock block = new StyledTextBlock(null, TextStyles.get(selectedQuest, TextStyles.LOG, text), width - 12,
                 CustomNpcResourceListener.DefaultTextColor, mcFont, context);
         maxPages = Math.max(1, (block.lines.size() + 9) / 10); return block;
     }
@@ -34,6 +35,7 @@ public abstract class MixinGuiQuestLogStyles {
         for (int row = 0; row < 10 && currentPage * 10 + row < textblock.lines.size(); row++)
             ((StyledTextBlock) textblock).draw(currentPage * 10 + row, gui.guiLeft + 142, gui.guiTop + 20 + row * height,
                     height, CustomNpcResourceListener.DefaultTextColor);
+        TextScrollbar.draw(gui.guiLeft + 309, gui.guiTop + 20, 10 * height, currentPage, 1, maxPages);
         ci.cancel();
     }
 }
