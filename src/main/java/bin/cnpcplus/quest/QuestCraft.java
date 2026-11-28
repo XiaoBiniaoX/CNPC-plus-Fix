@@ -17,12 +17,14 @@ public final class QuestCraft extends QuestItem {
     private static final String PROGRESS = "CNPCPlusCraftProgress";
     public final String[] stations = new String[9];
     public final String[] recipeIds = new String[9];
+    public final String[] recipeNames = new String[9];
     public final int[] required = new int[9];
 
     public QuestCraft() {
         items = new NpcMiscInventory(9);
         java.util.Arrays.fill(stations, "");
         java.util.Arrays.fill(recipeIds, "");
+        java.util.Arrays.fill(recipeNames, "");
     }
 
     public boolean configured(int slot) {
@@ -30,10 +32,20 @@ public final class QuestCraft extends QuestItem {
                 && CraftStation.byKey(stations[slot]) != null && !recipeIds[slot].isEmpty();
     }
 
-    public void setRecipe(int slot, String station, String recipeId) {
+    public void setRecipe(int slot, String station, String recipeId, String name, ItemStack output) {
         if (slot < 0 || slot >= 9 || CraftStation.byKey(station) == null || recipeId == null || recipeId.isEmpty()) return;
+        int count = Math.max(1, requiredCount(slot));
         stations[slot] = station;
         recipeIds[slot] = recipeId;
+        recipeNames[slot] = name == null ? "" : name;
+        items.items.set(slot, output.copy());
+        required[slot] = count;
+    }
+
+    public void clearRecipe(int slot) {
+        stations[slot] = recipeIds[slot] = recipeNames[slot] = "";
+        items.items.set(slot, ItemStack.EMPTY);
+        required[slot] = 0;
     }
 
     public int requiredCount(int slot) {
@@ -45,6 +57,7 @@ public final class QuestCraft extends QuestItem {
         for (int i = 0; i < 9; i++) {
             stations[i] = tag.getString("CNPCPlusCraftStation" + i);
             recipeIds[i] = tag.getString("CNPCPlusCraftRecipe" + i);
+            recipeNames[i] = tag.getString("CNPCPlusCraftRecipeName" + i);
             required[i] = Math.max(0, Math.min(1000000, tag.getInteger("CNPCPlusCraftRequired" + i)));
         }
     }
@@ -54,6 +67,7 @@ public final class QuestCraft extends QuestItem {
         for (int i = 0; i < 9; i++) {
             tag.setString("CNPCPlusCraftStation" + i, stations[i] == null ? "" : stations[i]);
             tag.setString("CNPCPlusCraftRecipe" + i, recipeIds[i] == null ? "" : recipeIds[i]);
+            tag.setString("CNPCPlusCraftRecipeName" + i, recipeNames[i]);
             tag.setInteger("CNPCPlusCraftRequired" + i, required[i]);
         }
     }

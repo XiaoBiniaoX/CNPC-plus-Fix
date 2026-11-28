@@ -22,18 +22,21 @@ public final class PlayerTextPreview {
     public static GuiScreen dialog(EntityNPCInterface source, Dialog sourceDialog, StyledText text) {
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.world == null || mc.player == null) return null;
-        EntityCustomNpc npc = new EntityCustomNpc(mc.world);
-        if (source != null) {
-            NBTTagCompound visual = source.writeSpawnData().copy();
-            visual.setInteger("Role", 0);
-            if (visual.getInteger("Job") != 9) visual.setInteger("Job", 0);
-            npc.readSpawnData(visual); npc.setPosition(source.posX, source.posY, source.posZ);
-        }
+        EntityCustomNpc npc = source == null ? new EntityCustomNpc(mc.world) : npc(source);
         Dialog draft = new Dialog(sourceDialog.category);
         draft.readNBT(sourceDialog.writeToNBT(new NBTTagCompound()).copy());
         draft.text = text.text; draft.sound = ""; draft.command = ""; draft.disableEsc = false;
         TextStyles.put(draft, TextStyles.DIALOG, text);
         return new DialogPage(npc, draft, mc.currentScreen);
+    }
+    public static EntityCustomNpc npc(EntityNPCInterface source) {
+        EntityCustomNpc preview = new EntityCustomNpc(source.world);
+        NBTTagCompound visual = source.writeSpawnData().copy();
+        visual.setInteger("Role", 0);
+        if (visual.getInteger("Job") != 9) visual.setInteger("Job", 0);
+        preview.readSpawnData(visual);
+        preview.setPosition(source.posX, source.posY, source.posZ);
+        return preview;
     }
     public static GuiScreen quest(Quest source, StyledText text, boolean log) {
         Minecraft mc = Minecraft.getMinecraft();

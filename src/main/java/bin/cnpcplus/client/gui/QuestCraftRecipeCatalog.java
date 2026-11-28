@@ -28,12 +28,18 @@ public final class QuestCraftRecipeCatalog {
     static final class Recipe {
         final String id, name;
         final int columns;
-        final List<ItemStack> inputs = new ArrayList<>(), outputs = new ArrayList<>();
+        final boolean genericFuelAllowed;
+        final List<ItemStack> inputs = new ArrayList<>(), outputs = new ArrayList<>(), previewOutputs = new ArrayList<>();
         Recipe(NBTTagCompound tag) {
             id = tag.getString("Id"); columns = tag.getInteger("Columns");
+            genericFuelAllowed = tag.getBoolean("GenericFuel");
             NBTTagList in = tag.getTagList("Inputs", 10), out = tag.getTagList("Outputs", 10);
             for (int i = 0; i < in.tagCount(); i++) inputs.add(new ItemStack(in.getCompoundTagAt(i)));
-            for (int i = 0; i < out.tagCount(); i++) outputs.add(new ItemStack(out.getCompoundTagAt(i)));
+            for (int i = 0; i < out.tagCount(); i++) {
+                ItemStack stack = new ItemStack(out.getCompoundTagAt(i));
+                previewOutputs.add(stack);
+                if (!stack.isEmpty()) outputs.add(stack);
+            }
             String label = tag.getString("Name");
             name = label.isEmpty() ? (outputs.isEmpty() ? id : outputs.get(0).getDisplayName()) : I18n.translateToLocal(label);
         }

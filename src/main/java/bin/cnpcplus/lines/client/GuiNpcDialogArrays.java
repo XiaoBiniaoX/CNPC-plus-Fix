@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.fml.client.config.GuiUtils;
 import noppes.npcs.client.Client;
 import noppes.npcs.client.gui.select.GuiDialogSelection;
 import noppes.npcs.client.gui.util.*;
@@ -36,7 +39,19 @@ public final class GuiNpcDialogArrays extends GuiNPCInterface2 implements ICusto
         List<String> labels = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) labels.add((i + 1) + ". " + entries.get(i).title + " [" + entries.get(i).dialogId + "]");
         scroll.setUnsortedList(labels); scroll.selected = selected; addScroll(scroll);
-        addButton(new GuiNpcButton(4, guiLeft + 4, guiTop + 141, 408, 20, "dialog.selectoption"));
+        addButton(new GuiNpcButton(4, guiLeft + 4, guiTop + 141, 408, 20, "dialog.selectoption") {
+            @Override public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
+                if (!visible) return;
+                hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
+                GlStateManager.color(1, 1, 1, 1);
+                GuiUtils.drawContinuousTexturedBox(BUTTON_TEXTURES, x, y, 0, 46 + getHoverState(hovered) * 20,
+                        width, height, 200, 20, 2, zLevel);
+                mouseDragged(mc, mouseX, mouseY);
+                int color = packedFGColour != 0 ? packedFGColour
+                        : !enabled ? 0xA0A0A0 : hovered ? 0xFFFFA0 : 0xE0E0E0;
+                drawCenteredString(mc.fontRenderer, displayString, x + width / 2, y + (height - 8) / 2, color);
+            }
+        });
         getButton(4).setEnabled(selected >= 0);
         addButton(new GuiNpcButton(0, guiLeft + 4, guiTop + 167, 96, 20, "gui.add"));
         addButton(new GuiNpcButton(1, guiLeft + 108, guiTop + 167, 96, 20, "gui.remove"));

@@ -28,7 +28,8 @@ public final class QuestProductionProgress {
             IRecipe recipe = CraftingManager.findMatchingRecipe(matrix, player.world);
             if (recipe == null) return;
             station = CraftStation.WORKBENCH;
-            recipeId = recipe.getRegistryName() == null ? "unknown" : recipe.getRegistryName().toString();
+            if (!(recipe instanceof RecipeCarpentry)) return;
+            recipeId = Integer.toString(((RecipeCarpentry)recipe).id);
             if (stack.isEmpty()) stack = recipe.getCraftingResult(matrix);
         } else return;
         ItemProductionEvents.post(player, stack, station,

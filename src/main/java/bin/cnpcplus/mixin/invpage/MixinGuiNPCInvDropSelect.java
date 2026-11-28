@@ -15,6 +15,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinGuiNPCInvDropSelect {
     @Shadow protected abstract void func_146284_a(GuiButton button);
 
+    @Inject(method = "func_73863_a", at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$drawDropPicker(int x, int y, float ticks, CallbackInfo ci) {
+        GuiContainerNPCInterface gui = (GuiContainerNPCInterface) (Object) this;
+        if (gui.hasSubGui()) {
+            gui.getSubGui().drawScreen(x, y, ticks);
+            ci.cancel();
+        }
+    }
+
     @Inject(method = "func_73866_w_", at = @At("TAIL"), require = 1)
     private void cnpcplus$dropPickerButton(CallbackInfo ci) {
         GuiContainerNPCInterface gui = (GuiContainerNPCInterface) (Object) this;

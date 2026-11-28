@@ -1,6 +1,7 @@
 package bin.cnpcplus.mixin.smelting;
 
 import bin.cnpcplus.craftingview.RecipeAvailability;
+import bin.cnpcplus.smelting.IBrewingOutputRecipe;
 import bin.cnpcplus.station.*;
 import net.minecraft.block.BlockBrewingStand;
 import net.minecraft.block.state.IBlockState;

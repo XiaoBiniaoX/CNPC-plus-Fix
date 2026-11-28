@@ -39,11 +39,19 @@ public final class GuiChoiceButton extends GuiNpcButton {
     public int value() { return value; }
 
     @Override public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
-        this.visible = true;
         if (original != null) this.enabled = original.enabled;
         if (!visible) return;
-        if (original == null ? value == 0 : original.getValue() != value) { super.drawButton(mc, mouseX, mouseY, partialTicks); return; }
         boolean hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
+        if (original == null) {
+            Gui.drawRect(x, y, x + width, y + height, value != 0 ? 0xFF555555 : 0xFF777777);
+            Gui.drawRect(x + 1, y + 1, x + width - 1, y + height - 1,
+                    value != 0 ? 0xFFEEEEEE : hovered && enabled ? 0xFFD8D8D8 : 0xFFC0C0C0);
+            String label = mc.fontRenderer.trimStringToWidth(displayString, width - 6);
+            mc.fontRenderer.drawString(label, x + (width - mc.fontRenderer.getStringWidth(label)) / 2,
+                    y + (height - 8) / 2 + 1, enabled ? 0xFF202020 : 0xFFB0B0B0, false);
+            return;
+        }
+        if (original.getValue() != value) { super.drawButton(mc, mouseX, mouseY, partialTicks); return; }
         int background = hovered && enabled ? 0xFF969696 : 0xFF8B8B8B;
         Gui.drawRect(x, y, x + width, y + height, background);
         Gui.drawRect(x, y, x + width - 1, y + 1, 0xFF373737);

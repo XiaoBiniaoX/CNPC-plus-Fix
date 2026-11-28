@@ -2,6 +2,7 @@ package bin.cnpcplus.mixin.smelting;
 
 import bin.cnpcplus.quest.CraftStation;
 import bin.cnpcplus.quest.ItemProductionEvents;
+import bin.cnpcplus.smelting.IBrewingOutputRecipe;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntityBrewingStand;

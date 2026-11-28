@@ -41,17 +41,23 @@ public class QuestRecipeCatalogTest {
     }
 
     static final class Carpentry extends RecipeCarpentry implements RecipeCarpentryOffsetAccessor {
+        int offsetX = 3, offsetY = 3;
         Carpentry() {
             super(1, 1, NonNullList.from(Ingredient.EMPTY, Ingredient.fromStacks(new ItemStack(Items.STICK))),
                     new ItemStack(Items.DIAMOND, 2));
             name = "Restricted recipe"; availability = new Restricted();
         }
+        Carpentry(int width, int height, Ingredient... inputs) {
+            super(width, height, NonNullList.from(Ingredient.EMPTY, inputs), new ItemStack(Items.DIAMOND, 2));
+            name = "Offset diagonal"; availability = new Restricted();
+            offsetX = offsetY = 1;
+        }
         // CNPC's SRG method needs the game's remapping classloader outside this plain JUnit run.
         @Override public ItemStack getResult() { return getRecipeOutput(); }
         public boolean cnpcplus$isShapeless() { return false; }
         public void cnpcplus$setShapeless(boolean value) {}
-        public int cnpcplusGetOffsetX() { return 3; }
-        public int cnpcplusGetOffsetY() { return 3; }
+        public int cnpcplusGetOffsetX() { return offsetX; }
+        public int cnpcplusGetOffsetY() { return offsetY; }
         public boolean cnpcplusHasSavedOffset() { return true; }
         public void cnpcplusSetOffset(int x, int y, boolean saved) {}
     }
@@ -80,9 +86,17 @@ public class QuestRecipeCatalogTest {
                 ready[i] = field.getBoolean(null); field.setBoolean(null, true);
             }
             RecipeController controller = new RecipeController();
-            for (int i = 0; i < 65; i++) controller.anvilRecipes.put(9000 + i, new Carpentry());
-            Carpentry workbench = new Carpentry(); workbench.isGlobal = true;
-            workbench.setRegistryName(workbenchId); ForgeRegistries.RECIPES.register(workbench);
+            for (int i = 0; i < 65; i++) {
+                Carpentry recipe = new Carpentry(); recipe.id = 9000 + i;
+                controller.anvilRecipes.put(recipe.id, recipe);
+            }
+            Carpentry workbench = new Carpentry(2, 2, Ingredient.fromStacks(new ItemStack(Items.STICK, 5)),
+                    Ingredient.EMPTY, Ingredient.EMPTY, Ingredient.fromStacks(new ItemStack(Items.IRON_INGOT, 3)));
+            workbench.id = 9000; workbench.isGlobal = true;
+            controller.globalRecipes.put(workbench.id, workbench);
+            // A registry entry outside CNPC's own list must never enter this editing catalogue.
+            Carpentry unrelated = new Carpentry(); unrelated.setRegistryName(workbenchId);
+            ForgeRegistries.RECIPES.register(unrelated);
             for (CraftKind kind : CraftKind.values()) {
                 CustomRecipe recipe = new CustomRecipe(kind);
                 recipe.id = 9000; recipe.availability = restriction; recipe.result = new ItemStack(Items.DIAMOND, 2);
@@ -99,16 +113,32 @@ public class QuestRecipeCatalogTest {
                 @Override public SmeltingRecipeData copy() { return this; }
             };
             smelting.id = 9000; smelting.availability = restriction;
+            smelting.genericFuelAllowed = true;
             smelting.input = new ItemStack(Items.STICK); smelting.output = new ItemStack(Items.DIAMOND, 2);
             cache.set(null, Collections.singletonMap(smelting.id, smelting));
             Method catalogue = QuestRecipeCatalogPacket.class.getDeclaredMethod("recipes", CraftStation.class);
             catalogue.setAccessible(true);
             for (CraftStation station : CraftStation.values()) {
                 List<NBTTagCompound> entries = (List<NBTTagCompound>)catalogue.invoke(null, station);
-                String id = station == CraftStation.WORKBENCH ? workbenchId.toString() : "9000";
+                assertEquals(station.key + " must contain only CNPC/CNPCplus recipes", station == CraftStation.CARPENTRY ? 65 : 1, entries.size());
+                String id = "9000";
                 NBTTagCompound entry = entries.stream().filter(tag -> id.equals(tag.getString("Id"))).findFirst().orElse(null);
                 assertNotNull(station.key, entry);
                 assertEquals(station.key, 2, new ItemStack(entry.getTagList("Outputs", 10).getCompoundTagAt(0)).getCount());
+                if (station == CraftStation.WORKBENCH) {
+                    assertEquals("Offset diagonal", entry.getString("Name"));
+                    assertEquals(3, entry.getInteger("Columns"));
+                    NBTTagList grid = entry.getTagList("Inputs", 10);
+                    assertEquals(9, grid.tagCount());
+                    for (int i = 0; i < 9; i++) {
+                        ItemStack input = new ItemStack(grid.getCompoundTagAt(i));
+                        if (i == 4 || i == 8) {
+                            assertEquals(i == 4 ? Items.STICK : Items.IRON_INGOT, input.getItem());
+                            assertEquals(i == 4 ? 5 : 3, input.getCount());
+                        } else assertTrue("Empty workbench slot " + i, input.isEmpty());
+                    }
+                }
+                if (station == CraftStation.FURNACE) assertTrue(entry.getBoolean("GenericFuel"));
                 if (station == CraftStation.CARPENTRY) {
                     assertEquals(65, entries.size()); assertEquals(4, entry.getInteger("Columns"));
                     assertEquals(16, entry.getTagList("Inputs", 10).tagCount());

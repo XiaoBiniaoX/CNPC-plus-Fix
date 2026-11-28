@@ -6,17 +6,15 @@ import net.minecraft.client.Minecraft;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityList;
 import net.minecraft.client.gui.GuiButton;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.translation.I18n;
 import noppes.npcs.client.gui.util.*;
 import noppes.npcs.entity.EntityNPCInterface;
+import bin.cnpcplus.text.client.PlayerTextPreview;
 import org.lwjgl.opengl.GL11;
 
 /** Detached native-option picker: browsing only previews; Done applies through the original handler. */
-public final class SubGuiNpcOptionSelect extends SubGuiInterface implements ICustomScrollListener, ISliderListener {
+public final class SubGuiNpcOptionSelect extends GuiQuestPanel implements ICustomScrollListener, ISliderListener {
     private final GuiNpcButton original;
     private final String[] options;
     private final String titleKey;
@@ -42,11 +40,8 @@ public final class SubGuiNpcOptionSelect extends SubGuiInterface implements ICus
         this.animations = animations;
         this.accept = accept;
         this.pending = original.getValue();
-        Entity detached = animations == null || npc == null ? null
-                : EntityList.createEntityFromNBT(npc.writeToNBT(new NBTTagCompound()), npc.world);
-        preview = detached instanceof EntityNPCInterface ? (EntityNPCInterface) detached : null;
+        preview = animations != null && npc != null ? PlayerTextPreview.npc(npc) : null;
         this.closeOnEsc = true;
-        this.setBackground("menubg.png");
     }
 
     @Override public void initGui() {
@@ -119,8 +114,7 @@ public final class SubGuiNpcOptionSelect extends SubGuiInterface implements ICus
     @Override public void mousePressed(GuiNpcSlider slider) {}
     @Override public void mouseReleased(GuiNpcSlider slider) {}
 
-    @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        super.drawScreen(mouseX, mouseY, partialTicks);
+    @Override protected void drawPanelContents(int mouseX, int mouseY, float partialTicks) {
         fontRenderer.drawString(I18n.translateToLocal(titleKey), guiLeft + 12, guiTop + 10, 0x202020);
         fontRenderer.drawString(fontRenderer.trimStringToWidth(net.minecraft.client.resources.I18n.format(
                 "cnpcplus.select.current", optionLabel(original.getValue())), xSize - 24), guiLeft + 12, guiTop + 22, 0x686868);
@@ -137,16 +131,16 @@ public final class SubGuiNpcOptionSelect extends SubGuiInterface implements ICus
             drawRect(panelX + 12, panelY + panelHeight - 15, panelX + panelWidth - 12, panelY + panelHeight - 13, 0xFFDDD5BA);
             Minecraft mc = Minecraft.getMinecraft();
             double fx = mc.displayWidth / (double) width, fy = mc.displayHeight / (double) height;
+            double left = (width - xSize * panelScale) / 2 + (panelX + 1 - guiLeft) * panelScale;
+            double bottom = (height - ySize * panelScale) / 2 + (panelY + panelHeight - 16 - guiTop) * panelScale;
+            GL11.glPushAttrib(GL11.GL_SCISSOR_BIT);
             GL11.glEnable(GL11.GL_SCISSOR_TEST);
-            GL11.glScissor((int) ((panelX + 1) * fx), mc.displayHeight - (int) ((panelY + panelHeight - 16) * fy),
-                    (int) ((panelWidth - 2) * fx), (int) ((panelHeight - 40) * fy));
-            int oldX = this.mouseX, oldY = this.mouseY;
-            int x = panelX + panelWidth / 2 - guiLeft, y = panelY + panelHeight - 20 - guiTop;
+            GL11.glScissor((int)Math.floor(left * fx), (int)Math.floor(mc.displayHeight - bottom * fy),
+                    (int)Math.ceil((panelWidth - 2) * panelScale * fx), (int)Math.ceil((panelHeight - 40) * panelScale * fy));
             float zoom = Math.min((panelHeight - 40) / 72F, panelWidth / 75F);
-            this.mouseX = guiLeft + x;
-            this.mouseY = Math.round(guiTop + y - 50F * (preview.height > 2.4F ? 2F / preview.height : 1F) * zoom);
-            try { drawNpc(preview, x, y, zoom, previewRotation); }
-            finally { this.mouseX = oldX; this.mouseY = oldY; GL11.glDisable(GL11.GL_SCISSOR_TEST); }
+            try { SafeEntityPreview.draw(preview, panelX + 1, panelY + 24,
+                    panelWidth - 2, panelHeight - 40, zoom, previewRotation); }
+            finally { GL11.glPopAttrib(); }
         } else if (animations != null) {
             fontRenderer.drawString(I18n.translateToLocal("cnpcplus.select.previewUnavailable"), panelX + 8, panelY + 32, 0xFFEEE8D4);
         } else {
