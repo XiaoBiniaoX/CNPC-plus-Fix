@@ -117,7 +117,7 @@ public final class QuestExplore extends QuestInterface {
             if (data == null || !dimensionMatches(data, player.level().dimension().location().toString())) return 0;
             long total = cellCount(player.level().getMinBuildHeight(), player.level().getMaxBuildHeight());
             if (total <= 0) return 0;
-            return Math.min(100.0, explored(data, total) * 100.0 / total);
+            return Math.min(100.0, explored(data, total) * 10000.0 / (total * requiredPercent));
         }
         private int percent() { return (int)precisePercent(); }
         @Override public int getProgress() { return percent(); }
@@ -125,7 +125,7 @@ public final class QuestExplore extends QuestInterface {
             if (value < 0 || value > 100) throw new CustomNPCsException("Progress has to be between 0 and 100");
         }
         @Override public int getMaxProgress() { return 100; }
-        @Override public boolean isCompleted() { return precisePercent() >= requiredPercent; }
+        @Override public boolean isCompleted() { return precisePercent() >= 100; }
         @Override public String getText() { return getMCText().getString(); }
         @Override public Component getMCText() {
             return Component.literal(formatProgressLabel(getProgressText(), precisePercent()));

@@ -25,8 +25,8 @@ public final class SubGuiQuestExploreCoverageHelp extends GuiQuestPanel {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+    protected void renderPanel(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderPanel(graphics, mouseX, mouseY, partialTick);
         graphics.drawString(font, I18n.get("cnpcplus.quest.explore.coverage.help.title"),
                 guiLeft + 12, guiTop + 12, 0x202020, false);
         graphics.drawString(font, I18n.get("cnpcplus.quest.explore.coverage.volume.title"),

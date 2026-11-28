@@ -55,6 +55,7 @@ public final class CraftingViewNetwork {
         // 标 optional 后，协商失败只会把这些频道降级为禁用（buildDisabledOptionalComponents），
         // 玩家仍可正常进服，只是用不到本模组的对应界面。
         PayloadRegistrar registrar = event.registrar(CnpcPlus.MODID).versioned("1").optional();
+        registrar.playToServer(PacketCarpentryRequestList.TYPE, PacketCarpentryRequestList.STREAM_CODEC, PacketCarpentryRequestList::handle);
         registrar.playToClient(PacketCarpentryRecipe.TYPE, PacketCarpentryRecipe.STREAM_CODEC, PacketCarpentryRecipe::handle);
         registrar.playToServer(top.cnpcplus.questtrigger.network.PacketSaveTriggerData.TYPE,
                 top.cnpcplus.questtrigger.network.PacketSaveTriggerData.STREAM_CODEC, top.cnpcplus.questtrigger.network.PacketSaveTriggerData::handle);

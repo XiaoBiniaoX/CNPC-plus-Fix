@@ -21,23 +21,22 @@ import top.cnpcplus.station.StationRecipes;
 import top.cnpcplus.station.StationPacket;
 
 final class QuestCraftRecipeCatalog {
-    private static net.minecraft.client.multiplayer.ClientPacketListener requestedOn;
-
     private QuestCraftRecipeCatalog() {}
 
     static void requestMissingLists() {
-        var connection = Minecraft.getInstance().getConnection();
-        if (connection == null || connection == requestedOn) return;
-        requestedOn = connection;
+        if (Minecraft.getInstance().getConnection() == null) return;
+        if (RecipeAccess.getGlobalRecipes(true).isEmpty())
+            PacketDistributor.sendToServer(new bin.cnpcplus.craftingview.network.PacketCarpentryRequestList(true));
+        if (RecipeAccess.getAnvilRecipes(true).isEmpty())
+            PacketDistributor.sendToServer(new bin.cnpcplus.craftingview.network.PacketCarpentryRequestList(false));
         if (AnvilClientData.get().isEmpty()) PacketDistributor.sendToServer(new PacketAnvilRequestList());
         if (SmithingClientData.get().isEmpty()) PacketDistributor.sendToServer(new PacketSmithingRequestList());
         if (DropClientData.get().isEmpty()) PacketDistributor.sendToServer(new PacketDropRequestList());
         if (SmeltingClientData.get().isEmpty()) PacketDistributor.sendToServer(
                 new PacketSmeltingAction(3, -1, "", 200, 0, false, false, false, false));
         for (int kind = 0; kind < StationRecipes.KINDS.length; kind++) {
-            if (!StationRecipes.CLIENT.containsKey(kind)) {
+            if (!StationRecipes.CLIENT.containsKey(kind))
                 PacketDistributor.sendToServer(new StationPacket(5, kind, new CompoundTag()));
-            }
         }
     }
 

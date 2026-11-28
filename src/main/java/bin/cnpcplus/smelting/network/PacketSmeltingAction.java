@@ -77,7 +77,12 @@ public record PacketSmeltingAction(int action, int id, String name, float cookTi
                     bin.cnpcplus.recipe.services.RecipeServices.updateSmeltingRecipe(player.server, menu.selectedId);
                 }
             }
-            sendList(player, player.containerMenu instanceof ContainerSmeltingRecipes menu ? menu.selectedId : -1);
+            if (packet.action == 1 || packet.action == 2) {
+                for (var recipient : player.server.getPlayerList().getPlayers()) {
+                    if (net.neoforged.neoforge.network.registration.NetworkRegistry.hasChannel(recipient.connection, PacketSmeltingSync.TYPE.id()))
+                        sendList(recipient, recipient.containerMenu instanceof ContainerSmeltingRecipes menu ? menu.selectedId : -1);
+                }
+            } else sendList(player, player.containerMenu instanceof ContainerSmeltingRecipes menu ? menu.selectedId : -1);
         });
     }
 

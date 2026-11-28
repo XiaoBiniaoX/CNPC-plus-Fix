@@ -26,6 +26,7 @@ import top.cnpcplus.quest.QuestAreaKill;
 import top.cnpcplus.quest.QuestCraft;
 import top.cnpcplus.quest.QuestExplore;
 import top.cnpcplus.text.client.PlayerTextPreview;
+import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -51,6 +52,7 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
     private String recipeSearch = "";
     private int recipeScrollOffset;
     private boolean draggingRecipeScrollbar;
+    private boolean requestedRecipeLists;
     private record Candidate(String label, String value, LivingEntity preview) {}
 
     public SubGuiQuestSettings(Quest quest) {
@@ -81,6 +83,7 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
     @Override
     public void init() {
         super.init();
+        draggingRecipeScrollbar = false;
         if (quest.type == 6) setupCraft((QuestCraft)quest.questInterface);
         else if (quest.type == 7) setupExplore((QuestExplore)quest.questInterface);
         else if (quest.type == 3) setupLocation((noppes.npcs.quests.QuestLocation)quest.questInterface);
@@ -89,7 +92,10 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
     }
 
     private void setupCraft(QuestCraft craft) {
-        QuestCraftRecipeCatalog.requestMissingLists();
+        if (!requestedRecipeLists) {
+            requestedRecipeLists = true;
+            QuestCraftRecipeCatalog.requestMissingLists();
+        }
         craftSlotButtons.clear();
         stationIconButtons.clear();
         recipeRowButtons.clear();
@@ -525,7 +531,10 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
 
     @Override
     public boolean mouseClicked(double x, double y, int button) {
+        if (hasSubGui()) return super.mouseClicked(x, y, button);
         boolean handled = super.mouseClicked(x, y, button);
+        x = panelX(x);
+        y = panelY(y);
         if (quest.type == 6 && button == 0 && x >= guiLeft + 416 && x < guiLeft + 422
                 && y >= guiTop + 126 && y < guiTop + 288) {
             draggingRecipeScrollbar = true;
@@ -542,10 +551,14 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (hasSubGui()) return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
         if (quest.type == 6 && draggingRecipeScrollbar) {
-            updateRecipeScrollFromMouse(mouseY);
+            updateRecipeScrollFromMouse(panelY(mouseY));
             return true;
         }
+        // GuiBasic stores text fields outside Screen.children(), so its drag dispatch never reaches them.
+        if (getTextField(90) instanceof NativeSearchField search && search.isFocused())
+            return search.mouseDragged(panelX(mouseX), panelY(mouseY), button, dragX, dragY);
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
@@ -567,8 +580,8 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         double delta = vertical != 0 ? vertical : horizontal;
-        if (quest.type == 6 && mouseX >= guiLeft + 168 && mouseX < guiLeft + 422
-                && mouseY >= guiTop + 126 && mouseY < guiTop + 288 && !visibleRecipes.isEmpty()) {
+        if (!hasSubGui() && quest.type == 6 && panelX(mouseX) >= guiLeft + 168 && panelX(mouseX) < guiLeft + 422
+                && panelY(mouseY) >= guiTop + 126 && panelY(mouseY) < guiTop + 288 && !visibleRecipes.isEmpty()) {
             recipeScrollOffset = Math.max(0, Math.min(Math.max(0, visibleRecipes.size() - 6),
                     recipeScrollOffset - (delta > 0 ? 1 : -1)));
             refreshRecipeList();
@@ -691,9 +704,8 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        if (hasSubGui()) return;
+    protected void renderPanel(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderPanel(graphics, mouseX, mouseY, partialTick);
         if (quest.type == 6) {
             QuestCraft craft = (QuestCraft)quest.questInterface;
             graphics.drawString(font, I18n.get("cnpcplus.quest.craft.title"), guiLeft + 12, guiTop + 10, 0x202020, false);
@@ -741,7 +753,12 @@ public final class SubGuiQuestSettings extends GuiQuestPanel implements ITextfie
             graphics.fill(px - 1, py - 1, px + 190, py + 102, 0xffa49d89);
             graphics.fill(px, py, px + 188, py + 100, 0xff343b40);
             if (nearbyPreview != null) {
-                graphics.enableScissor(px, py, px + 188, py + 100);
+                // 1.21.1 scissor bounds are screen coordinates and do not follow the pose transform.
+                var matrix = graphics.pose().last().pose();
+                var min = matrix.transformPosition(new Vector3f(px, py, 0));
+                var max = matrix.transformPosition(new Vector3f(px + 188, py + 100, 0));
+                graphics.enableScissor((int)Math.floor(min.x), (int)Math.floor(min.y),
+                        (int)Math.ceil(max.x), (int)Math.ceil(max.y));
                 SafeEntityPreview.nativeDisplay(graphics, nearbyPreview, 94, 94, 0.9f, 180,
                         mouseX, mouseY, px, py, true, false);
                 graphics.disableScissor();

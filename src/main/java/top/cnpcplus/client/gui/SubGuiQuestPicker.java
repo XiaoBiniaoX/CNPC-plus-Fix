@@ -66,8 +66,8 @@ public final class SubGuiQuestPicker extends GuiQuestPanel {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+    protected void renderPanel(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderPanel(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(font, I18n.get(repeat ? "cnpcplus.quest.repeat.title" : "cnpcplus.quest.type.title"),
                 guiLeft + imageWidth / 2, guiTop + 10, 0x202020);
         graphics.drawCenteredString(font, I18n.get(repeat ? "cnpcplus.quest.repeat.help" : "cnpcplus.quest.type.help"),
