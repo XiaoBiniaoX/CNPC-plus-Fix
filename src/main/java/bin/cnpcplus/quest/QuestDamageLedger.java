@@ -19,13 +19,19 @@ import noppes.npcs.entity.EntityNPCInterface;
 public final class QuestDamageLedger {
     public static final QuestDamageLedger INSTANCE = new QuestDamageLedger();
     private final Map<EntityLivingBase, Map<UUID, Float>> damage = new WeakHashMap<EntityLivingBase, Map<UUID, Float>>();
-    private final ThreadLocal<ArrayDeque<UUID>> current = new ThreadLocal<ArrayDeque<UUID>>() {
-        @Override protected ArrayDeque<UUID> initialValue() { return new ArrayDeque<UUID>(); }
+    private static final class Death {
+        final EntityLivingBase victim;
+        final UUID leader;
+        final java.util.Set<UUID> credited = new java.util.HashSet<>();
+        Death(EntityLivingBase victim, UUID leader) { this.victim = victim; this.leader = leader; }
+    }
+    private final ThreadLocal<ArrayDeque<Death>> current = new ThreadLocal<ArrayDeque<Death>>() {
+        @Override protected ArrayDeque<Death> initialValue() { return new ArrayDeque<Death>(); }
     };
 
     private QuestDamageLedger() {}
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = net.minecraftforge.fml.common.eventhandler.EventPriority.LOWEST)
     public void record(LivingDamageEvent event) {
         EntityLivingBase victim = event.getEntityLiving();
         if (victim.world.isRemote || event.getAmount() <= 0.0F) return;
@@ -39,7 +45,7 @@ public final class QuestDamageLedger {
         }
         UUID id = player.getUniqueID();
         Float old = shares.get(id);
-        shares.put(id, (old == null ? 0.0F : old) + event.getAmount());
+        shares.put(id, (old == null ? 0.0F : old) + Math.min(victim.getHealth(), event.getAmount()));
     }
 
     public void beginDeath(EntityLivingBase victim) {
@@ -47,22 +53,34 @@ public final class QuestDamageLedger {
         UUID leader = null;
         float largest = 0.0F;
         if (shares != null) for (Map.Entry<UUID, Float> entry : shares.entrySet()) {
-            if (entry.getValue() > largest) { leader = entry.getKey(); largest = entry.getValue(); }
+            if (entry.getValue() > largest && victim.world.getMinecraftServer().getPlayerList().getPlayerByUUID(entry.getKey()) != null) {
+                leader = entry.getKey(); largest = entry.getValue();
+            }
         }
-        current.get().push(leader == null ? new UUID(0L, 0L) : leader);
+        current.get().push(new Death(victim, leader));
     }
 
     public void endDeath() {
-        ArrayDeque<UUID> stack = current.get();
+        ArrayDeque<Death> stack = current.get();
         if (!stack.isEmpty()) stack.pop();
         if (stack.isEmpty()) current.remove();
     }
 
     public EntityPlayer currentContributor() {
-        UUID id = current.get().peek();
-        if (id == null || (id.getMostSignificantBits() == 0L && id.getLeastSignificantBits() == 0L)) return null;
+        Death death = current.get().peek();
+        if (death == null || death.leader == null) return null;
         net.minecraft.server.MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-        return server == null ? null : server.getPlayerList().getPlayerByUUID(id);
+        return server == null ? null : server.getPlayerList().getPlayerByUUID(death.leader);
+    }
+
+    public boolean creditedAny() {
+        Death death = current.get().peek();
+        return death != null && !death.credited.isEmpty();
+    }
+
+    public boolean creditOnce(EntityPlayer player, EntityLivingBase victim) {
+        Death death = current.get().peek();
+        return death == null || death.victim != victim || death.credited.add(player.getUniqueID());
     }
 
     private static EntityPlayer responsiblePlayer(Entity entity) {

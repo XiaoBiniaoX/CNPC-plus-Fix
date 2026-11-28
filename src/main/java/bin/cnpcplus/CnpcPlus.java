@@ -41,6 +41,7 @@ public class CnpcPlus {
     public void onInit(FMLInitializationEvent event) {
         MinecraftForge.EVENT_BUS.register(RecipeGlobalBootstrap.class);
         MinecraftForge.EVENT_BUS.register(new QuestCompletionEvents());
+        MinecraftForge.EVENT_BUS.register(bin.cnpcplus.quest.QuestRegionRecorder.class);
         MinecraftForge.EVENT_BUS.register(new bin.cnpcplus.quest.QuestProductionProgress());
         MinecraftForge.EVENT_BUS.register(bin.cnpcplus.quest.QuestDamageLedger.INSTANCE);
         MinecraftForge.EVENT_BUS.register(new SmeltingBurnTimeHandler());
@@ -76,6 +77,7 @@ public class CnpcPlus {
         bin.cnpcplus.transport.TransportImages.clear();
         bin.cnpcplus.respawn.RespawnClock.clear();
         bin.cnpcplus.shader.ShaderController.stopServer();
+        bin.cnpcplus.quest.QuestRegionRecorder.reset();
     }
 
     @Mod.EventHandler

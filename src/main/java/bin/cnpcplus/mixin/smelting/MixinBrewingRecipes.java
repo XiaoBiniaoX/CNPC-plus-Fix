@@ -14,11 +14,21 @@ import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.*;
 
 @Mixin(TileEntityBrewingStand.class)
-public abstract class MixinBrewingRecipes {
+public abstract class MixinBrewingRecipes implements IBrewingOutputRecipe {
     @Shadow private NonNullList<ItemStack> brewingItemStacks;
     @Shadow private int brewTime;
     @Shadow private int fuel;
     @Unique private int cnpcplus$recipe = -1;
+    @Unique private final ItemStack[] cnpcplus$beforeBrew = {ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY};
+    @Override public NBTTagCompound cnpcplus$getProduced(int slot) {
+        return ((TileEntityBrewingStand)(Object)this).getTileData().getCompoundTag("CNPCPlusBrewOutput" + slot);
+    }
+    @Unique private void cnpcplus$markProduced(int slot, String recipe) {
+        NBTTagCompound record = new NBTTagCompound();
+        brewingItemStacks.get(slot).writeToNBT(record);
+        record.setString("Recipe", recipe);
+        ((TileEntityBrewingStand)(Object)this).getTileData().setTag("CNPCPlusBrewOutput" + slot, record);
+    }
     @Inject(method = "update", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$customTick(CallbackInfo ci) {
         TileEntityBrewingStand tile = (TileEntityBrewingStand)(Object)this;
@@ -33,7 +43,10 @@ public abstract class MixinBrewingRecipes {
             if (cnpcplus$recipe != recipe.id) { brewTime = 0; cnpcplus$recipe = recipe.id; }
             if (brewTime > 0) {
                 if (--brewTime == 0) {
-                    for (int i = 0; i < 3; i++) brewingItemStacks.set(i, recipe.outputs[slots[i]].copy());
+                    for (int i = 0; i < 3; i++) {
+                        brewingItemStacks.set(i, recipe.outputs[slots[i]].copy());
+                        cnpcplus$markProduced(i, Integer.toString(recipe.id));
+                    }
                     brewingItemStacks.get(3).shrink(recipe.inputs[3].getCount()); cnpcplus$recipe = -1;
                     tile.getWorld().playEvent(1035, tile.getPos(), 0);
                 }
@@ -58,5 +71,27 @@ public abstract class MixinBrewingRecipes {
     @Inject(method = "writeToNBT", at = @At("RETURN"))
     private void cnpcplus$save(NBTTagCompound tag, CallbackInfoReturnable<NBTTagCompound> cir) {
         tag.setInteger("CNPCPlusBrewRecipe", cnpcplus$recipe); tag.setInteger("CNPCPlusBrewTime", brewTime);
+    }
+    @Inject(method = "brewPotions", at = @At("HEAD"))
+    private void cnpcplus$beforeVanilla(CallbackInfo ci) {
+        for (int i = 0; i < 3; i++) cnpcplus$beforeBrew[i] = brewingItemStacks.get(i).copy();
+    }
+    @Inject(method = "brewPotions", at = @At("RETURN"))
+    private void cnpcplus$afterVanilla(CallbackInfo ci) {
+        for (int i = 0; i < 3; i++) if (!ItemStack.areItemStacksEqual(cnpcplus$beforeBrew[i], brewingItemStacks.get(i)))
+            cnpcplus$markProduced(i, "vanilla");
+    }
+    @Inject(method = "setInventorySlotContents", at = @At("HEAD"))
+    private void cnpcplus$replaceOutput(int slot, ItemStack stack, CallbackInfo ci) {
+        if (slot < 3) ((TileEntityBrewingStand)(Object)this).getTileData().removeTag("CNPCPlusBrewOutput" + slot);
+    }
+    @Inject(method = "decrStackSize", at = @At("RETURN"))
+    private void cnpcplus$trimOutput(int slot, int count, CallbackInfoReturnable<ItemStack> cir) {
+        if (slot < 3) cnpcplus$getProduced(slot).setByte("Count", (byte)Math.min(
+                cnpcplus$getProduced(slot).getByte("Count"), brewingItemStacks.get(slot).getCount()));
+    }
+    @Inject(method = "removeStackFromSlot", at = @At("HEAD"))
+    private void cnpcplus$removeOutput(int slot, CallbackInfoReturnable<ItemStack> cir) {
+        if (slot < 3) ((TileEntityBrewingStand)(Object)this).getTileData().removeTag("CNPCPlusBrewOutput" + slot);
     }
 }

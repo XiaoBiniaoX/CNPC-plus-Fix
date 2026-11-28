@@ -18,6 +18,12 @@ public final class GuiChoiceButton extends GuiNpcButton {
         this.value = value;
     }
 
+    public GuiChoiceButton(int id, int x, int y, int width, int height, String label, boolean selected) {
+        super(id, x, y, width, height, label);
+        this.original = null;
+        this.value = selected ? 1 : 0;
+    }
+
     public static void replace(GuiNPCInterface gui, GuiNpcButton original, int width) {
         if (original == null) return;
         String[] labels = ((IGuiButtonOptions) original).cnpcplus$options();
@@ -34,9 +40,9 @@ public final class GuiChoiceButton extends GuiNpcButton {
 
     @Override public void drawButton(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
         this.visible = true;
-        this.enabled = original.enabled;
+        if (original != null) this.enabled = original.enabled;
         if (!visible) return;
-        if (original.getValue() != value) { super.drawButton(mc, mouseX, mouseY, partialTicks); return; }
+        if (original == null ? value == 0 : original.getValue() != value) { super.drawButton(mc, mouseX, mouseY, partialTicks); return; }
         boolean hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
         int background = hovered && enabled ? 0xFF969696 : 0xFF8B8B8B;
         Gui.drawRect(x, y, x + width, y + height, background);

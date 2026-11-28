@@ -32,6 +32,7 @@ public final class GrindstoneContainer extends Container {
             }
             @Override public ItemStack onTake(EntityPlayer player, ItemStack stack) {
                 if (world.isRemote) return stack;
+                String recipeId = matched == null ? "vanilla" : Integer.toString(matched.id);
                 if (matched != null) {
                     if (!player.capabilities.isCreativeMode) player.addExperienceLevel(-matched.experience);
                 } else if (disenchantXp > 0) {
@@ -46,6 +47,8 @@ public final class GrindstoneContainer extends Container {
                 taking = true; input.decrStackSize(0, top); input.decrStackSize(1, bottom); taking = false;
                 world.playSound(null, pos, net.minecraft.init.SoundEvents.BLOCK_ANVIL_USE, net.minecraft.util.SoundCategory.BLOCKS, .5f, 1.5f);
                 onCraftMatrixChanged(input);
+                bin.cnpcplus.quest.ItemProductionEvents.post(player, stack,
+                        bin.cnpcplus.quest.CraftStation.GRINDSTONE, pos, stack.getCount(), recipeId);
                 ((EntityPlayerMP)player).connection.sendPacket(new SPacketSetSlot(windowId, 2, output.getStackInSlot(0)));
                 return stack;
             }

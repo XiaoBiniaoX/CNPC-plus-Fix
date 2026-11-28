@@ -2,7 +2,6 @@ package bin.cnpcplus.station;
 
 import bin.cnpcplus.craftingview.RecipeAvailability;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.FurnaceRecipes;
 import net.minecraft.nbt.NBTTagCompound;
@@ -48,7 +47,23 @@ public final class CampfireTile extends TileEntity implements ITickable {
             if (recipe != null && recipes[i] != recipe.id) { progress[i] = 0; recipes[i] = recipe.id; }
             if (++progress[i] >= (recipe == null ? 600 : recipe.time)) {
                 ItemStack output = recipe == null ? FurnaceRecipes.instance().getSmeltingResult(input).copy() : recipe.outputs[0].copy();
-                InventoryHelper.spawnItemStack(world, pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5, output);
+                double x = pos.getX() + 0.5D + (world.rand.nextFloat() * 0.8F - 0.4F);
+                double y = pos.getY() + 0.5D + (world.rand.nextFloat() * 0.8F - 0.4F);
+                double z = pos.getZ() + 0.5D + (world.rand.nextFloat() * 0.8F - 0.4F);
+                net.minecraft.entity.item.EntityItem spawned = new net.minecraft.entity.item.EntityItem(world, x, y, z, output);
+                spawned.setDefaultPickupDelay();
+                float motion = 0.05F;
+                spawned.motionX = world.rand.nextGaussian() * motion;
+                spawned.motionY = world.rand.nextGaussian() * motion + 0.2D;
+                spawned.motionZ = world.rand.nextGaussian() * motion;
+                if (owners[i] != null) {
+                    NBTTagCompound production = new NBTTagCompound();
+                    production.setUniqueId("Owner", owners[i]);
+                    production.setString("Recipe", recipe == null ? "vanilla" : Integer.toString(recipe.id));
+                    production.setLong("Position", pos.toLong());
+                    spawned.getEntityData().setTag("CNPCPlusCampfireProduction", production);
+                }
+                if (!world.spawnEntity(spawned)) continue;
                 items.set(i, ItemStack.EMPTY); owners[i] = null; recipes[i] = -1; progress[i] = 0;
                 world.notifyBlockUpdate(pos, world.getBlockState(pos), world.getBlockState(pos), 3);
             }

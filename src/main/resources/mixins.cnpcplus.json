@@ -225,6 +225,7 @@
     "trader.MixinGuiContainerNPCInterfaceTitle",
     "quest.MixinGuiNpcQuestTypeItem",
     "quest.MixinGuiNpcQuestReward",
+    "quest.MixinGuiQuestEditQuestPanels",
     "bard.MixinJobBardClient",
     "bard.MixinJobBardLoopDelete",
     "bard.MixinGuiNpcBard",

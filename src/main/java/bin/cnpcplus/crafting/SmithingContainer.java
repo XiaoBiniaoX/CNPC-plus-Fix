@@ -1,5 +1,6 @@
 package bin.cnpcplus.crafting;
 
+import bin.cnpcplus.quest.ItemProductionEvents;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
@@ -34,6 +35,7 @@ public final class SmithingContainer extends Container {
                     && bin.cnpcplus.craftingview.RecipeAvailability.allows(matched.availability, player)); }
             @Override public ItemStack onTake(EntityPlayer player, ItemStack stack) {
                 if (!world.isRemote) {
+                    int recipeId = matched.id;
                     taking = true;
                     try {
                         for (int i = 0; i < 3; i++) {
@@ -43,6 +45,8 @@ public final class SmithingContainer extends Container {
                     } finally { taking = false; }
                     world.playEvent(1030, pos, 0);
                     onCraftMatrixChanged(input);
+                    ItemProductionEvents.post(player, stack, bin.cnpcplus.quest.CraftStation.SMITHING,
+                            pos, stack.getCount(), Integer.toString(recipeId));
                     // 材料还有剩时结果槽会重算出同一个物品：客户端在点击瞬间已经把
                     // 本地结果槽清空，而服务端差值缓存认为"没变"，必须强制补发一次。
                     pushSlots(true);

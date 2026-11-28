@@ -96,6 +96,8 @@ public final class DropCrafting {
                 else item.setItem(remaining);
             }
             crafted = true;
+            if (player != null) bin.cnpcplus.quest.ItemProductionEvents.post(player, recipe.result,
+                    bin.cnpcplus.quest.CraftStation.DROP, position, recipe.result.getCount(), Integer.toString(recipe.id));
             FxEngine.spawn(world, trigger.posX, trigger.posY, trigger.posZ, recipe.effects);
             if (!recipe.sound.isEmpty()) {
                 try {

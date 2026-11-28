@@ -4,10 +4,19 @@ import bin.cnpcplus.smelting.SmeltingFuelRules;
 import bin.cnpcplus.smelting.SmeltingRecipeData;
 import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.Slot;
 import net.minecraft.inventory.SlotFurnaceOutput;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntityFurnace;
+import bin.cnpcplus.quest.CraftStation;
+import bin.cnpcplus.quest.ItemProductionEvents;
+import bin.cnpcplus.quest.FurnaceProduction;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -26,13 +35,38 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * vanilla path untouched.
  */
 @Mixin(SlotFurnaceOutput.class)
-public abstract class MixinSlotFurnaceOutputSmelting {
+public abstract class MixinSlotFurnaceOutputSmelting extends Slot {
+    protected MixinSlotFurnaceOutputSmelting(IInventory inventory, int index, int x, int y) {
+        super(inventory, index, x, y);
+    }
+
     @Shadow private EntityPlayer player;
     @Shadow private int removeCount;
+
+    @Unique private NBTTagList cnpcplus$taken;
+
+    @Inject(method = "decrStackSize", at = @At("HEAD"))
+    private void cnpcplus$beforeTake(int amount, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ItemStack> cir) {
+        if (player.world.isRemote) return;
+        TileEntityFurnace furnace = (TileEntityFurnace)inventory;
+        cnpcplus$taken = FurnaceProduction.take(FurnaceProduction.records(furnace, getStack().getCount()).copy(), amount);
+    }
 
     @Inject(method = "onCrafting(Lnet/minecraft/item/ItemStack;)V", at = @At("HEAD"),
             cancellable = true)
     private void cnpcplus$customExperience(ItemStack stack, CallbackInfo ci) {
+        if (!player.world.isRemote && removeCount > 0) {
+            TileEntityFurnace furnace = (TileEntityFurnace)inventory;
+            NBTTagList taken = cnpcplus$taken;
+            cnpcplus$taken = null;
+            if (taken == null) taken = FurnaceProduction.take(
+                    FurnaceProduction.records(furnace, getStack().getCount() + removeCount), removeCount);
+            for (int i = 0; i < taken.tagCount(); i++) {
+                NBTTagCompound record = taken.getCompoundTagAt(i);
+                if (!record.getString("Recipe").isEmpty()) ItemProductionEvents.post(player, stack, CraftStation.FURNACE,
+                        furnace.getPos(), record.getInteger("Count"), record.getString("Recipe"));
+            }
+        }
         if (stack == null || stack.isEmpty() || this.removeCount <= 0) {
             return;
         }

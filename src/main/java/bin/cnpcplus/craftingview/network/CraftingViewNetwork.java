@@ -49,5 +49,7 @@ public final class CraftingViewNetwork {
         CHANNEL.registerMessage(bin.cnpcplus.station.StationCataloguePacket.Handler.class, bin.cnpcplus.station.StationCataloguePacket.class, nextId++, Side.CLIENT);
         CHANNEL.registerMessage(bin.cnpcplus.shader.ShaderPacket.Handler.class, bin.cnpcplus.shader.ShaderPacket.class, nextId++, Side.CLIENT);
         CHANNEL.registerMessage(bin.cnpcplus.shader.ShaderCatalogPacket.Handler.class, bin.cnpcplus.shader.ShaderCatalogPacket.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.quest.QuestRecipeCatalogPacket.Handler.class, bin.cnpcplus.quest.QuestRecipeCatalogPacket.class, nextId++, Side.SERVER);
+        CHANNEL.registerMessage(bin.cnpcplus.quest.QuestRecipeCatalogPacket.ClientHandler.class, bin.cnpcplus.quest.QuestRecipeCatalogPacket.class, nextId++, Side.CLIENT);
     }
 }

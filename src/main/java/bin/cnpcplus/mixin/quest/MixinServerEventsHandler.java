@@ -25,27 +25,33 @@ import java.util.List;
 @Mixin(value = ServerEventsHandler.class, remap = false)
 public abstract class MixinServerEventsHandler {
 
-    @Inject(method = "invoke", at = @At("HEAD"), require = 1, remap = false)
+    @Inject(method = "invoke(Lnet/minecraftforge/event/entity/living/LivingDeathEvent;)V", at = @At("HEAD"), require = 1, remap = false)
     private void cnpcplus$beginQuestDeath(LivingDeathEvent event, CallbackInfo ci) {
         if (!event.getEntityLiving().world.isRemote) QuestDamageLedger.INSTANCE.beginDeath(event.getEntityLiving());
     }
 
-    @Redirect(method = "invoke", at = @At(value = "INVOKE",
-            target = "Lnoppes/npcs/NoppesUtilServer;GetDamageSourcee(Lnet/minecraft/util/DamageSource;)Lnet/minecraft/entity/Entity;"),
+    @Redirect(method = "invoke(Lnet/minecraftforge/event/entity/living/LivingDeathEvent;)V", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/ServerEventsHandler;doQuest(Lnet/minecraft/entity/player/EntityPlayer;Lnet/minecraft/entity/EntityLivingBase;Z)V"),
             require = 1, remap = false)
-    private Entity cnpcplus$creditDamageContributor(DamageSource source) {
+    private void cnpcplus$creditDamageContributor(ServerEventsHandler handler, EntityPlayer player, EntityLivingBase victim, boolean all) {
         EntityPlayer contributor = QuestDamageLedger.INSTANCE.currentContributor();
-        return contributor == null ? NoppesUtilServer.GetDamageSourcee(source) : contributor;
+        cnpcplus$doQuest(contributor == null ? player : contributor, victim, all);
     }
 
-    @Inject(method = "invoke", at = @At("RETURN"), require = 1, remap = false)
+    @Inject(method = "invoke(Lnet/minecraftforge/event/entity/living/LivingDeathEvent;)V", at = @At("RETURN"), require = 1, remap = false)
     private void cnpcplus$endQuestDeath(LivingDeathEvent event, CallbackInfo ci) {
-        if (!event.getEntityLiving().world.isRemote) QuestDamageLedger.INSTANCE.endDeath();
+        if (event.getEntityLiving().world.isRemote) return;
+        EntityPlayer contributor = QuestDamageLedger.INSTANCE.currentContributor();
+        if (!QuestDamageLedger.INSTANCE.creditedAny() && contributor != null)
+            cnpcplus$doQuest(contributor, event.getEntityLiving(), true);
+        QuestDamageLedger.INSTANCE.endDeath();
     }
 
-    @Inject(method = "doQuest", at = @At("HEAD"), require = 1, remap = false)
+    @Inject(method = "doQuest", at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void cnpcplus$pushAreaVictim(EntityPlayer player, EntityLivingBase entity, boolean all, CallbackInfo ci) {
+        if (!QuestDamageLedger.INSTANCE.creditOnce(player, entity)) { ci.cancel(); return; }
         QuestAreaKillContext.push(entity);
+        cnpcplus$shareKillWithTeam(player, entity, all, ci);
     }
 
     @Inject(method = "doQuest", at = @At("RETURN"), require = 1, remap = false)
@@ -103,7 +109,6 @@ public abstract class MixinServerEventsHandler {
      * 注意 {@code doQuest} 内部对每个玩家只推进「该玩家自己 activeQuests 里的」任务，
      * 所以给没有该任务的队友调用它是安全的空操作。
      */
-    @Inject(method = "doQuest", at = @At("HEAD"), require = 1, remap = false)
     private void cnpcplus$shareKillWithTeam(EntityPlayer player, EntityLivingBase entity,
                                             boolean all, CallbackInfo ci) {
         if (!all || player == null || entity == null) return;

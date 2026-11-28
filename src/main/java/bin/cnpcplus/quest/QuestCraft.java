@@ -17,6 +17,7 @@ public final class QuestCraft extends QuestItem {
     private static final String PROGRESS = "CNPCPlusCraftProgress";
     public final String[] stations = new String[9];
     public final String[] recipeIds = new String[9];
+    public final int[] required = new int[9];
 
     public QuestCraft() {
         items = new NpcMiscInventory(9);
@@ -35,11 +36,16 @@ public final class QuestCraft extends QuestItem {
         recipeIds[slot] = recipeId;
     }
 
+    public int requiredCount(int slot) {
+        return required[slot] > 0 ? required[slot] : items.items.get(slot).getCount();
+    }
+
     @Override public void readEntityFromNBT(NBTTagCompound tag) {
         super.readEntityFromNBT(tag);
         for (int i = 0; i < 9; i++) {
             stations[i] = tag.getString("CNPCPlusCraftStation" + i);
             recipeIds[i] = tag.getString("CNPCPlusCraftRecipe" + i);
+            required[i] = Math.max(0, Math.min(1000000, tag.getInteger("CNPCPlusCraftRequired" + i)));
         }
     }
 
@@ -48,6 +54,7 @@ public final class QuestCraft extends QuestItem {
         for (int i = 0; i < 9; i++) {
             tag.setString("CNPCPlusCraftStation" + i, stations[i] == null ? "" : stations[i]);
             tag.setString("CNPCPlusCraftRecipe" + i, recipeIds[i] == null ? "" : recipeIds[i]);
+            tag.setInteger("CNPCPlusCraftRequired" + i, required[i]);
         }
     }
 
@@ -55,7 +62,7 @@ public final class QuestCraft extends QuestItem {
 
     public void addProgress(QuestData data, int slot, int amount) {
         int[] values = java.util.Arrays.copyOf(progress(data), 9);
-        int required = items.items.get(slot).getCount();
+        int required = requiredCount(slot);
         values[slot] = capProgress(values[slot], required, amount);
         data.extraData.setIntArray(PROGRESS, values);
     }
@@ -77,7 +84,7 @@ public final class QuestCraft extends QuestItem {
         for (int i = 0; i < 9; i++) {
             if (!configured(i)) continue;
             any = true;
-            if ((i < values.length ? values[i] : 0) < items.items.get(i).getCount()) return false;
+            if ((i < values.length ? values[i] : 0) < requiredCount(i)) return false;
         }
         return any;
     }
@@ -101,7 +108,7 @@ public final class QuestCraft extends QuestItem {
         }
         @Override public int getProgress() { return current(); }
         @Override public void setProgress(int value) {
-            int required = items.items.get(slot).getCount();
+            int required = requiredCount(slot);
             if (value < 0 || value > required) throw new CustomNPCsException("Progress has to be between 0 and " + required);
             QuestData data = PlayerData.get(player).questData.activeQuests.get(questId);
             if (data == null) return;
@@ -112,10 +119,11 @@ public final class QuestCraft extends QuestItem {
             PlayerData.get(player).questData.checkQuestCompletion(player, 6);
             PlayerData.get(player).updateClient = true;
         }
-        @Override public int getMaxProgress() { return items.items.get(slot).getCount(); }
+        @Override public int getMaxProgress() { return requiredCount(slot); }
         @Override public boolean isCompleted() { return current() >= getMaxProgress(); }
         @Override public String getText() {
-            return items.items.get(slot).getDisplayName() + ": " + current() + "/" + getMaxProgress();
+            return net.minecraft.util.text.translation.I18n.translateToLocal("cnpcplus.quest.source." + stations[slot])
+                    + " / " + items.items.get(slot).getDisplayName() + ": " + current() + "/" + getMaxProgress();
         }
     }
 }

@@ -7,10 +7,13 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import noppes.npcs.controllers.RecipeController;
 import noppes.npcs.controllers.data.RecipeCarpentry;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -26,7 +29,10 @@ import java.util.List;
  * All member access is reflective (runtime classes are SRG-obfuscated).
  */
 @Mixin(ContainerWorkbench.class)
-public class MixinContainerWorkbenchGate {
+public class MixinContainerWorkbenchGate implements bin.cnpcplus.quest.CraftingStationPosition {
+    @Shadow @Final private BlockPos pos;
+
+    @Override public BlockPos cnpcplus$craftingPos() { return pos; }
 
     @Inject(method = "transferStackInSlot", at = @At("HEAD"), cancellable = true)
     private void cnpcplus$shiftGate(EntityPlayer player, int slot, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<ItemStack> cir) {

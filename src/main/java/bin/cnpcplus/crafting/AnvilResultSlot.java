@@ -20,12 +20,18 @@ public final class AnvilResultSlot extends Slot {
     private final Slot vanilla;
     private final World world;
     private final BlockPos pos;
+    private ItemStack shifted = ItemStack.EMPTY;
     public AnvilResultSlot(ContainerRepair container, Slot vanilla, World world, BlockPos pos) {
         super(vanilla.inventory, vanilla.getSlotIndex(), vanilla.xPos, vanilla.yPos);
         this.container = container; this.vanilla = vanilla; this.world = world; this.pos = pos;
         this.slotNumber = vanilla.slotNumber;
     }
     @Override public boolean isItemValid(ItemStack stack) { return false; }
+    @Override public void onSlotChange(ItemStack remaining, ItemStack original) {
+        shifted = original.copy();
+        shifted.setCount(original.getCount() - remaining.getCount());
+        super.onSlotChange(remaining, original);
+    }
     @Override public boolean canTakeStack(EntityPlayer player) {
         IAnvilRecipeAccess access = (IAnvilRecipeAccess) container;
         if (!access.cnpcplus$isCustomRecipe()) return vanilla.canTakeStack(player);
@@ -37,9 +43,13 @@ public final class AnvilResultSlot extends Slot {
         return player.capabilities.isCreativeMode || container.maximumCost <= player.experienceLevel;
     }
     @Override public ItemStack onTake(EntityPlayer player, ItemStack stack) {
+        ItemStack produced = shifted.isEmpty() ? stack.copy() : shifted;
+        shifted = ItemStack.EMPTY;
         IAnvilRecipeAccess access = (IAnvilRecipeAccess) container;
         if (!access.cnpcplus$isCustomRecipe()) {
             ItemStack result = vanilla.onTake(player, stack);
+            bin.cnpcplus.quest.ItemProductionEvents.post(player, produced,
+                    bin.cnpcplus.quest.CraftStation.ANVIL, pos, produced.getCount(), "vanilla");
             pushSlots(player);
             return result;
         }
@@ -68,6 +78,8 @@ public final class AnvilResultSlot extends Slot {
         container.updateRepairOutput();
         container.detectAndSendChanges();
         pushSlots(player);
+        bin.cnpcplus.quest.ItemProductionEvents.post(player, produced,
+                bin.cnpcplus.quest.CraftStation.ANVIL, pos, produced.getCount(), Integer.toString(recipe.id));
         return stack;
     }
 
