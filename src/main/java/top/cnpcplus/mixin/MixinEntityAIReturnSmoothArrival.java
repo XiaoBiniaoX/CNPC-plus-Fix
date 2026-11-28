@@ -1,7 +1,11 @@
 package top.cnpcplus.mixin;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import noppes.npcs.ai.EntityAIReturn;
 import noppes.npcs.entity.EntityNPCInterface;
 import org.spongepowered.asm.mixin.Final;
@@ -33,6 +37,11 @@ public abstract class MixinEntityAIReturnSmoothArrival {
     @Shadow private boolean wasAttacked;
     @Unique private boolean cnpcplus$retryNearHome;
 
+    @Inject(method = {"m_8036_", "m_8045_"}, at = @At("HEAD"), cancellable = true, require = 1)
+    private void cnpcplus$skipControlledMount(CallbackInfoReturnable<Boolean> cir) {
+        if (npc.isVehicle() && npc.ais.mountControl) cir.setReturnValue(false);
+    }
+
     @Inject(method = "navigate", at = @At("RETURN"), require = 1)
     private void cnpcplus$trackReturnDestination(boolean towards, CallbackInfo ci) {
         if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()
@@ -51,8 +60,27 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()) {
             var home = PursuitLimit.home(npc);
             cir.setReturnValue(npc.getTarget() == null && !npc.isKilled() && !npc.isPassenger()
-                    && !npc.isInteracting() && !ReturnHomeState.arrived(npc, home));
+                    && !npc.isInteracting() && !(npc.isVehicle() && npc.ais.mountControl)
+                    && !ReturnHomeState.arrived(npc, home));
         }
+    }
+
+    @Redirect(method = "navigate", at = @At(value = "INVOKE",
+            target = "Lnoppes/npcs/entity/EntityNPCInterface;getStartYPos()D"), require = 1)
+    private double cnpcplus$returnToGroundSurface(EntityNPCInterface npc) {
+        double y = npc.getStartYPos();
+        if (!((NpcControlAccess)npc).cnpcplus$isForcedReturning()
+                && !ServerConfigAccess.bool(CnpcPlusServerConfig.ReturnHomeSmoothArrival, true)
+                || !(npc.getNavigation() instanceof GroundPathNavigation)) return y;
+        // CNPC caches the shape's top + 1. Navigation projects this back onto
+        // the floor; the goal and final MoveControl destination must agree.
+        BlockPos pos = BlockPos.containing(npc.getStartXPos(), y, npc.getStartZPos());
+        while (pos.getY() > npc.level().getMinBuildHeight()) {
+            VoxelShape shape = npc.level().getBlockState(pos).getCollisionShape(npc.level(), pos);
+            if (!shape.isEmpty()) return pos.getY() + shape.max(Direction.Axis.Y);
+            pos = pos.below();
+        }
+        return y;
     }
 
     @Inject(method = "m_8045_", at = @At("HEAD"), cancellable = true, require = 1)
@@ -61,14 +89,15 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         if (target == null) return;
         if (((NpcControlAccess)npc).cnpcplus$isForcedReturning()) {
             cir.setReturnValue(npc.getTarget() == null && !npc.isKilled() && !npc.isPassenger()
-                    && !npc.isInteracting() && !ReturnHomeState.arrived(npc, target)
+                    && !npc.isInteracting() && !(npc.isVehicle() && npc.ais.mountControl)
+                    && !ReturnHomeState.arrived(npc, target)
                     && totalTicks <= cnpcplus$configurableTimeout(600));
             return;
         }
         // After combat CNPC can choose a pre-attack position instead of home.
         cir.setReturnValue(!npc.isFollower() && !npc.isKilled() && !npc.isAttacking()
                 && !npc.isInteracting() && !npc.isPassenger() && npc.ais.shouldReturnHome()
-                && !ReturnHomeState.arrived(npc, target)
+                && !(npc.isVehicle() && npc.ais.mountControl) && !ReturnHomeState.arrived(npc, target)
                 && totalTicks <= cnpcplus$configurableTimeout(600));
     }
 
@@ -110,6 +139,12 @@ public abstract class MixinEntityAIReturnSmoothArrival {
         Vec3 target = ReturnHomeState.end(npc);
         if (target == null || !ReturnHomeState.arrived(npc, target) || npc.isAttacking()
                 || npc.isInteracting() || npc.isKilled()) return;
+        // Goal cleanup runs before MoveControl: cancel its previous command and
+        // residual horizontal drift before releasing the final-approach state.
+        npc.getMoveControl().setWantedPosition(npc.getX(), npc.getY(), npc.getZ(), 0);
+        npc.setXxa(0);
+        npc.setZza(0);
+        npc.setDeltaMovement(0, npc.getDeltaMovement().y, 0);
         if (npc.ais.getStandingType() == 1) {
             float yaw = npc.ais.orientation;
             npc.setYRot(yaw);
